@@ -1,0 +1,14 @@
+local deftest = require "deftest.deftest"
+
+-- Every development slice appends its new suites here (unit suites first,
+-- then integration suites). See CLAUDE.md for the testing conventions.
+local suites = {
+	require "test.unit.test_sanity",
+}
+
+function init(self)
+	for _, suite in ipairs(suites) do
+		deftest.add(suite)
+	end
+	deftest.run()
+end

@@ -1,0 +1,11 @@
+# Defold build artifacts
+.internal/
+build/
+*.DS_Store
+
+# Headless Defold tooling downloaded on demand by scripts/run_tests.sh
+/.defold/
+
+# Editor / OS cruft
+.vscode/
+*.swp
