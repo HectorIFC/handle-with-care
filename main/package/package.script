@@ -1,0 +1,44 @@
+local package_physics = require "main.core.package_physics"
+
+go.property("offset_x", 8)
+go.property("offset_y", 12)
+go.property("lerp_factor", 0.35)
+go.property("velocity_damping", 0.85)
+-- Must be overridden per collection (component_properties) to point at the
+-- player instance this package is attached to — see CLAUDE.md rule 5.
+go.property("player", msg.url())
+
+local function movement_config(self)
+	return {
+		offset_x = self.offset_x,
+		offset_y = self.offset_y,
+		lerp_factor = self.lerp_factor,
+		velocity_damping = self.velocity_damping,
+	}
+end
+
+function init(self)
+	self.time = 0
+	local pos = go.get_position()
+	self.state = package_physics.new(pos.x, pos.y)
+end
+
+function update(self, dt)
+	self.time = self.time + dt
+
+	local player_pos = go.get_position(self.player)
+	local player = {
+		x = player_pos.x,
+		y = player_pos.y,
+		facing = go.get(self.player, "facing"),
+	}
+
+	-- Phase 2 only wires up Stable: no shake, no residual forces. The state
+	-- machine (phase 3) drives this from the package's current state.
+	local package_state = { shake_intensity = 0, horizontal_force = 0, vertical_force = 0 }
+
+	self.state = package_physics.update(self.state, player, package_state, self.time, movement_config(self))
+
+	local pos = go.get_position()
+	go.set_position(vmath.vector3(self.state.position_x, self.state.position_y, pos.z))
+end

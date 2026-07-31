@@ -64,6 +64,14 @@ language they're using; that's the only exception.)
    fixed, deterministic stubs. Skipping this makes physics unit tests
    non-deterministic and is expensive to retrofit later — do it right the
    first time.
+   **Per-frame constants assume a locked 60Hz simulation, not real seconds.**
+   `lerp_factor`, `velocity_damping`, and future stress/decay rates are
+   applied once per simulated frame exactly as the PRD's pseudocode
+   specifies (no dt-scaling) — this only produces consistent game feel
+   because `game.project`'s `display.update_frequency = 60` locks the
+   engine's update rate regardless of the player's monitor refresh rate. If
+   that setting is ever removed, every per-frame constant across the whole
+   project needs revisiting, not just whichever module you're touching.
 4. **Package position is read synchronously, not via message.** The package
    adapter calls `go.get_position(player_url)` directly inside its own
    `update()` to compute offset + lerp. It never waits on a `msg.post` from
@@ -278,8 +286,8 @@ and drafted commit (Conventional Commits + the version shown) — see
 | # | Slice | Scope |
 |---|-------|-------|
 | 0 | Bootstrap | Folder structure, deftest, CI, `LICENSE`, this file (done) |
-| 1 | Player movement core | `core/player_movement.lua`, input bindings, idle/run/jump/fall/land |
-| 2 | Package attaches (Stable) | `core/package_physics.lua` offset+lerp, synchronous position read |
+| 1 | Player movement core | `core/player_movement.lua`, input bindings, idle/run/jump/fall/land (done) |
+| 2 | Package attaches (Stable) | `core/package_physics.lua` offset+lerp, synchronous position read (done) |
 | 3 | State machine + stress + shake | `core/package_state_machine.lua`, `core/stress.lua`, sinusoidal shake, minimal debug HUD |
 | 4 | Heavy & Light | Mass multiplier affecting player speed/jump |
 | 5 | Panic | Random impulses + player knockback |

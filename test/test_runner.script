@@ -5,7 +5,9 @@ local deftest = require "deftest.deftest"
 local suites = {
 	require "test.unit.test_sanity",
 	require "test.unit.test_player_movement",
+	require "test.unit.test_package_physics",
 	require "test.integration.test_player_movement",
+	require "test.integration.test_package_physics",
 }
 
 function init(self)

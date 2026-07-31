@@ -17,6 +17,11 @@ go.property("ground_x_min", 128)
 go.property("ground_x_max", 256)
 go.property("ground_y_top", 48)
 
+-- Mirrors self.state.facing so other objects (the package, phase 2+) can
+-- read it synchronously via go.get(player_url, "facing") — the same
+-- synchronous-read approach as go.get_position, not a message (rule 4).
+go.property("facing", 1)
+
 local function movement_config(self)
 	return {
 		move_speed = self.move_speed,
@@ -69,6 +74,7 @@ function update(self, dt)
 	go.set_position(vmath.vector3(target_x, target_y, pos.z))
 	self.state = player_movement.set_grounded(self.state, grounded)
 	self.just_landed = grounded and not was_grounded
+	self.facing = self.state.facing
 
 	apply_animation(self)
 
@@ -113,6 +119,7 @@ function on_message(self, message_id, message)
 		self.input = { move_x = 0, jump_pressed = false }
 		self.move_left_held = false
 		self.move_right_held = false
+		self.facing = self.state.facing
 		go.set_position(self.initial_position)
 	end
 end

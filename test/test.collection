@@ -63,3 +63,26 @@ instances {
     }
   }
 }
+instances {
+  id: "package"
+  prototype: "/main/package/package.go"
+  position {
+    x: 200.0
+    y: 112.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+  }
+}
