@@ -15,3 +15,51 @@ instances {
     w: 1.0
   }
 }
+instances {
+  id: "ground"
+  prototype: "/main/player/ground.go"
+  position {
+    x: 192.0
+    y: 40.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+}
+instances {
+  id: "player"
+  prototype: "/main/player/player.go"
+  position {
+    x: 192.0
+    y: 100.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "ground_x_min"
+      value: "128"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "ground_x_max"
+      value: "256"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "ground_y_top"
+      value: "48"
+      type: PROPERTY_TYPE_NUMBER
+    }
+  }
+}

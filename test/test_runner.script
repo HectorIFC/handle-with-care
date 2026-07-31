@@ -4,6 +4,8 @@ local deftest = require "deftest.deftest"
 -- then integration suites). See CLAUDE.md for the testing conventions.
 local suites = {
 	require "test.unit.test_sanity",
+	require "test.unit.test_player_movement",
+	require "test.integration.test_player_movement",
 }
 
 function init(self)

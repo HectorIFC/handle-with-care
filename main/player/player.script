@@ -1,0 +1,118 @@
+local player_movement = require "main.core.player_movement"
+
+go.property("move_speed", 90)
+go.property("gravity", -900)
+go.property("jump_velocity", 320)
+go.property("half_width", 8) -- must match player.collisionobject's box half-extent
+go.property("half_height", 8)
+
+-- Ground detection is a plain AABB check in Lua, not an engine physics
+-- query. `physics.raycast`/`contact_point_response` were confirmed (via an
+-- isolated, from-scratch reproduction) to never report a hit under this
+-- project's headless test environment on this platform, so gameplay-
+-- critical ground detection cannot depend on them — see CLAUDE.md. These
+-- properties describe the single ground platform's rectangle; a real
+-- multi-platform/hazard registry arrives in phase 9a.
+go.property("ground_x_min", 128)
+go.property("ground_x_max", 256)
+go.property("ground_y_top", 48)
+
+local function movement_config(self)
+	return {
+		move_speed = self.move_speed,
+		gravity = self.gravity,
+		jump_velocity = self.jump_velocity,
+	}
+end
+
+local function ground_rect(self)
+	return { x_min = self.ground_x_min, x_max = self.ground_x_max, y_top = self.ground_y_top }
+end
+
+local function apply_animation(self)
+	local anim = self.just_landed and "land" or player_movement.animation_state(self.state)
+	if anim ~= self.current_animation then
+		self.current_animation = anim
+		label.set_text("#visual", "[" .. anim .. "]")
+	end
+end
+
+function init(self)
+	self.initial_position = go.get_position()
+	self.state = player_movement.new()
+	self.input = { move_x = 0, jump_pressed = false }
+	self.move_left_held = false
+	self.move_right_held = false
+	self.just_landed = false
+	self.current_animation = nil
+	msg.post(".", "acquire_input_focus")
+	apply_animation(self)
+end
+
+function update(self, dt)
+	local was_grounded = self.state.grounded
+
+	self.state = player_movement.update(self.state, self.input, dt, movement_config(self))
+
+	local delta = player_movement.integrate(self.state, dt)
+	local pos = go.get_position()
+	local target_x = pos.x + delta.dx
+	local target_y = pos.y + delta.dy
+
+	local grounded = false
+	local resting_y = player_movement.resting_y_on_ground(target_x, self.half_width, pos.y, target_y, self.half_height, ground_rect(self))
+	if resting_y then
+		target_y = resting_y
+		grounded = true
+	end
+
+	go.set_position(vmath.vector3(target_x, target_y, pos.z))
+	self.state = player_movement.set_grounded(self.state, grounded)
+	self.just_landed = grounded and not was_grounded
+
+	apply_animation(self)
+
+	self.input.jump_pressed = false
+end
+
+local function recompute_move_x(self)
+	if self.move_left_held and not self.move_right_held then
+		self.input.move_x = -1
+	elseif self.move_right_held and not self.move_left_held then
+		self.input.move_x = 1
+	else
+		self.input.move_x = 0
+	end
+end
+
+function on_input(self, action_id, action)
+	if action_id == hash("move_left") then
+		self.move_left_held = not action.released
+		recompute_move_x(self)
+		return true
+	elseif action_id == hash("move_right") then
+		self.move_right_held = not action.released
+		recompute_move_x(self)
+		return true
+	elseif action_id == hash("jump") and action.pressed then
+		self.input.jump_pressed = true
+		return true
+	end
+	-- "restart"/"pause" are bound (see input/game.input_binding) but not
+	-- handled here — left unconsumed so they propagate to the level
+	-- controller (phase 9b) and pause menu (phase 11) once those exist.
+	return false
+end
+
+function on_message(self, message_id, message)
+	if message_id == hash("test_set_input") then
+		self.input.move_x = message.move_x or 0
+		self.input.jump_pressed = message.jump_pressed or false
+	elseif message_id == hash("test_reset") then
+		self.state = player_movement.new()
+		self.input = { move_x = 0, jump_pressed = false }
+		self.move_left_held = false
+		self.move_right_held = false
+		go.set_position(self.initial_position)
+	end
+end

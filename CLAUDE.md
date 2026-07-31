@@ -75,7 +75,16 @@ language they're using; that's the only exception.)
    core module, but the adapter exposes them as `go.property` (Defold only
    supports scalar/vector/hash/bool/resource types there) and **passes them
    as arguments** into the core function. Never hardcode the same constant
-   in two places.
+   in two places. This includes level geometry: a `.collection` that places
+   a platform/hazard at a given position/size must also set that instance's
+   matching `go.property` values (e.g. `ground_x_min`/`ground_y_top`) via an
+   explicit `component_properties` block — never rely on the script's
+   `go.property` defaults happening to match one particular collection.
+   (Phase 1 shipped with exactly this bug: `main.collection`'s ground didn't
+   match `player.script`'s defaults, and only `test.collection` — which
+   happened to match — was covered by tests, so the production scene was
+   silently broken. Fixed by adding explicit `component_properties`
+   overrides per collection.)
 6. **`explosive` ships with a dual trigger from the start.** Explosive
    activates when stress reaches 100 **or** via an explicit phase-timer
    trigger (needed later for the "Hot Potato" level). Design
@@ -89,6 +98,71 @@ language they're using; that's the only exception.)
    "just work" by adding a `sleep`/frame-count fudge factor, that's a sign
    the core function under test is missing a time/dt parameter — fix the
    signature, don't paper over it.
+9. **Gameplay-critical collision/overlap detection is plain Lua, not engine
+   physics queries.** `physics.raycast` and `contact_point_response` do not
+   report hits in this project's headless test environment (see [Known
+   environment limitations](#known-environment-limitations) — confirmed via
+   an isolated, from-scratch reproduction, not a mistake in this project's
+   files). Anything that needs to be covered by an automated integration
+   test — ground contact, hazard overlap, delivery-zone entry — must be
+   computed via a pure Lua geometry check in `/main/core` (AABB overlap is
+   usually enough), the same way `player_movement.resting_y_on_ground`
+   does it. `.collisionobject` components can still be added for a level's
+   visual/Editor-side representation, but never make gameplay logic depend
+   on their query/message APIs actually firing.
+
+## Known environment limitations
+
+### `physics.raycast` / `contact_point_response` never fire under headless
+
+**Status: confirmed, unresolved, environment-level — not a bug in this
+project's files.**
+
+While building phase 1 (player movement), ground detection was originally
+implemented with `physics.raycast` against a `.collisionobject` platform.
+It never returned a hit, in any configuration tried:
+
+- Box vs. sphere vs. external `.convexshape` shapes
+- Static, kinematic, and dynamic (mass > 0) target bodies
+- Custom group names vs. Defold's own `"default"` group
+- Raycasting from a script with no collisionobject of its own vs. one that
+  has one
+- `physics.type` unset (defaults to `2D` — confirmed in engine source) vs.
+  explicitly `2D`
+- `physics.scale` unset vs. `0.02` (the value used by Defold's own
+  `collision_project` test fixture)
+- `physics.use_fixed_timestep` default (`1`) vs. explicitly `0`
+- Defold stable (`1.13.0`) vs. beta (`1.13.1`)
+- `contact_point_response` messages from genuine kinematic/static overlap
+  (never received either — same likely root cause)
+
+The dead giveaway: a **from-scratch, minimal, standalone Defold project**
+(no deftest, no dependencies, one static box, one raycast call in `init()`)
+reproduced the exact same `nil` result on this machine
+(arm64-macos, `dmengine_headless`). This rules out anything about this
+repository's configuration — it points at the headless engine/platform
+combination itself.
+
+**What this means practically:**
+- Automated (headless, CI-running) integration tests cannot rely on
+  `physics.raycast`, `physics.raycast_async`, or any collision-object
+  message (`contact_point_response`, `collision_response`,
+  `trigger_response`) actually firing. Design around this per rule 9 above.
+- This has **not** been re-tested inside the actual Defold Editor or a real
+  (non-headless) desktop/web build — it's possible the limitation is
+  specific to `dmengine_headless` on this platform and physics queries work
+  fine when actually playing the game. **Re-verify this once the Editor is
+  available** (open a level with a hazard, check in the Editor's console
+  whether raycast/contact messages fire) — if they do work there, hazard
+  *gameplay* logic could still use real physics queries; only the
+  *automated test coverage* for that logic would need to stay geometry-based
+  (e.g. an integration test asserting the AABB math directly, or a manual
+  test checklist item instead of an automated one).
+- If a future phase (9a: hazards) needs this re-litigated, start from this
+  section instead of rediscovering it from scratch — the investigation is
+  expensive (raycast source read down to `GetGroupBitIndex` in
+  `comp_collision_object.cpp`, `physics.use_fixed_timestep`'s config key in
+  `engine.cpp`, etc.) and it all led back to the same empirical conclusion.
 
 ## Testing
 
@@ -96,7 +170,10 @@ language they're using; that's the only exception.)
   isolation, no live game objects. Fast, deterministic (see rule 3 above).
 - **Integration tests** (`/test/integration/*.lua`): run against real
   `.collection` instances headless, verifying wiring between game objects
-  (input → player → package → hazards/messages).
+  (input → player → package → hazards/messages) via `go.get_position`/
+  `go.get`/custom test messages and plain Lua geometry — not engine physics
+  queries (see architecture rule 9 and [Known environment
+  limitations](#known-environment-limitations)).
 - Both use deftest's Telescope-style syntax:
 
   ```lua
@@ -209,7 +286,7 @@ and drafted commit (Conventional Commits + the version shown) — see
 | 6 | Explosive | `core/explosive.lua` with dual trigger (stress>=100 OR phase timer) from day one |
 | 7 | Magnetized | Hazard attraction within `MAGNET_RADIUS` |
 | 8 | Sleeping | Wake-on-impact |
-| 9a | Hazards + death | Spikes, saws, falling platforms, pits, off-screen check |
+| 9a | Hazards + death | Spikes, saws, falling platforms, pits, off-screen check — overlap detection via AABB (see [Known environment limitations](#known-environment-limitations)), not engine physics queries |
 | 9b | Delivery + win + restart | Delivery zone, win condition, instant restart |
 | 10 | Level 1: Tutorial Soft | First fully playable level, section 11 acceptance checklist |
 | 11 | Menu, save/load, progression | Main menu, `core/save.lua` port + localStorage adapter, level unlocks, result screen, pause |
