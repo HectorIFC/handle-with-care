@@ -227,6 +227,17 @@ new `wait`-heavy integration tests, not just at the very end.
   `go.get`/custom test messages and plain Lua geometry — not engine physics
   queries (see architecture rule 9 and [Known environment
   limitations](#known-environment-limitations)).
+- **Forcing a package state for tests/manual debugging**: post
+  `"debug_set_state"` to the package with `{ state = "heavy" }` (or any
+  `package_state_machine` state name) — bypasses the stress ladder
+  entirely, same as `set_state`. This is how Heavy/Light are entered until
+  phase 13 adds Heavy Duty's real cyclic timer trigger; keep using it for
+  manual testing regardless.
+- **Comparing a `go.property` float against a literal** (e.g. asserting
+  `mass == 0.4`): use a small epsilon, not `==`. `go.property` stores floats
+  as float32; values like `0.4` (unlike `1.0`/`2.5`) have no exact float32
+  representation, so a Lua double literal comparison can fail by a hair —
+  same class of issue as `RESTING_EPSILON` in `player_movement.lua`.
 - Both use deftest's Telescope-style syntax:
 
   ```lua
@@ -334,7 +345,7 @@ and drafted commit (Conventional Commits + the version shown) — see
 | 1 | Player movement core | `core/player_movement.lua`, input bindings, idle/run/jump/fall/land (done) |
 | 2 | Package attaches (Stable) | `core/package_physics.lua` offset+lerp, synchronous position read (done) |
 | 3 | State machine + stress + shake | `core/package_state_machine.lua`, `core/stress.lua`, sinusoidal shake, minimal debug HUD (done) |
-| 4 | Heavy & Light | Mass multiplier affecting player speed/jump |
+| 4 | Heavy & Light | Mass multiplier affecting player speed/jump (done) |
 | 5 | Panic | Random impulses + player knockback |
 | 6 | Explosive | `core/explosive.lua` with dual trigger (stress>=100 OR phase timer) from day one |
 | 7 | Magnetized | Hazard attraction within `MAGNET_RADIUS` |

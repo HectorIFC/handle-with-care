@@ -17,6 +17,40 @@ local DEFAULT_GROUNDED_NORMAL_Y_THRESHOLD = 0.7
 -- itself and permanently fail the `pos_y >= resting_y` check every frame.
 local RESTING_EPSILON = 0.01
 
+-- PRD 4.6: "quando mass > 1.5 -> multiplica velocidade e força de pulo do
+-- personagem por 1/mass". Applies to Heavy (mass 2.2..2.8) — a heavier
+-- package drags the player down to as little as ~36% of normal speed/jump.
+local HEAVY_MASS_THRESHOLD = 1.5
+
+-- Light isn't covered by 4.6's formula (it only fires above 1.5), and the
+-- PRD's own wording for Light is qualitative ("controles ficam
+-- escorregadios", "resposta mais atrasada e flutuante") rather than a
+-- numeric rule. This project's chosen interpretation: Light doesn't slow
+-- the player down, it makes falls floatier by scaling gravity by the
+-- mass fraction itself (mass 0.35..0.5 -> 35%..50% of normal gravity) —
+-- distinct from Heavy's effect, but built from the same "mass" input, and
+-- revisitable during phase 22's playtest pass if it doesn't feel right.
+local LIGHT_MASS_THRESHOLD = 1.0
+
+-- Multiplier applied to move_speed and jump_velocity for the package's
+-- current mass (see PRD 4.6). 1.0 (no change) below the Heavy threshold.
+function M.speed_multiplier(mass)
+	if mass > HEAVY_MASS_THRESHOLD then
+		return 1 / mass
+	end
+	return 1
+end
+
+-- Multiplier applied to gravity for the package's current mass (Light
+-- floatiness — this project's interpretation, see above). 1.0 (no change)
+-- above the Light threshold.
+function M.gravity_multiplier(mass)
+	if mass < LIGHT_MASS_THRESHOLD then
+		return mass
+	end
+	return 1
+end
+
 function M.new()
 	return {
 		velocity_x = 0,

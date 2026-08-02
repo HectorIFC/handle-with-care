@@ -165,4 +165,37 @@ return function()
 			assert(math.abs(state.position_y - expected_y) < 1e-9)
 		end)
 	end)
+
+	describe("package_physics.update (offset_y_bonus)", function()
+		local config = { offset_x = 0, offset_y = 12, lerp_factor = 1, velocity_damping = 0.85 }
+		local player = { x = 0, y = 0, facing = 1 }
+
+		test("zero bonus behaves like the Stable state", function()
+			local state = package_physics.new(0, 0)
+			local stable = { shake_intensity = 0, horizontal_force = 0, vertical_force = 0, offset_y_bonus = 0 }
+			state = package_physics.update(state, player, stable, 0, config)
+			assert(state.position_y == 12)
+		end)
+
+		test("negative bonus (Heavy) sits the package lower", function()
+			local state = package_physics.new(0, 0)
+			local heavy = { shake_intensity = 0, horizontal_force = 0, vertical_force = 0, offset_y_bonus = -6 }
+			state = package_physics.update(state, player, heavy, 0, config)
+			assert(state.position_y == 6) -- 12 - 6
+		end)
+
+		test("positive bonus (Light) floats the package higher", function()
+			local state = package_physics.new(0, 0)
+			local light = { shake_intensity = 0, horizontal_force = 0, vertical_force = 0, offset_y_bonus = 6 }
+			state = package_physics.update(state, player, light, 0, config)
+			assert(state.position_y == 18) -- 12 + 6
+		end)
+
+		test("nil offset_y_bonus behaves like zero", function()
+			local state = package_physics.new(0, 0)
+			local no_bonus = { shake_intensity = 0, horizontal_force = 0, vertical_force = 0 }
+			state = package_physics.update(state, player, no_bonus, 0, config)
+			assert(state.position_y == 12)
+		end)
+	end)
 end

@@ -1,6 +1,31 @@
 local player_movement = require "main.core.player_movement"
 
 return function()
+	describe("player_movement.speed_multiplier", function()
+		test("no change at or below the heavy threshold (1.5)", function()
+			assert(player_movement.speed_multiplier(1.5) == 1)
+			assert(player_movement.speed_multiplier(1.0) == 1)
+			assert(player_movement.speed_multiplier(0.4) == 1)
+		end)
+
+		test("1/mass above the heavy threshold", function()
+			assert(player_movement.speed_multiplier(2.5) == 1 / 2.5)
+			assert(math.abs(player_movement.speed_multiplier(2.0) - 0.5) < 1e-9)
+		end)
+	end)
+
+	describe("player_movement.gravity_multiplier", function()
+		test("no change at or above the light threshold (1.0)", function()
+			assert(player_movement.gravity_multiplier(1.0) == 1)
+			assert(player_movement.gravity_multiplier(2.5) == 1)
+		end)
+
+		test("scales by mass below the light threshold", function()
+			assert(player_movement.gravity_multiplier(0.4) == 0.4)
+			assert(player_movement.gravity_multiplier(0.5) == 0.5)
+		end)
+	end)
+
 	describe("player_movement.new", function()
 		test("starts idle, facing right, grounded", function()
 			local state = player_movement.new()

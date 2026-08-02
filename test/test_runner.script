@@ -12,6 +12,7 @@ local suites = {
 	require "test.integration.test_player_movement",
 	require "test.integration.test_package_physics",
 	require "test.integration.test_package_state_and_stress",
+	require "test.integration.test_heavy_light",
 }
 
 function init(self)

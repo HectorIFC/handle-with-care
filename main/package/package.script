@@ -22,17 +22,27 @@ go.property("stress_direction_change", 8)
 go.property("stress_panic_per_sec", 14)
 go.property("stress_decay_safe_per_sec", 6)
 
--- Mirrors self.machine/self.stress so tests (and future observers) can read
--- them synchronously via go.get — same approach as player.script's
+go.property("heavy_mass", 2.5)
+go.property("light_mass", 0.4)
+go.property("heavy_offset_y_bonus", -6)
+go.property("light_offset_y_bonus", 6)
+go.property("light_vertical_force", 40)
+
+-- Mirrors self.machine/self.stress/mass so tests (and future observers,
+-- e.g. player.script reading mass for its own speed/gravity multipliers)
+-- can read them synchronously via go.get — same approach as player.script's
 -- facing/grounded properties (rule 4).
 go.property("current_state", hash("stable"))
 go.property("current_stress", 0)
+go.property("mass", 1.0)
 
 local STATE_COLORS = {
 	[package_state_machine.STABLE] = vmath.vector4(1, 1, 1, 1),
 	[package_state_machine.NERVOUS] = vmath.vector4(1, 1, 0, 1),
 	[package_state_machine.PANIC] = vmath.vector4(1, 0, 0, 1),
 	[package_state_machine.EXPLOSIVE] = vmath.vector4(1, 0.5, 0, 1),
+	[package_state_machine.HEAVY] = vmath.vector4(0.55, 0.4, 0.25, 1),
+	[package_state_machine.LIGHT] = vmath.vector4(0.6, 0.85, 1, 1),
 }
 local DEFAULT_COLOR = vmath.vector4(1, 1, 1, 1)
 
@@ -52,6 +62,11 @@ local function state_machine_config(self)
 		explosive_threshold = self.explosive_threshold,
 		nervous_shake_intensity = self.nervous_shake_intensity,
 		panic_shake_intensity = self.panic_shake_intensity,
+		heavy_mass = self.heavy_mass,
+		light_mass = self.light_mass,
+		heavy_offset_y_bonus = self.heavy_offset_y_bonus,
+		light_offset_y_bonus = self.light_offset_y_bonus,
+		light_vertical_force = self.light_vertical_force,
 	}
 end
 
@@ -83,6 +98,7 @@ local function apply_hud(self)
 	go.set("#visual", "color", STATE_COLORS[state_name] or DEFAULT_COLOR)
 	self.current_state = hash(state_name)
 	self.current_stress = self.stress.value
+	self.mass = package_state_machine.mass(self.machine, state_machine_config(self))
 end
 
 function init(self)
@@ -106,10 +122,12 @@ function update(self, dt)
 		y = player_pos.y,
 		facing = go.get(self.player, "facing"),
 	}
+	local sm_config = state_machine_config(self)
 	local package_state = {
-		shake_intensity = package_state_machine.shake_intensity(self.machine, state_machine_config(self)),
+		shake_intensity = package_state_machine.shake_intensity(self.machine, sm_config),
 		horizontal_force = 0,
-		vertical_force = 0,
+		vertical_force = package_state_machine.vertical_force(self.machine, sm_config),
+		offset_y_bonus = package_state_machine.offset_y_bonus(self.machine, sm_config),
 	}
 
 	self.physics = package_physics.update(self.physics, player, package_state, self.time, movement_config(self))
@@ -130,5 +148,12 @@ function on_message(self, message_id, message)
 	elseif message_id == hash("test_reset") then
 		self.machine = package_state_machine.new()
 		self.stress = stress.new()
+	elseif message_id == hash("debug_set_state") then
+		-- Manual/test override, bypassing the stress ladder — this is how
+		-- Heavy/Light are entered for now (message.state, e.g. "heavy").
+		-- A real per-level trigger (cyclic timer for Heavy Duty, phase 13)
+		-- replaces this later; this hook stays useful for manual testing
+		-- and debugging regardless.
+		self.machine = package_state_machine.set_state(self.machine, message.state)
 	end
 end

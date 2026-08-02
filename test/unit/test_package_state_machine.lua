@@ -90,4 +90,59 @@ return function()
 			assert(intensity == 0.8)
 		end)
 	end)
+
+	describe("package_state_machine.mass", function()
+		test("1.0 for Stable and other non Heavy/Light states", function()
+			assert(package_state_machine.mass({ current_state = package_state_machine.STABLE }) == 1.0)
+			assert(package_state_machine.mass({ current_state = package_state_machine.PANIC }) == 1.0)
+		end)
+
+		test("default 2.5 when Heavy", function()
+			local state = { current_state = package_state_machine.HEAVY }
+			assert(package_state_machine.mass(state) == 2.5)
+		end)
+
+		test("default 0.4 when Light", function()
+			local state = { current_state = package_state_machine.LIGHT }
+			assert(package_state_machine.mass(state) == 0.4)
+		end)
+
+		test("respects custom config values", function()
+			local state = { current_state = package_state_machine.HEAVY }
+			assert(package_state_machine.mass(state, { heavy_mass = 3.0 }) == 3.0)
+		end)
+	end)
+
+	describe("package_state_machine.offset_y_bonus", function()
+		test("zero for Stable and other states", function()
+			assert(package_state_machine.offset_y_bonus({ current_state = package_state_machine.NERVOUS }) == 0)
+		end)
+
+		test("negative (sits lower) when Heavy", function()
+			local state = { current_state = package_state_machine.HEAVY }
+			assert(package_state_machine.offset_y_bonus(state) == -6)
+		end)
+
+		test("positive (floats higher) when Light", function()
+			local state = { current_state = package_state_machine.LIGHT }
+			assert(package_state_machine.offset_y_bonus(state) == 6)
+		end)
+	end)
+
+	describe("package_state_machine.vertical_force", function()
+		test("zero for Stable and other states (e.g. Heavy)", function()
+			assert(package_state_machine.vertical_force({ current_state = package_state_machine.STABLE }) == 0)
+			assert(package_state_machine.vertical_force({ current_state = package_state_machine.HEAVY }) == 0)
+		end)
+
+		test("default 40 when Light", function()
+			local state = { current_state = package_state_machine.LIGHT }
+			assert(package_state_machine.vertical_force(state) == 40)
+		end)
+
+		test("respects custom config values", function()
+			local state = { current_state = package_state_machine.LIGHT }
+			assert(package_state_machine.vertical_force(state, { light_vertical_force = 60 }) == 60)
+		end)
+	end)
 end

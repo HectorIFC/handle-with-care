@@ -4,12 +4,11 @@
 -- position/facing synchronously (never via message — go.get_position, not
 -- msg.post, see CLAUDE.md rule 4) and applies the result.
 --
--- Phase 2 only wires up the Stable state (shake_intensity/forces always 0);
--- later phases drive non-zero shake/force values through `package_state`
--- without needing to change this formula. The one PRD 4.3 term NOT covered
--- here is the Heavy/Light vertical offset ("Offset vertical extra") — that
--- needs its own `package_state.offset_y_bonus`-style term, added when phase
--- 4 (Heavy & Light) actually needs it.
+-- Phase 2 only wired up the Stable state (shake_intensity/forces always 0);
+-- phase 4 added `offset_y_bonus` for Heavy/Light's vertical offset (PRD
+-- 4.3's "Offset vertical extra"). Later phases drive non-zero shake/force/
+-- offset values through `package_state` without needing to change this
+-- formula.
 --
 -- `lerp_factor`/`velocity_damping` are applied per simulation frame, exactly
 -- as PRD 4.3's pseudocode specifies (no dt scaling) — this project locks
@@ -44,8 +43,9 @@ end
 
 -- state: { position_x, position_y, velocity_x, velocity_y }
 -- player: { x, y, facing } — facing is 1 (right) or -1 (left)
--- package_state: { shake_intensity, horizontal_force, vertical_force } — all
---   default to 0 (the Stable state); phase 3+ states populate these
+-- package_state: { shake_intensity, horizontal_force, vertical_force,
+--   offset_y_bonus } — all default to 0 (the Stable state); phase 3+ states
+--   populate these
 -- time: accumulated elapsed seconds, used for the shake's sine/cosine phase
 --   (injected by the adapter — never read from a clock directly, rule 3)
 -- config: { offset_x, offset_y, lerp_factor, velocity_damping } (all optional)
@@ -59,9 +59,10 @@ function M.update(state, player, package_state, time, config)
 	local shake_intensity = package_state.shake_intensity or 0
 	local horizontal_force = package_state.horizontal_force or 0
 	local vertical_force = package_state.vertical_force or 0
+	local offset_y_bonus = package_state.offset_y_bonus or 0
 
 	local target_x = player.x + offset_x * player.facing
-	local target_y = player.y + offset_y
+	local target_y = player.y + offset_y + offset_y_bonus
 
 	target_x = target_x + math.sin(time * SHAKE_X_FREQUENCY) * shake_intensity * SHAKE_X_AMPLITUDE
 	target_y = target_y + math.cos(time * SHAKE_Y_FREQUENCY) * shake_intensity * SHAKE_Y_AMPLITUDE

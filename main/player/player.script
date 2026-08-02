@@ -35,11 +35,17 @@ go.property("package", msg.url())
 -- so routine jumps don't also trigger the heavier stress bump.
 go.property("heavy_landing_velocity", 400)
 
+-- Heavy/Light change the package's mass, which drags on the player's own
+-- speed/jump/gravity (PRD 4.6) — read synchronously via go.get, same as
+-- facing/grounded (rule 4).
 local function movement_config(self)
+	local mass = go.get(self.package, "mass")
+	local speed_multiplier = player_movement.speed_multiplier(mass)
+	local gravity_multiplier = player_movement.gravity_multiplier(mass)
 	return {
-		move_speed = self.move_speed,
-		gravity = self.gravity,
-		jump_velocity = self.jump_velocity,
+		move_speed = self.move_speed * speed_multiplier,
+		gravity = self.gravity * gravity_multiplier,
+		jump_velocity = self.jump_velocity * speed_multiplier,
 	}
 end
 
