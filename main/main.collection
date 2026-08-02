@@ -46,6 +46,11 @@ instances {
       value: "32"
       type: PROPERTY_TYPE_NUMBER
     }
+    properties {
+      id: "package"
+      value: "/package#script"
+      type: PROPERTY_TYPE_URL
+    }
   }
 }
 instances {

@@ -1,4 +1,6 @@
 local package_physics = require "main.core.package_physics"
+local package_state_machine = require "main.core.package_state_machine"
+local stress = require "main.core.stress"
 
 go.property("offset_x", 8)
 go.property("offset_y", 12)
@@ -7,6 +9,32 @@ go.property("velocity_damping", 0.85)
 -- Must be overridden per collection (component_properties) to point at the
 -- player instance this package is attached to — see CLAUDE.md rule 5.
 go.property("player", msg.url())
+
+go.property("nervous_threshold", 30)
+go.property("panic_threshold", 70)
+go.property("explosive_threshold", 100)
+go.property("nervous_shake_intensity", 0.5)
+go.property("panic_shake_intensity", 1.0)
+
+go.property("stress_jump", 6)
+go.property("stress_heavy_landing", 18)
+go.property("stress_direction_change", 8)
+go.property("stress_panic_per_sec", 14)
+go.property("stress_decay_safe_per_sec", 6)
+
+-- Mirrors self.machine/self.stress so tests (and future observers) can read
+-- them synchronously via go.get — same approach as player.script's
+-- facing/grounded properties (rule 4).
+go.property("current_state", hash("stable"))
+go.property("current_stress", 0)
+
+local STATE_COLORS = {
+	[package_state_machine.STABLE] = vmath.vector4(1, 1, 1, 1),
+	[package_state_machine.NERVOUS] = vmath.vector4(1, 1, 0, 1),
+	[package_state_machine.PANIC] = vmath.vector4(1, 0, 0, 1),
+	[package_state_machine.EXPLOSIVE] = vmath.vector4(1, 0.5, 0, 1),
+}
+local DEFAULT_COLOR = vmath.vector4(1, 1, 1, 1)
 
 local function movement_config(self)
 	return {
@@ -17,14 +45,60 @@ local function movement_config(self)
 	}
 end
 
+local function state_machine_config(self)
+	return {
+		nervous_threshold = self.nervous_threshold,
+		panic_threshold = self.panic_threshold,
+		explosive_threshold = self.explosive_threshold,
+		nervous_shake_intensity = self.nervous_shake_intensity,
+		panic_shake_intensity = self.panic_shake_intensity,
+	}
+end
+
+local function stress_config(self)
+	return {
+		stress_jump = self.stress_jump,
+		stress_heavy_landing = self.stress_heavy_landing,
+		stress_direction_change = self.stress_direction_change,
+		stress_panic_per_sec = self.stress_panic_per_sec,
+		stress_decay_safe_per_sec = self.stress_decay_safe_per_sec,
+	}
+end
+
+-- Continuous (per-frame) stress: Panic accumulates on its own; otherwise it
+-- decays while the player is grounded and safe. Discrete events (jump,
+-- landing, direction change) are applied immediately in on_message instead.
+local function accumulate_continuous_stress(self, dt)
+	if self.machine.current_state == package_state_machine.PANIC then
+		self.stress = stress.apply_panic(self.stress, dt, stress_config(self))
+	elseif go.get(self.player, "grounded") then
+		self.stress = stress.decay_safe(self.stress, dt, stress_config(self))
+	end
+end
+
+local function apply_hud(self)
+	local state_name = self.machine.current_state
+	local stress_rounded = math.floor(self.stress.value + 0.5)
+	label.set_text("#visual", "[" .. state_name .. " " .. stress_rounded .. "]")
+	go.set("#visual", "color", STATE_COLORS[state_name] or DEFAULT_COLOR)
+	self.current_state = hash(state_name)
+	self.current_stress = self.stress.value
+end
+
 function init(self)
 	self.time = 0
 	local pos = go.get_position()
-	self.state = package_physics.new(pos.x, pos.y)
+	self.physics = package_physics.new(pos.x, pos.y)
+	self.machine = package_state_machine.new()
+	self.stress = stress.new()
+	apply_hud(self)
 end
 
 function update(self, dt)
 	self.time = self.time + dt
+
+	accumulate_continuous_stress(self, dt)
+	self.machine = package_state_machine.update_from_stress(self.machine, self.stress.value, state_machine_config(self))
 
 	local player_pos = go.get_position(self.player)
 	local player = {
@@ -32,13 +106,29 @@ function update(self, dt)
 		y = player_pos.y,
 		facing = go.get(self.player, "facing"),
 	}
+	local package_state = {
+		shake_intensity = package_state_machine.shake_intensity(self.machine, state_machine_config(self)),
+		horizontal_force = 0,
+		vertical_force = 0,
+	}
 
-	-- Phase 2 only wires up Stable: no shake, no residual forces. The state
-	-- machine (phase 3) drives this from the package's current state.
-	local package_state = { shake_intensity = 0, horizontal_force = 0, vertical_force = 0 }
-
-	self.state = package_physics.update(self.state, player, package_state, self.time, movement_config(self))
+	self.physics = package_physics.update(self.physics, player, package_state, self.time, movement_config(self))
 
 	local pos = go.get_position()
-	go.set_position(vmath.vector3(self.state.position_x, self.state.position_y, pos.z))
+	go.set_position(vmath.vector3(self.physics.position_x, self.physics.position_y, pos.z))
+
+	apply_hud(self)
+end
+
+function on_message(self, message_id, message)
+	if message_id == hash("player_jumped") then
+		self.stress = stress.apply_jump(self.stress, stress_config(self))
+	elseif message_id == hash("player_landed") then
+		self.stress = stress.apply_heavy_landing(self.stress, stress_config(self))
+	elseif message_id == hash("player_changed_direction") then
+		self.stress = stress.apply_direction_change(self.stress, stress_config(self))
+	elseif message_id == hash("test_reset") then
+		self.machine = package_state_machine.new()
+		self.stress = stress.new()
+	end
 end

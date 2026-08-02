@@ -17,10 +17,23 @@ go.property("ground_x_min", 128)
 go.property("ground_x_max", 256)
 go.property("ground_y_top", 48)
 
--- Mirrors self.state.facing so other objects (the package, phase 2+) can
--- read it synchronously via go.get(player_url, "facing") — the same
+-- Mirrors self.state.facing/grounded so other objects (the package) can
+-- read them synchronously via go.get(player_url, ...) — the same
 -- synchronous-read approach as go.get_position, not a message (rule 4).
 go.property("facing", 1)
+go.property("grounded", true)
+
+-- Discrete events (jumped, landed, changed direction) are posted to this
+-- URL as messages — per-frame continuous state is polled (above), but
+-- one-off events are messages, per CLAUDE.md rule 4. Must be overridden
+-- per collection to point at the package this player is carrying.
+go.property("package", msg.url())
+
+-- A landing faster than this counts as a hard/heavy landing for the stress
+-- system (PRD 4.5's "aterrissagem forte" / "queda de altura média/alta").
+-- Set above a normal single jump's own return-fall speed (jump_velocity)
+-- so routine jumps don't also trigger the heavier stress bump.
+go.property("heavy_landing_velocity", 400)
 
 local function movement_config(self)
 	return {
@@ -50,14 +63,18 @@ function init(self)
 	self.move_right_held = false
 	self.just_landed = false
 	self.current_animation = nil
+	self.grounded = self.state.grounded
+	self.previous_facing = self.state.facing
 	msg.post(".", "acquire_input_focus")
 	apply_animation(self)
 end
 
 function update(self, dt)
 	local was_grounded = self.state.grounded
+	local jumped_this_frame = was_grounded and self.input.jump_pressed
 
 	self.state = player_movement.update(self.state, self.input, dt, movement_config(self))
+	local velocity_y_before_landing = self.state.velocity_y
 
 	local delta = player_movement.integrate(self.state, dt)
 	local pos = go.get_position()
@@ -75,6 +92,18 @@ function update(self, dt)
 	self.state = player_movement.set_grounded(self.state, grounded)
 	self.just_landed = grounded and not was_grounded
 	self.facing = self.state.facing
+	self.grounded = grounded
+
+	if jumped_this_frame then
+		msg.post(self.package, "player_jumped")
+	end
+	if self.just_landed and math.abs(velocity_y_before_landing) >= self.heavy_landing_velocity then
+		msg.post(self.package, "player_landed", { impact_velocity = velocity_y_before_landing })
+	end
+	if self.facing ~= self.previous_facing then
+		msg.post(self.package, "player_changed_direction")
+		self.previous_facing = self.facing
+	end
 
 	apply_animation(self)
 
@@ -120,6 +149,9 @@ function on_message(self, message_id, message)
 		self.move_left_held = false
 		self.move_right_held = false
 		self.facing = self.state.facing
+		self.grounded = self.state.grounded
+		self.previous_facing = self.state.facing
+		self.just_landed = false
 		go.set_position(self.initial_position)
 	end
 end

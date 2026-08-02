@@ -1,4 +1,5 @@
 local deftest = require "deftest.deftest"
+local wait = require "test.support.wait"
 
 -- Every development slice appends its new suites here (unit suites first,
 -- then integration suites). See CLAUDE.md for the testing conventions.
@@ -6,8 +7,11 @@ local suites = {
 	require "test.unit.test_sanity",
 	require "test.unit.test_player_movement",
 	require "test.unit.test_package_physics",
+	require "test.unit.test_stress",
+	require "test.unit.test_package_state_machine",
 	require "test.integration.test_player_movement",
 	require "test.integration.test_package_physics",
+	require "test.integration.test_package_state_and_stress",
 }
 
 function init(self)
@@ -15,4 +19,8 @@ function init(self)
 		deftest.add(suite)
 	end
 	deftest.run()
+end
+
+function update(self, dt)
+	wait.tick()
 end

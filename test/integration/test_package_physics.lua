@@ -9,7 +9,7 @@ local CONVERGENCE_TOLERANCE = 0.5
 
 local function reset_player()
 	msg.post("/player#script", "test_reset")
-	wait.seconds(0.05)
+	wait.frames(3)
 end
 
 return function()
@@ -17,7 +17,7 @@ return function()
 		before(reset_player)
 
 		test("converges to the player's position plus offset once settled", function()
-			wait.seconds(1.0) -- let the player land and the package's lerp converge
+			wait.frames(60) -- let the player land and the package's lerp converge
 			local offset_x = go.get("/package#script", "offset_x")
 			local offset_y = go.get("/package#script", "offset_y")
 			local player_pos = go.get_position("/player")
@@ -27,12 +27,12 @@ return function()
 		end)
 
 		test("keeps following when the player moves", function()
-			wait.seconds(1.0) -- settle first
+			wait.frames(60) -- settle first
 
 			msg.post("/player#script", "test_set_input", { move_x = 1, jump_pressed = false })
-			wait.seconds(0.5)
+			wait.frames(30)
 			msg.post("/player#script", "test_set_input", { move_x = 0, jump_pressed = false })
-			wait.seconds(1.0) -- let the package catch back up
+			wait.frames(60) -- let the package catch back up
 
 			local offset_x = go.get("/package#script", "offset_x")
 			local offset_y = go.get("/package#script", "offset_y")
@@ -43,12 +43,12 @@ return function()
 		end)
 
 		test("offset flips to the left side when the player faces left", function()
-			wait.seconds(1.0) -- settle first
+			wait.frames(60) -- settle first
 
 			msg.post("/player#script", "test_set_input", { move_x = -1, jump_pressed = false })
-			wait.seconds(0.5)
+			wait.frames(30)
 			msg.post("/player#script", "test_set_input", { move_x = 0, jump_pressed = false })
-			wait.seconds(1.0)
+			wait.frames(60)
 
 			local offset_x = go.get("/package#script", "offset_x")
 			local player_pos = go.get_position("/player")

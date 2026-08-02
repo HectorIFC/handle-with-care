@@ -172,6 +172,51 @@ combination itself.
   `comp_collision_object.cpp`, `physics.use_fixed_timestep`'s config key in
   `engine.cpp`, etc.) and it all led back to the same empirical conclusion.
 
+### `test/support/wait.lua`'s `M.seconds()` can under-wait in a real (non-headless) engine
+
+**Status: fixed — use `M.frames(n)` for anything that depends on a specific
+number of simulation steps; `M.seconds()` is for the rare case where real
+elapsed duration matters more than an exact tick count.**
+
+Phase 3's integration tests originally used only `wait.seconds(duration)`
+(implemented via `go.animate`, which resumes after that much *accumulated
+dt* has passed). All 80 tests passed reliably under `dmengine_headless`.
+The first time the user ran the actual game with a real window (real
+Vulkan/GPU context, real shader compilation), two convergence-tolerance
+tests failed and the process exited (deftest's `os.exit(1)` on failure
+closes the whole app — mistakable for "the game crashed").
+
+Root cause: a real graphics context's startup (window creation, shader
+compilation — nonexistent in headless's null graphics device) can produce
+one anomalously large `dt` on an early frame. Since `M.seconds()` only
+guarantees *accumulated* dt, not a frame count, that one large `dt` can
+satisfy an entire `wait.seconds(1.0)` in far fewer real ticks than the ~60
+frames the convergence math assumed — leaving the lerp nowhere near
+converged when the assertion runs.
+
+Fix: added `M.frames(n)`, which waits for exactly `n` real `update()` ticks
+via a counter in `test_runner.script`'s own `update()`, immune to any single
+frame's `dt`. All `wait.seconds(X)` call sites were converted to
+`wait.frames(X * 60)` (this project locks `display.update_frequency = 60`,
+so that conversion matches the original intent).
+
+**A second, subtler bug surfaced fixing the first one:** the initial
+`M.tick()` iterated `pending_frame_waits` in place while resuming
+coroutines mid-loop. A test that resumes and immediately calls
+`M.frames(1)` again (e.g. a "sample position, wait 1 frame" loop run 20
+times) inserts a fresh entry that the *same* `tick()` call would then
+revisit and immediately resolve too — collapsing 20 intended real frames
+into one. Fixed by snapshotting which entries are due before resuming
+anyone, so anything a resumed coroutine adds is deferred to the next real
+`tick()`. If you ever touch `wait.lua`, preserve that snapshot-then-resume
+order — it's not optional.
+
+**Takeaway:** a fully-green headless suite does not guarantee the same
+behavior in a real windowed build. Section 4.9's "playtest e ajuste fino"
+(phase 22) is the natural place for a full pass, but it's worth spot-
+checking a real (non-headless) `dmengine` run after any phase that adds
+new `wait`-heavy integration tests, not just at the very end.
+
 ## Testing
 
 - **Unit tests** (`/test/unit/*.lua`): exercise `/main/core` modules in
@@ -288,7 +333,7 @@ and drafted commit (Conventional Commits + the version shown) — see
 | 0 | Bootstrap | Folder structure, deftest, CI, `LICENSE`, this file (done) |
 | 1 | Player movement core | `core/player_movement.lua`, input bindings, idle/run/jump/fall/land (done) |
 | 2 | Package attaches (Stable) | `core/package_physics.lua` offset+lerp, synchronous position read (done) |
-| 3 | State machine + stress + shake | `core/package_state_machine.lua`, `core/stress.lua`, sinusoidal shake, minimal debug HUD |
+| 3 | State machine + stress + shake | `core/package_state_machine.lua`, `core/stress.lua`, sinusoidal shake, minimal debug HUD (done) |
 | 4 | Heavy & Light | Mass multiplier affecting player speed/jump |
 | 5 | Panic | Random impulses + player knockback |
 | 6 | Explosive | `core/explosive.lua` with dual trigger (stress>=100 OR phase timer) from day one |
