@@ -51,7 +51,9 @@ go.property("current_stress", 0)
 go.property("mass", 1.0)
 -- Sticky, not a one-shot event: stays true after detonation so tests and
 -- manual checks can just wait and read it, without needing to catch the
--- exact frame the timer crossed zero.
+-- exact frame the timer crossed zero. Cleared again (with the timer
+-- itself) on the first frame the package is no longer Explosive, so a
+-- package forced back out and later climbing back in re-arms cleanly.
 go.property("detonated", false)
 
 local STATE_COLORS = {
@@ -199,10 +201,14 @@ function update(self, dt)
 		-- phase-timer trigger, whose on_message mutation already happened
 		-- *before* this update() call even started, so a before/after
 		-- comparison taken inside update() would never see a transition.
-		-- Checking the timer itself works for either entry path and can't
-		-- misfire on a later frame: timer <= 0 is also true right after
-		-- detonation, but `detonated` (sticky) rules that case out.
-		if self.explosive.timer <= 0 and not self.detonated then
+		-- `explosive.active` and `detonated` together avoid that: active is
+		-- false both before the first start() and after detonation, so
+		-- `detonated` is what keeps a just-detonated package from
+		-- re-arming on the very next frame while state is still (sticky)
+		-- Explosive. The else branch below clears both the moment
+		-- Explosive is left — the same shape as the panic_impulse.new()
+		-- reset in the Panic else branch above.
+		if not self.explosive.active and not self.detonated then
 			self.explosive = explosive.start(explosive_config(self))
 		end
 		local detonated
@@ -215,6 +221,13 @@ function update(self, dt)
 			-- as player_jumped/player_landed before anything consumed them.
 			msg.post(self.player, "package_exploded")
 		end
+	else
+		-- Leaving Explosive (currently only reachable via debug_set_state,
+		-- until a real death/restart exists) clears both, so climbing back
+		-- into it later re-arms cleanly instead of staying stuck at
+		-- active=false, detonated=true forever.
+		self.explosive = explosive.new()
+		self.detonated = false
 	end
 
 	local player_pos = go.get_position(self.player)

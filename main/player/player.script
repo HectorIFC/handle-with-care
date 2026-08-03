@@ -41,6 +41,15 @@ go.property("heavy_landing_velocity", 400)
 go.property("knockback_percent", 0.2)
 go.property("knockback_damping", 0.85)
 
+-- Mirrors receipt of the package's "package_exploded" message (PRD 4.7) so
+-- tests can verify the message actually arrives, the same way current_state/
+-- detonated mirror package.script's own internal state for go.get reads.
+-- A count, not a latch: a test covering re-arm (detonate, reset, detonate
+-- again) needs to see the SECOND delivery too, not just "at least once
+-- ever" — a boolean that's only ever set true can't tell those apart.
+-- No real reaction to it yet — death/restart lands with phase 9a/9b.
+go.property("package_exploded_count", 0)
+
 -- Heavy/Light change the package's mass, which drags on the player's own
 -- speed/jump/gravity (PRD 4.6) — read synchronously via go.get, same as
 -- facing/grounded (rule 4).
@@ -164,6 +173,8 @@ function on_message(self, message_id, message)
 			message.force_x * self.knockback_percent,
 			message.force_y * self.knockback_percent
 		)
+	elseif message_id == hash("package_exploded") then
+		self.package_exploded_count = self.package_exploded_count + 1
 	elseif message_id == hash("test_reset") then
 		self.state = player_movement.new()
 		self.input = { move_x = 0, jump_pressed = false }
@@ -174,6 +185,7 @@ function on_message(self, message_id, message)
 		self.previous_facing = self.state.facing
 		self.just_landed = false
 		self.knockback = knockback.new()
+		self.package_exploded_count = 0
 		go.set_position(self.initial_position)
 	end
 end

@@ -48,12 +48,14 @@ return function()
 			set_stress(100)
 			wait.frames(EXPLOSIVE_FRAMES + 15) -- margin for real-engine dt jitter
 			assert(go.get("/package#script", "detonated") == true)
+			assert(go.get("/player#script", "package_exploded_count") == 1)
 		end)
 
 		test("does not detonate before explosive_time elapses", function()
 			set_stress(100)
 			wait.frames(EXPLOSIVE_FRAMES - 15)
 			assert(go.get("/package#script", "detonated") == false)
+			assert(go.get("/player#script", "package_exploded_count") == 0)
 		end)
 
 		test("a non-stress trigger (debug_set_state) also enters and sticks in Explosive", function()
@@ -70,6 +72,35 @@ return function()
 
 			wait.frames(EXPLOSIVE_FRAMES)
 			assert(go.get("/package#script", "detonated") == true)
+		end)
+
+		test("re-arms after leaving and re-entering Explosive", function()
+			-- Regression coverage: detonated/active used to only ever be
+			-- set, never cleared, so a package that left Explosive (only
+			-- reachable via debug_set_state today) and climbed back in
+			-- would get stuck permanently active=false/detonated=true,
+			-- unable to ever detonate again.
+			set_stress(100)
+			wait.frames(EXPLOSIVE_FRAMES + 15)
+			assert(go.get("/package#script", "detonated") == true)
+
+			-- Stress must drop too, not just the state: Explosive is sticky
+			-- regardless of stress, but Stable (what we're forcing it back
+			-- to) is still re-derivable — leaving stress at 100 would just
+			-- have update_from_stress bounce it straight back to Explosive
+			-- on this same frame.
+			msg.post("/package#script", "debug_set_stress", { value = 0 })
+			set_state("stable")
+			wait.frames(1) -- margin: don't depend on package.script updating before this assert within the same frame
+			assert(go.get("/package#script", "detonated") == false)
+
+			set_stress(100)
+			wait.frames(EXPLOSIVE_FRAMES + 15)
+			assert(go.get("/package#script", "detonated") == true)
+			-- 2, not just truthy: the flag from the FIRST detonation would
+			-- already read "delivered" going in, so only a count actually
+			-- proves this second explosion posted its own message too.
+			assert(go.get("/player#script", "package_exploded_count") == 2)
 		end)
 
 		test("shake grows over the countdown (near zero at entry, visible before detonation)", function()

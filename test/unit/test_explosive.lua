@@ -2,8 +2,9 @@ local explosive = require "main.core.explosive"
 
 return function()
 	describe("explosive.new", function()
-		test("starts idle with a zero timer", function()
+		test("starts idle", function()
 			assert(explosive.new().timer == 0)
+			assert(explosive.new().active == false)
 		end)
 	end)
 
@@ -14,6 +15,10 @@ return function()
 
 		test("respects a custom explosive_time", function()
 			assert(explosive.start({ explosive_time = 2.0 }).timer == 2.0)
+		end)
+
+		test("marks the timer active", function()
+			assert(explosive.start().active == true)
 		end)
 	end)
 
@@ -57,6 +62,23 @@ return function()
 			local state = explosive.new()
 			local _, detonated = explosive.update(state, 1.0)
 			assert(detonated == false)
+		end)
+
+		test("clears active on detonation", function()
+			local state = explosive.start({ explosive_time = 1.0 })
+			state = explosive.update(state, 5.0)
+			assert(state.active == false)
+		end)
+
+		test("an explosive_time of zero detonates immediately, not never", function()
+			-- Regression test: update() used to treat timer <= 0 as "idle,
+			-- never started", which is indistinguishable from a genuine
+			-- zero-length fuse — the package would re-arm every frame
+			-- without ever reporting detonated. active is what makes the
+			-- two cases distinguishable.
+			local state = explosive.start({ explosive_time = 0 })
+			local _, detonated = explosive.update(state, 0.016)
+			assert(detonated == true)
 		end)
 	end)
 

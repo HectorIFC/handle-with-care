@@ -274,13 +274,21 @@ new `wait`-heavy integration tests, not just at the very end.
   that mutation already happened before `update()` started, so both the
   "before" and "after" reads inside `update()` see the same, already-new
   value. This is why Explosive's timer-start check in `package.script`
-  tests `self.explosive.timer <= 0 and not self.detonated` instead of
+  tests `not self.explosive.active and not self.detonated` instead of
   comparing state before/after `update_from_stress` (the way Panic's
   `was_panic`/`is_panic` does) — Panic is only ever entered via
   `update_from_stress`, which runs *inside* `update()`, so that comparison
   works for it; Explosive can also be entered directly by
   `debug_set_state`/a future phase-timer trigger, whose `on_message`
-  mutation precedes `update()` entirely.
+  mutation precedes `update()` entirely. The check is on `explosive.active`,
+  not the timer's sign: `timer <= 0` is also true both before the first
+  `start()` and right after detonation, and an `explosive_time` of exactly
+  0 would be indistinguishable from idle, leaving the package re-arming
+  every frame without ever reporting detonated — `active` is what makes
+  "never started", "counting down", and "just detonated" distinguishable.
+  Leaving Explosive (currently only via `debug_set_state`) clears both
+  `active` and `detonated` in one place, so climbing back in later re-arms
+  cleanly instead of getting stuck.
 - **Integration `before` hooks must reset the whole shared fixture, not
   just the player.** All integration suites share one persistent
   player/package pair from `test/test.collection` for the entire test run
@@ -359,6 +367,24 @@ new `wait`-heavy integration tests, not just at the very end.
   press Play, read pass/fail output in the console, then revert
   `game.project` — or just trust `scripts/run_tests.sh` for day-to-day use
   and reserve the Editor for actually playing the game.
+- **Running the built test collection via either `dmengine_headless` or the
+  real windowed `dmengine` binary, e.g. for a manual spot-check**: give it a
+  generous timeout, and grow that timeout as the suite grows. Both pace
+  frames near real 60Hz — confirmed empirically (low CPU usage, ~60s wall
+  clock to match ~60s of simulated frames), correcting an earlier assumption
+  in this file that headless has no vsync and races through `wait.frames(n)`
+  at CPU speed regardless of `n`. It doesn't: `display.update_frequency = 60`
+  paces the engine's own tick loop the same way in both modes, so total
+  suite runtime scales with the sum of every test's waited frame count, not
+  just the number of tests or headless-vs-windowed. Phase 6 alone added
+  several hundred frames' worth of `wait.frames()` calls (explosive_time is
+  90 frames, and some tests wait for it twice) and pushed what had been a
+  comfortable 60s timeout to ~60-62s for *both* binaries — not a hang, just
+  genuinely that much real time elapsing 60 simulated frames at a time. This
+  will keep growing every phase; `scripts/run_tests.sh` itself has no
+  internal timeout (it just execs and waits), so this only bites ad hoc
+  spot-checks wrapped in an external `timeout` — budget generously (150s+)
+  rather than reusing whatever worked last phase.
 - **CI**: `.github/workflows/ci.yml` runs `./scripts/run_tests.sh
   x86_64-linux` on every push and pull request.
 - **Bumping the pinned Defold version**: update `DEFOLD_VERSION`/

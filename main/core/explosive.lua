@@ -13,31 +13,37 @@ local M = {}
 local DEFAULT_EXPLOSIVE_TIME = 1.5
 
 function M.new()
-	return { timer = 0 }
+	return { timer = 0, active = false }
 end
 
 -- Starts (or restarts) the countdown at explosive_time. Called once by the
 -- adapter, on the frame Explosive is entered — regardless of which trigger
--- caused it.
+-- caused it. `active` (not the timer's sign) is what update()/the adapter
+-- use to tell "counting down" apart from "never started" and "just
+-- detonated" — both of the latter also leave timer at 0, and a
+-- config.explosive_time of exactly 0 would otherwise be indistinguishable
+-- from idle, leaving the package stuck re-arming every frame without ever
+-- reporting detonated.
 function M.start(config)
 	config = config or {}
-	return { timer = config.explosive_time or DEFAULT_EXPLOSIVE_TIME }
+	return { timer = config.explosive_time or DEFAULT_EXPLOSIVE_TIME, active = true }
 end
 
--- state: { timer }
+-- state: { timer, active }
 -- dt: elapsed seconds this frame
 -- returns: new_state, detonated (true only on the exact frame the timer
---   crosses to zero — false before that frame and on every frame after)
+--   crosses to zero — false before that frame and on every frame after,
+--   including a config.explosive_time <= 0, which detonates immediately)
 function M.update(state, dt)
-	if state.timer <= 0 then
+	if not state.active then
 		return state, false
 	end
 
 	local new_timer = state.timer - dt
 	if new_timer <= 0 then
-		return { timer = 0 }, true
+		return { timer = 0, active = false }, true
 	end
-	return { timer = new_timer }, false
+	return { timer = new_timer, active = true }, false
 end
 
 -- 0 (just started) to 1 (about to detonate) — drives the accelerating
