@@ -289,6 +289,26 @@ new `wait`-heavy integration tests, not just at the very end.
   Leaving Explosive (currently only via `debug_set_state`) clears both
   `active` and `detonated` in one place, so climbing back in later re-arms
   cleanly instead of getting stuck.
+- **Magnetized (phase 7) is scheduled before hazards exist (phase 9a),
+  so its integration test can't cover the actual "pull a hazard" behavior
+  yet.** The PRD's attraction force applies to the *hazard*, not the
+  package's own physics — unlike every other state so far
+  (Heavy/Light/Panic/Explosive all feed into `package_physics` via
+  mass/offset/force/shake). `core/magnetism.lua` is pure geometry, fully
+  unit-tested in isolation, meant to be called by a future hazard adapter
+  via `go.get_position("/package")` and
+  `go.get("/package#script", "current_state") == hash("magnetized")` —
+  both already exposed synchronously by `package.script` (rule 4), so no
+  new `package.script` wiring was needed for a hazard to use it once
+  phase 9a adds one. Mind the hash: `current_state` is stored as a hash,
+  and a hash-vs-string `==` is always false, never true — easy to get
+  wrong here since nothing catches it until you notice Magnetized simply
+  never activates. `test/integration/test_magnetized.lua` instead guards the
+  other half of the contract: entering Magnetized is a no-op for the
+  package's own mass/shake/offset, same pattern as Explosive's
+  `package_exploded` message and phase-timer trigger having no consumer
+  yet — forward-declare the piece that's ready now, document what's
+  deferred and why, wire the rest in when its dependency actually exists.
 - **Integration `before` hooks must reset the whole shared fixture, not
   just the player.** All integration suites share one persistent
   player/package pair from `test/test.collection` for the entire test run
@@ -451,9 +471,9 @@ and drafted commit (Conventional Commits + the version shown) — see
 | 4 | Heavy & Light | Mass multiplier affecting player speed/jump (done) |
 | 5 | Panic | Random impulses + player knockback (done) |
 | 6 | Explosive | `core/explosive.lua` with dual trigger (stress>=100 OR phase timer) from day one (done) |
-| 7 | Magnetized | Hazard attraction within `MAGNET_RADIUS` |
+| 7 | Magnetized | Hazard attraction within `MAGNET_RADIUS` (done — see the Magnetized note under Testing; real hazard-side wiring deferred to phase 9a) |
 | 8 | Sleeping | Wake-on-impact |
-| 9a | Hazards + death | Spikes, saws, falling platforms, pits, off-screen check — overlap detection via AABB (see [Known environment limitations](#known-environment-limitations)), not engine physics queries |
+| 9a | Hazards + death | Spikes, saws, falling platforms, pits, off-screen check — overlap detection via AABB (see [Known environment limitations](#known-environment-limitations)), not engine physics queries. Also wire Magnetized's attraction (`core/magnetism.lua`, built in phase 7) from the hazard side — each hazard adapter calls `magnetism.attraction_force` against the package's position/state and moves itself. Promote `magnet_radius`/`magnet_strength` to `go.property` **on `package.script`** at that point (a single source of truth describing the package's own field, read by every hazard via `go.get("/package#script", ...)`), not declared per-hazard — the package is what defines the field, not each hazard independently. |
 | 9b | Delivery + win + restart | Delivery zone, win condition, instant restart |
 | 10 | Level 1: Tutorial Soft | First fully playable level, section 11 acceptance checklist |
 | 11 | Menu, save/load, progression | Main menu, `core/save.lua` port + localStorage adapter, level unlocks, result screen, pause |

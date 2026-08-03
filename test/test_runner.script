@@ -12,12 +12,14 @@ local suites = {
 	require "test.unit.test_panic_impulse",
 	require "test.unit.test_knockback",
 	require "test.unit.test_explosive",
+	require "test.unit.test_magnetism",
 	require "test.integration.test_player_movement",
 	require "test.integration.test_package_physics",
 	require "test.integration.test_package_state_and_stress",
 	require "test.integration.test_heavy_light",
 	require "test.integration.test_panic_impulse",
 	require "test.integration.test_explosive",
+	require "test.integration.test_magnetized",
 }
 
 function init(self)

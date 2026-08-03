@@ -63,6 +63,7 @@ local STATE_COLORS = {
 	[package_state_machine.EXPLOSIVE] = vmath.vector4(1, 0.5, 0, 1),
 	[package_state_machine.HEAVY] = vmath.vector4(0.55, 0.4, 0.25, 1),
 	[package_state_machine.LIGHT] = vmath.vector4(0.6, 0.85, 1, 1),
+	[package_state_machine.MAGNETIZED] = vmath.vector4(0.7, 0.3, 0.9, 1),
 }
 local DEFAULT_COLOR = vmath.vector4(1, 1, 1, 1)
 
