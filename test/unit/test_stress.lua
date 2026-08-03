@@ -48,6 +48,20 @@ return function()
 		end)
 	end)
 
+	describe("stress.set", function()
+		test("builds a state at the given value", function()
+			assert(stress.set(42).value == 42)
+		end)
+
+		test("clamps a value above 100", function()
+			assert(stress.set(500).value == 100)
+		end)
+
+		test("clamps a value below 0", function()
+			assert(stress.set(-10).value == 0)
+		end)
+	end)
+
 	describe("stress clamping (0..100)", function()
 		test("never exceeds 100 no matter how much is added", function()
 			local state = { value = 98 }

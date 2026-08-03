@@ -1,4 +1,5 @@
 local player_movement = require "main.core.player_movement"
+local knockback = require "main.core.knockback"
 
 go.property("move_speed", 90)
 go.property("gravity", -900)
@@ -34,6 +35,11 @@ go.property("package", msg.url())
 -- Set above a normal single jump's own return-fall speed (jump_velocity)
 -- so routine jumps don't also trigger the heavier stress bump.
 go.property("heavy_landing_velocity", 400)
+
+-- PRD 4.6: Panic's random impulses knock the player back by this fraction
+-- of the package's own impulse (15~30% — this project's chosen value).
+go.property("knockback_percent", 0.2)
+go.property("knockback_damping", 0.85)
 
 -- Heavy/Light change the package's mass, which drags on the player's own
 -- speed/jump/gravity (PRD 4.6) — read synchronously via go.get, same as
@@ -71,6 +77,7 @@ function init(self)
 	self.current_animation = nil
 	self.grounded = self.state.grounded
 	self.previous_facing = self.state.facing
+	self.knockback = knockback.new()
 	msg.post(".", "acquire_input_focus")
 	apply_animation(self)
 end
@@ -82,10 +89,12 @@ function update(self, dt)
 	self.state = player_movement.update(self.state, self.input, dt, movement_config(self))
 	local velocity_y_before_landing = self.state.velocity_y
 
+	self.knockback = knockback.decay(self.knockback, { damping = self.knockback_damping })
+
 	local delta = player_movement.integrate(self.state, dt)
 	local pos = go.get_position()
-	local target_x = pos.x + delta.dx
-	local target_y = pos.y + delta.dy
+	local target_x = pos.x + delta.dx + self.knockback.velocity_x * dt
+	local target_y = pos.y + delta.dy + self.knockback.velocity_y * dt
 
 	local grounded = false
 	local resting_y = player_movement.resting_y_on_ground(target_x, self.half_width, pos.y, target_y, self.half_height, ground_rect(self))
@@ -149,6 +158,12 @@ function on_message(self, message_id, message)
 	if message_id == hash("test_set_input") then
 		self.input.move_x = message.move_x or 0
 		self.input.jump_pressed = message.jump_pressed or false
+	elseif message_id == hash("knockback") then
+		self.knockback = knockback.apply(
+			self.knockback,
+			message.force_x * self.knockback_percent,
+			message.force_y * self.knockback_percent
+		)
 	elseif message_id == hash("test_reset") then
 		self.state = player_movement.new()
 		self.input = { move_x = 0, jump_pressed = false }
@@ -158,6 +173,7 @@ function on_message(self, message_id, message)
 		self.grounded = self.state.grounded
 		self.previous_facing = self.state.facing
 		self.just_landed = false
+		self.knockback = knockback.new()
 		go.set_position(self.initial_position)
 	end
 end

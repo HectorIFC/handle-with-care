@@ -1,6 +1,7 @@
 local package_physics = require "main.core.package_physics"
 local package_state_machine = require "main.core.package_state_machine"
 local stress = require "main.core.stress"
+local panic_impulse = require "main.core.panic_impulse"
 
 go.property("offset_x", 8)
 go.property("offset_y", 12)
@@ -28,6 +29,16 @@ go.property("heavy_offset_y_bonus", -6)
 go.property("light_offset_y_bonus", 6)
 go.property("light_vertical_force", 40)
 
+go.property("panic_impulse_interval", 0.55)
+go.property("panic_horizontal_min", -120)
+go.property("panic_horizontal_max", 120)
+go.property("panic_vertical_min", 80)
+go.property("panic_vertical_max", 160)
+-- PRD 4.6: "aplica porcentagem das forças no personagem" (15~30%). The
+-- package sends the player its *raw* impulse (below); how much of it
+-- actually knocks the player back is player.script's own tunable
+-- (knockback_percent), not duplicated here — see CLAUDE.md rule 5.
+
 -- Mirrors self.machine/self.stress/mass so tests (and future observers,
 -- e.g. player.script reading mass for its own speed/gravity multipliers)
 -- can read them synchronously via go.get — same approach as player.script's
@@ -45,6 +56,12 @@ local STATE_COLORS = {
 	[package_state_machine.LIGHT] = vmath.vector4(0.6, 0.85, 1, 1),
 }
 local DEFAULT_COLOR = vmath.vector4(1, 1, 1, 1)
+
+-- Real randomness lives only in the adapter (rule 3) — core/panic_impulse.lua
+-- takes this as an injected `rng` function and never calls math.random itself.
+local function rng(min_value, max_value)
+	return min_value + math.random() * (max_value - min_value)
+end
 
 local function movement_config(self)
 	return {
@@ -80,6 +97,16 @@ local function stress_config(self)
 	}
 end
 
+local function panic_impulse_config(self)
+	return {
+		interval = self.panic_impulse_interval,
+		horizontal_min = self.panic_horizontal_min,
+		horizontal_max = self.panic_horizontal_max,
+		vertical_min = self.panic_vertical_min,
+		vertical_max = self.panic_vertical_max,
+	}
+end
+
 -- Continuous (per-frame) stress: Panic accumulates on its own; otherwise it
 -- decays while the player is grounded and safe. Discrete events (jump,
 -- landing, direction change) are applied immediately in on_message instead.
@@ -107,6 +134,7 @@ function init(self)
 	self.physics = package_physics.new(pos.x, pos.y)
 	self.machine = package_state_machine.new()
 	self.stress = stress.new()
+	self.panic_impulse = panic_impulse.new()
 	apply_hud(self)
 end
 
@@ -114,7 +142,28 @@ function update(self, dt)
 	self.time = self.time + dt
 
 	accumulate_continuous_stress(self, dt)
+
+	local was_panic = self.machine.current_state == package_state_machine.PANIC
 	self.machine = package_state_machine.update_from_stress(self.machine, self.stress.value, state_machine_config(self))
+	local is_panic = self.machine.current_state == package_state_machine.PANIC
+
+	if is_panic then
+		if not was_panic then
+			self.panic_impulse = panic_impulse.new() -- fresh timer entering Panic
+		end
+		local triggered
+		self.panic_impulse, triggered = panic_impulse.update(self.panic_impulse, dt, rng, panic_impulse_config(self))
+		if triggered then
+			-- PRD 4.6: a percentage of this same impulse also knocks the
+			-- player back — player.script owns how much (knockback_percent).
+			msg.post(self.player, "knockback", {
+				force_x = self.panic_impulse.horizontal_force,
+				force_y = self.panic_impulse.vertical_force,
+			})
+		end
+	else
+		self.panic_impulse = panic_impulse.new()
+	end
 
 	local player_pos = go.get_position(self.player)
 	local player = {
@@ -125,8 +174,8 @@ function update(self, dt)
 	local sm_config = state_machine_config(self)
 	local package_state = {
 		shake_intensity = package_state_machine.shake_intensity(self.machine, sm_config),
-		horizontal_force = 0,
-		vertical_force = package_state_machine.vertical_force(self.machine, sm_config),
+		horizontal_force = self.panic_impulse.horizontal_force,
+		vertical_force = package_state_machine.vertical_force(self.machine, sm_config) + self.panic_impulse.vertical_force,
 		offset_y_bonus = package_state_machine.offset_y_bonus(self.machine, sm_config),
 	}
 
@@ -148,12 +197,28 @@ function on_message(self, message_id, message)
 	elseif message_id == hash("test_reset") then
 		self.machine = package_state_machine.new()
 		self.stress = stress.new()
+		self.panic_impulse = panic_impulse.new()
+		-- Panic can leave residual velocity in self.physics (decayed but
+		-- nonzero); left alone it would bleed into whatever runs next.
+		self.physics.velocity_x = 0
+		self.physics.velocity_y = 0
 	elseif message_id == hash("debug_set_state") then
-		-- Manual/test override, bypassing the stress ladder — this is how
-		-- Heavy/Light are entered for now (message.state, e.g. "heavy").
-		-- A real per-level trigger (cyclic timer for Heavy Duty, phase 13)
+		-- Manual/test override for the NON-ladder states (message.state,
+		-- e.g. "heavy") — this is how Heavy/Light are entered for now. A
+		-- real per-level trigger (cyclic timer for Heavy Duty, phase 13)
 		-- replaces this later; this hook stays useful for manual testing
 		-- and debugging regardless.
+		--
+		-- Does NOT stick for Stable/Nervous/Panic/Explosive: update_from_
+		-- stress() re-derives those from self.stress every single frame
+		-- (that's the whole point of the ladder), so it overwrites this
+		-- again on the very next update(). Use debug_set_stress below to
+		-- reach those states instead.
 		self.machine = package_state_machine.set_state(self.machine, message.state)
+	elseif message_id == hash("debug_set_stress") then
+		-- Manual/test override for the stress value itself — the way to
+		-- reach Nervous/Panic/Explosive on demand, since those states are
+		-- always re-derived from stress (see debug_set_state above).
+		self.stress = stress.set(message.value)
 	end
 end

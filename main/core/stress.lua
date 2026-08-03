@@ -38,6 +38,13 @@ function M.new()
 	return { value = 0 }
 end
 
+-- Builds a state at an explicit value, clamped the same way every other
+-- mutation is — used by package.script's debug_set_stress hook so a manual
+-- override can't produce a state no real gameplay path could ever reach.
+function M.set(value)
+	return { value = clamp(value, STRESS_MIN, STRESS_MAX) }
+end
+
 function M.apply_jump(state, config)
 	config = config or {}
 	return apply(state, config.stress_jump or DEFAULT_STRESS_JUMP)

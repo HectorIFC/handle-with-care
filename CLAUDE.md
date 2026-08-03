@@ -228,11 +228,46 @@ new `wait`-heavy integration tests, not just at the very end.
   queries (see architecture rule 9 and [Known environment
   limitations](#known-environment-limitations)).
 - **Forcing a package state for tests/manual debugging**: post
-  `"debug_set_state"` to the package with `{ state = "heavy" }` (or any
-  `package_state_machine` state name) — bypasses the stress ladder
-  entirely, same as `set_state`. This is how Heavy/Light are entered until
-  phase 13 adds Heavy Duty's real cyclic timer trigger; keep using it for
-  manual testing regardless.
+  `"debug_set_state"` to the package with `{ state = "heavy" }` for the
+  **non-ladder** states (Heavy/Light/Magnetized/Sleeping) — this is how
+  Heavy/Light are entered until phase 13 adds Heavy Duty's real cyclic
+  timer trigger. It does **not** stick for Stable/Nervous/Panic/Explosive:
+  `update_from_stress` re-derives those from `self.stress` every single
+  frame (that's the whole point of the ladder), so it overwrites a debug-set
+  ladder state again on the very next `update()`. To reach Nervous/Panic/
+  Explosive on demand, post `"debug_set_stress"` with `{ value = 80 }`
+  instead and let the ladder do its job naturally — found the hard way
+  when phase 5's first Panic integration test silently reset to Stable one
+  frame after being debug-set.
+- **Integration `before` hooks must reset the whole shared fixture, not
+  just the player.** All integration suites share one persistent
+  player/package pair from `test/test.collection` for the entire test run
+  (`test_runner.script` registers every suite against the same booted
+  collection) — a `before` hook only defends *its own* suite against state
+  left behind by whatever ran earlier, so it must reset every shared game
+  object, not just the one the suite is nominally about. Post `test_reset`
+  to both `/player#script` and `/package#script`, and wait the same ~36
+  frames every other suite does (enough for the player to land **and** for
+  the package's 0.35 lerp factor to fully reconverge its position — see
+  the note below on why position is left alone). Found the hard way in
+  phase 5: two integration suites reset only the player, so jumps and
+  direction changes bled stress into whichever suite ran next, producing
+  intermittent failures reproducible only under the real (non-headless)
+  engine, never headless.
+- **`package.script`'s `test_reset` zeroes `self.physics`'s velocity but
+  deliberately leaves its position alone.** Residual velocity from a Panic
+  impulse decays only at 0.85/frame, so left unset it would bleed into
+  whatever runs next — the same class of leak as the point above, in a
+  different field. Position doesn't need the same treatment: the player
+  lands on frame 20 of the 36-frame wait — the fall from 100 to 56 at
+  gravity -900 takes 19 gravity frames, plus one frame at the start where
+  `test_reset` has restored `grounded = true` so no gravity is applied
+  yet — leaving 16 frames for the 0.35 lerp factor to contract any
+  leftover position lag by `0.65^16 ≈ 1e-3`, which puts the package
+  within ~0.006 of its target, well under `CONVERGENCE_TOLERANCE = 0.5`,
+  before any assertion runs. The two are load-bearing on each other — if
+  the reset wait is ever
+  shortened, position needs resetting too.
 - **Comparing a `go.property` float against a literal** (e.g. asserting
   `mass == 0.4`): use a small epsilon, not `==`. `go.property` stores floats
   as float32; values like `0.4` (unlike `1.0`/`2.5`) have no exact float32
@@ -346,7 +381,7 @@ and drafted commit (Conventional Commits + the version shown) — see
 | 2 | Package attaches (Stable) | `core/package_physics.lua` offset+lerp, synchronous position read (done) |
 | 3 | State machine + stress + shake | `core/package_state_machine.lua`, `core/stress.lua`, sinusoidal shake, minimal debug HUD (done) |
 | 4 | Heavy & Light | Mass multiplier affecting player speed/jump (done) |
-| 5 | Panic | Random impulses + player knockback |
+| 5 | Panic | Random impulses + player knockback (done) |
 | 6 | Explosive | `core/explosive.lua` with dual trigger (stress>=100 OR phase timer) from day one |
 | 7 | Magnetized | Hazard attraction within `MAGNET_RADIUS` |
 | 8 | Sleeping | Wake-on-impact |

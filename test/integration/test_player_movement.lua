@@ -7,14 +7,18 @@ local wait = require "test.support.wait"
 -- involved, so this isn't a tolerance band — see player_movement.lua).
 local RESTING_Y = 56
 
-local function reset_player()
+-- All suites share one persistent player/package pair for the whole test
+-- run (see test/test.collection) — only this suite's own before-hook protects
+-- it from state left behind by whatever ran earlier, so both must be reset.
+local function reset_all()
 	msg.post("/player#script", "test_reset")
-	wait.frames(3)
+	msg.post("/package#script", "test_reset")
+	wait.frames(36) -- let the player land
 end
 
 return function()
 	describe("Player movement (integration)", function()
-		before(reset_player)
+		before(reset_all)
 
 		test("falls under gravity and comes to rest on top of the ground", function()
 			wait.frames(36)

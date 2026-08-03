@@ -7,14 +7,18 @@ local wait = require "test.support.wait"
 -- tracks whatever a collection actually configures — see CLAUDE.md rule 5.
 local CONVERGENCE_TOLERANCE = 0.5
 
-local function reset_player()
+-- All suites share one persistent player/package pair for the whole test
+-- run (see test/test.collection) — only this suite's own before-hook protects
+-- it from state left behind by whatever ran earlier, so both must be reset.
+local function reset_all()
 	msg.post("/player#script", "test_reset")
-	wait.frames(3)
+	msg.post("/package#script", "test_reset")
+	wait.frames(36) -- let the player land
 end
 
 return function()
 	describe("Package physics (integration, Stable state)", function()
-		before(reset_player)
+		before(reset_all)
 
 		test("converges to the player's position plus offset once settled", function()
 			wait.frames(60) -- let the player land and the package's lerp converge
