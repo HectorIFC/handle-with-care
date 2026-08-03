@@ -2,6 +2,7 @@ local package_physics = require "main.core.package_physics"
 local package_state_machine = require "main.core.package_state_machine"
 local stress = require "main.core.stress"
 local panic_impulse = require "main.core.panic_impulse"
+local explosive = require "main.core.explosive"
 
 go.property("offset_x", 8)
 go.property("offset_y", 12)
@@ -16,6 +17,8 @@ go.property("panic_threshold", 70)
 go.property("explosive_threshold", 100)
 go.property("nervous_shake_intensity", 0.5)
 go.property("panic_shake_intensity", 1.0)
+go.property("explosive_shake_intensity", 1.0)
+go.property("explosive_time", 1.5)
 
 go.property("stress_jump", 6)
 go.property("stress_heavy_landing", 18)
@@ -46,6 +49,10 @@ go.property("panic_vertical_max", 160)
 go.property("current_state", hash("stable"))
 go.property("current_stress", 0)
 go.property("mass", 1.0)
+-- Sticky, not a one-shot event: stays true after detonation so tests and
+-- manual checks can just wait and read it, without needing to catch the
+-- exact frame the timer crossed zero.
+go.property("detonated", false)
 
 local STATE_COLORS = {
 	[package_state_machine.STABLE] = vmath.vector4(1, 1, 1, 1),
@@ -79,6 +86,7 @@ local function state_machine_config(self)
 		explosive_threshold = self.explosive_threshold,
 		nervous_shake_intensity = self.nervous_shake_intensity,
 		panic_shake_intensity = self.panic_shake_intensity,
+		explosive_shake_intensity = self.explosive_shake_intensity,
 		heavy_mass = self.heavy_mass,
 		light_mass = self.light_mass,
 		heavy_offset_y_bonus = self.heavy_offset_y_bonus,
@@ -107,12 +115,25 @@ local function panic_impulse_config(self)
 	}
 end
 
+local function explosive_config(self)
+	return {
+		explosive_time = self.explosive_time,
+	}
+end
+
 -- Continuous (per-frame) stress: Panic accumulates on its own; otherwise it
 -- decays while the player is grounded and safe. Discrete events (jump,
 -- landing, direction change) are applied immediately in on_message instead.
+-- Explosive freezes stress entirely: once detonation is inevitable, the
+-- countdown alone decides the outcome, and letting stress keep decaying
+-- would drop it below explosive_threshold on the very next frame — harmless
+-- to the (now sticky) state itself, but confusing on the stress HUD and
+-- pointless to compute.
 local function accumulate_continuous_stress(self, dt)
 	if self.machine.current_state == package_state_machine.PANIC then
 		self.stress = stress.apply_panic(self.stress, dt, stress_config(self))
+	elseif self.machine.current_state == package_state_machine.EXPLOSIVE then
+		-- frozen, see comment above
 	elseif go.get(self.player, "grounded") then
 		self.stress = stress.decay_safe(self.stress, dt, stress_config(self))
 	end
@@ -121,7 +142,11 @@ end
 local function apply_hud(self)
 	local state_name = self.machine.current_state
 	local stress_rounded = math.floor(self.stress.value + 0.5)
-	label.set_text("#visual", "[" .. state_name .. " " .. stress_rounded .. "]")
+	local text = "[" .. state_name .. " " .. stress_rounded .. "]"
+	if self.detonated then
+		text = text .. " BOOM"
+	end
+	label.set_text("#visual", text)
 	go.set("#visual", "color", STATE_COLORS[state_name] or DEFAULT_COLOR)
 	self.current_state = hash(state_name)
 	self.current_stress = self.stress.value
@@ -135,6 +160,7 @@ function init(self)
 	self.machine = package_state_machine.new()
 	self.stress = stress.new()
 	self.panic_impulse = panic_impulse.new()
+	self.explosive = explosive.new()
 	apply_hud(self)
 end
 
@@ -146,6 +172,7 @@ function update(self, dt)
 	local was_panic = self.machine.current_state == package_state_machine.PANIC
 	self.machine = package_state_machine.update_from_stress(self.machine, self.stress.value, state_machine_config(self))
 	local is_panic = self.machine.current_state == package_state_machine.PANIC
+	local is_exploding = self.machine.current_state == package_state_machine.EXPLOSIVE
 
 	if is_panic then
 		if not was_panic then
@@ -165,6 +192,31 @@ function update(self, dt)
 		self.panic_impulse = panic_impulse.new()
 	end
 
+	if is_exploding then
+		-- Can't detect "just entered" the way Panic does (comparing this
+		-- state to the value read before update_from_stress ran): Explosive
+		-- can also be entered directly by debug_set_state/a future
+		-- phase-timer trigger, whose on_message mutation already happened
+		-- *before* this update() call even started, so a before/after
+		-- comparison taken inside update() would never see a transition.
+		-- Checking the timer itself works for either entry path and can't
+		-- misfire on a later frame: timer <= 0 is also true right after
+		-- detonation, but `detonated` (sticky) rules that case out.
+		if self.explosive.timer <= 0 and not self.detonated then
+			self.explosive = explosive.start(explosive_config(self))
+		end
+		local detonated
+		self.explosive, detonated = explosive.update(self.explosive, dt)
+		if detonated then
+			self.detonated = true
+			-- PRD 4.7: explosive_timer reaching zero is a death condition.
+			-- No listener exists yet (hazard/death handling arrives with
+			-- phase 9a/9b) — this is the same forward-declared convention
+			-- as player_jumped/player_landed before anything consumed them.
+			msg.post(self.player, "package_exploded")
+		end
+	end
+
 	local player_pos = go.get_position(self.player)
 	local player = {
 		x = player_pos.x,
@@ -172,8 +224,15 @@ function update(self, dt)
 		facing = go.get(self.player, "facing"),
 	}
 	local sm_config = state_machine_config(self)
+	local shake_intensity = package_state_machine.shake_intensity(self.machine, sm_config)
+	if is_exploding then
+		-- Ramps shake from 0 up to the state's ceiling as detonation
+		-- approaches (PRD 4.4: "shake aumenta"), instead of snapping to
+		-- full intensity the instant Explosive is entered.
+		shake_intensity = shake_intensity * explosive.progress(self.explosive, explosive_config(self))
+	end
 	local package_state = {
-		shake_intensity = package_state_machine.shake_intensity(self.machine, sm_config),
+		shake_intensity = shake_intensity,
 		horizontal_force = self.panic_impulse.horizontal_force,
 		vertical_force = package_state_machine.vertical_force(self.machine, sm_config) + self.panic_impulse.vertical_force,
 		offset_y_bonus = package_state_machine.offset_y_bonus(self.machine, sm_config),
@@ -198,8 +257,11 @@ function on_message(self, message_id, message)
 		self.machine = package_state_machine.new()
 		self.stress = stress.new()
 		self.panic_impulse = panic_impulse.new()
-		-- Panic can leave residual velocity in self.physics (decayed but
-		-- nonzero); left alone it would bleed into whatever runs next.
+		self.explosive = explosive.new()
+		self.detonated = false
+		-- Panic/Explosive can leave residual velocity in self.physics
+		-- (decayed but nonzero); left alone it would bleed into whatever
+		-- runs next.
 		self.physics.velocity_x = 0
 		self.physics.velocity_y = 0
 	elseif message_id == hash("debug_set_state") then
@@ -209,11 +271,16 @@ function on_message(self, message_id, message)
 		-- replaces this later; this hook stays useful for manual testing
 		-- and debugging regardless.
 		--
-		-- Does NOT stick for Stable/Nervous/Panic/Explosive: update_from_
-		-- stress() re-derives those from self.stress every single frame
-		-- (that's the whole point of the ladder), so it overwrites this
-		-- again on the very next update(). Use debug_set_stress below to
-		-- reach those states instead.
+		-- Does NOT stick for Stable/Nervous/Panic: update_from_stress()
+		-- re-derives those from self.stress every single frame (that's the
+		-- whole point of the ladder), so it overwrites this again on the
+		-- very next update(). Use debug_set_stress below to reach those
+		-- states instead. Explosive is the one ladder-adjacent exception —
+		-- it's deliberately excluded from that re-derivation (see
+		-- RE_DERIVABLE_STATES in package_state_machine.lua), so setting it
+		-- here does stick, the same as Heavy/Light — this is also exactly
+		-- how a future phase-timer trigger (e.g. Hot Potato) is expected
+		-- to force Explosive without going through stress at all.
 		self.machine = package_state_machine.set_state(self.machine, message.state)
 	elseif message_id == hash("debug_set_stress") then
 		-- Manual/test override for the stress value itself — the way to

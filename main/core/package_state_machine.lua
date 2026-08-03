@@ -2,11 +2,15 @@
 -- No Defold API calls here — see main/package/package.script for the
 -- adapter that reads stress/triggers and applies shake/tint/mass.
 --
--- Stable/Nervous/Panic/Explosive transition automatically from the stress
--- value (see update_from_stress, driven by core/stress.lua). Heavy/Light/
--- Magnetized/Sleeping are NOT part of the stress ladder — the PRD triggers
--- them from other conditions (cyclic timers, hazard proximity, impact
--- detection) that later phases (4, 7, 8) will call directly via set_state.
+-- Stable/Nervous/Panic transition automatically from the stress value (see
+-- update_from_stress, driven by core/stress.lua). Heavy/Light/Magnetized/
+-- Sleeping are NOT part of the stress ladder — the PRD triggers them from
+-- other conditions (cyclic timers, hazard proximity, impact detection) that
+-- later phases (4, 7, 8) will call directly via set_state.
+--
+-- Explosive is a one-way exit from the ladder, reachable from it (stress
+-- crossing explosive_threshold) but never re-derived back down once
+-- entered — see the RE_DERIVABLE_STATES note below for why.
 
 local M = {}
 
@@ -19,11 +23,21 @@ M.EXPLOSIVE = "explosive"
 M.MAGNETIZED = "magnetized"
 M.SLEEPING = "sleeping"
 
-local STRESS_LADDER_STATES = {
+-- States update_from_stress is allowed to overwrite. Explosive is
+-- deliberately absent: once entered (whether via stress crossing
+-- explosive_threshold below, or an explicit set_state call from a future
+-- phase-timer trigger), it must stick regardless of what stress does
+-- afterward. Without this exclusion, a single frame of decay_safe from
+-- exactly the threshold value drops stress just below it, and this
+-- function would immediately re-derive Panic on the very next frame —
+-- aborting the detonation before explosive.lua's timer ever runs. The same
+-- exclusion is also what lets a phase-timer trigger force Explosive while
+-- stress is still low without it bouncing back a frame later, the way
+-- debug_set_state("panic") famously doesn't stick (see CLAUDE.md).
+local RE_DERIVABLE_STATES = {
 	[M.STABLE] = true,
 	[M.NERVOUS] = true,
 	[M.PANIC] = true,
-	[M.EXPLOSIVE] = true,
 }
 
 local DEFAULT_NERVOUS_THRESHOLD = 30
@@ -32,6 +46,7 @@ local DEFAULT_EXPLOSIVE_THRESHOLD = 100
 
 local DEFAULT_NERVOUS_SHAKE_INTENSITY = 0.5
 local DEFAULT_PANIC_SHAKE_INTENSITY = 1.0
+local DEFAULT_EXPLOSIVE_SHAKE_INTENSITY = 1.0
 
 local DEFAULT_HEAVY_MASS = 2.5
 local DEFAULT_LIGHT_MASS = 0.4
@@ -55,11 +70,12 @@ function M.set_state(state, new_state)
 end
 
 -- Recomputes current_state from `stress` for the states on the stress
--- ladder (Stable/Nervous/Panic/Explosive). Leaves any other current state
--- (Heavy/Light/Magnetized/Sleeping) untouched — those exit only via
--- set_state, called by whatever later-phase logic owns their trigger.
+-- ladder (Stable/Nervous/Panic). Leaves any other current state (Heavy/
+-- Light/Magnetized/Sleeping, and Explosive once entered) untouched — those
+-- exit only via set_state, called by whatever later-phase logic owns their
+-- trigger (package.script's explosive detonation handling, for Explosive).
 function M.update_from_stress(state, stress, config)
-	if not STRESS_LADDER_STATES[state.current_state] then
+	if not RE_DERIVABLE_STATES[state.current_state] then
 		return state
 	end
 
@@ -82,15 +98,18 @@ function M.update_from_stress(state, stress, config)
 	return { current_state = new_state }
 end
 
--- Shake intensity for the current state (PRD 4.4). Only Nervous/Panic
--- shake for now — Explosive's accelerating shake as its timer runs out
--- arrives with phase 6's explosive.lua.
+-- Shake intensity for the current state (PRD 4.4). Explosive's own value is
+-- the ceiling reached right before detonation — package.script scales it by
+-- explosive.progress() so shake actually ramps up over the countdown
+-- instead of snapping to full intensity the instant Explosive is entered.
 function M.shake_intensity(state, config)
 	config = config or {}
 	if state.current_state == M.NERVOUS then
 		return config.nervous_shake_intensity or DEFAULT_NERVOUS_SHAKE_INTENSITY
 	elseif state.current_state == M.PANIC then
 		return config.panic_shake_intensity or DEFAULT_PANIC_SHAKE_INTENSITY
+	elseif state.current_state == M.EXPLOSIVE then
+		return config.explosive_shake_intensity or DEFAULT_EXPLOSIVE_SHAKE_INTENSITY
 	end
 	return 0
 end

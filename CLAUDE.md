@@ -98,6 +98,16 @@ language they're using; that's the only exception.)
    trigger (needed later for the "Hot Potato" level). Design
    `core/explosive.lua`'s API to accept both from day one — do not bolt the
    second trigger on later.
+   Shipped in phase 6 as: `explosive.lua` itself doesn't know or care which
+   trigger fired — `start()`/`update()` just own the countdown once told to
+   begin. What makes both paths work is `package_state_machine.lua` treating
+   Explosive as a one-way, non-re-derivable exit (see `RE_DERIVABLE_STATES`)
+   reachable either through the stress ladder (`update_from_stress`) or a
+   direct `set_state` call — the same generic escape hatch Heavy/Light
+   already use for their own non-stress triggers. Phase 14 (Hot Potato) is
+   expected to call `set_state(machine, "explosive")` directly from its own
+   cyclic timer; no changes to `explosive.lua` or the state machine should
+   be needed to support that.
 7. **Shared integration test harness.** Reuse one test collection per
    subsystem (e.g. a single `test_player_package.collection`) across
    multiple slices instead of creating a new heavy collection per phase, to
@@ -231,14 +241,46 @@ new `wait`-heavy integration tests, not just at the very end.
   `"debug_set_state"` to the package with `{ state = "heavy" }` for the
   **non-ladder** states (Heavy/Light/Magnetized/Sleeping) — this is how
   Heavy/Light are entered until phase 13 adds Heavy Duty's real cyclic
-  timer trigger. It does **not** stick for Stable/Nervous/Panic/Explosive:
+  timer trigger. It does **not** stick for Stable/Nervous/Panic:
   `update_from_stress` re-derives those from `self.stress` every single
   frame (that's the whole point of the ladder), so it overwrites a debug-set
-  ladder state again on the very next `update()`. To reach Nervous/Panic/
-  Explosive on demand, post `"debug_set_stress"` with `{ value = 80 }`
-  instead and let the ladder do its job naturally — found the hard way
-  when phase 5's first Panic integration test silently reset to Stable one
-  frame after being debug-set.
+  ladder state again on the very next `update()`. To reach Nervous/Panic
+  on demand, post `"debug_set_stress"` with `{ value = 80 }` instead and let
+  the ladder do its job naturally — found the hard way when phase 5's first
+  Panic integration test silently reset to Stable one frame after being
+  debug-set. **Explosive is the one exception**: since phase 6, it's
+  deliberately excluded from `update_from_stress`'s re-derivable set (see
+  `RE_DERIVABLE_STATES` in `package_state_machine.lua`), so
+  `debug_set_state({ state = "explosive" })` sticks immediately, the same
+  as Heavy/Light.
+- **A stress value set to exactly the ceiling (100) can transiently dip
+  below a threshold one frame later, even though nothing external changed
+  it.** `accumulate_continuous_stress` decides whether to accumulate or
+  decay stress by reading `self.machine.current_state` — but that read
+  reflects last frame's ladder decision, not this frame's, since
+  `update_from_stress` runs after it. Debug-setting stress straight to 100
+  from Stable means the very next frame still takes the grounded-decay
+  branch (current_state is still stale-Stable), nudging stress to 99.9 —
+  under the Explosive threshold — before the ladder re-derives Panic
+  instead. It self-corrects a frame or two later (now-Panic's own
+  accumulation climbs stress back to 100), but any test that debug-sets
+  stress to exactly 100 and asserts Explosive needs a few frames' margin
+  for that settle, not just one. This never bites organic gameplay: by the
+  time stress climbs to 100 through real jumps/landings, it has already
+  crossed the Panic threshold (70) frames earlier, so current_state is
+  already Panic (which accumulates, not decays) on the critical frame.
+- **A "was X / is X" transition check inside `update()` can't detect a
+  state that was mutated by `on_message` earlier the same frame** — because
+  that mutation already happened before `update()` started, so both the
+  "before" and "after" reads inside `update()` see the same, already-new
+  value. This is why Explosive's timer-start check in `package.script`
+  tests `self.explosive.timer <= 0 and not self.detonated` instead of
+  comparing state before/after `update_from_stress` (the way Panic's
+  `was_panic`/`is_panic` does) — Panic is only ever entered via
+  `update_from_stress`, which runs *inside* `update()`, so that comparison
+  works for it; Explosive can also be entered directly by
+  `debug_set_state`/a future phase-timer trigger, whose `on_message`
+  mutation precedes `update()` entirely.
 - **Integration `before` hooks must reset the whole shared fixture, not
   just the player.** All integration suites share one persistent
   player/package pair from `test/test.collection` for the entire test run
@@ -382,7 +424,7 @@ and drafted commit (Conventional Commits + the version shown) — see
 | 3 | State machine + stress + shake | `core/package_state_machine.lua`, `core/stress.lua`, sinusoidal shake, minimal debug HUD (done) |
 | 4 | Heavy & Light | Mass multiplier affecting player speed/jump (done) |
 | 5 | Panic | Random impulses + player knockback (done) |
-| 6 | Explosive | `core/explosive.lua` with dual trigger (stress>=100 OR phase timer) from day one |
+| 6 | Explosive | `core/explosive.lua` with dual trigger (stress>=100 OR phase timer) from day one (done) |
 | 7 | Magnetized | Hazard attraction within `MAGNET_RADIUS` |
 | 8 | Sleeping | Wake-on-impact |
 | 9a | Hazards + death | Spikes, saws, falling platforms, pits, off-screen check — overlap detection via AABB (see [Known environment limitations](#known-environment-limitations)), not engine physics queries |

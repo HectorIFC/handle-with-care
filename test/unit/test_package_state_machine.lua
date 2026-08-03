@@ -53,6 +53,28 @@ return function()
 			state = package_state_machine.update_from_stress(state, 100, config)
 			assert(state.current_state == package_state_machine.HEAVY)
 		end)
+
+		test("Explosive sticks even as stress decays back down", function()
+			-- Regression test: Explosive used to be re-derivable like the
+			-- rest of the ladder, so a single frame of stress decay from
+			-- exactly the threshold would immediately bounce it back to
+			-- Panic. See RE_DERIVABLE_STATES in package_state_machine.lua.
+			local state = package_state_machine.new()
+			state = package_state_machine.update_from_stress(state, 100, config)
+			assert(state.current_state == package_state_machine.EXPLOSIVE)
+			state = package_state_machine.update_from_stress(state, 0, config)
+			assert(state.current_state == package_state_machine.EXPLOSIVE)
+		end)
+
+		test("Explosive forced via set_state also sticks, even at zero stress", function()
+			-- This is the phase-timer trigger path (e.g. a future Hot
+			-- Potato cyclic timer) — it must survive the very next
+			-- update_from_stress call the same way the stress-driven path
+			-- does, satisfying the dual-trigger requirement.
+			local state = package_state_machine.set_state(package_state_machine.new(), package_state_machine.EXPLOSIVE)
+			state = package_state_machine.update_from_stress(state, 0, config)
+			assert(state.current_state == package_state_machine.EXPLOSIVE)
+		end)
 	end)
 
 	describe("package_state_machine.set_state", function()
@@ -79,15 +101,19 @@ return function()
 			assert(package_state_machine.shake_intensity(state) == 1.0)
 		end)
 
-		test("zero for a state without defined shake (e.g. Explosive, for now)", function()
+		test("default 1.0 when Explosive", function()
 			local state = { current_state = package_state_machine.EXPLOSIVE }
-			assert(package_state_machine.shake_intensity(state) == 0)
+			assert(package_state_machine.shake_intensity(state) == 1.0)
 		end)
 
 		test("respects custom config values", function()
 			local state = { current_state = package_state_machine.PANIC }
 			local intensity = package_state_machine.shake_intensity(state, { panic_shake_intensity = 0.8 })
 			assert(intensity == 0.8)
+
+			state = { current_state = package_state_machine.EXPLOSIVE }
+			intensity = package_state_machine.shake_intensity(state, { explosive_shake_intensity = 0.6 })
+			assert(intensity == 0.6)
 		end)
 	end)
 
