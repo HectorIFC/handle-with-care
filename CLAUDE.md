@@ -253,6 +253,15 @@ new `wait`-heavy integration tests, not just at the very end.
   `RE_DERIVABLE_STATES` in `package_state_machine.lua`), so
   `debug_set_state({ state = "explosive" })` sticks immediately, the same
   as Heavy/Light.
+- **Producing a hard landing in a test**: post `"test_set_position"` to the
+  player with `{ x = ..., y = ... }` — it teleports the player and forces
+  `grounded = false`, so the next `update()` starts a genuine free-fall
+  from that height. No ordinary jump reaches `heavy_landing_velocity`
+  (400 by default): a normal jump's return speed roughly equals its own
+  launch velocity (320, well under it), and there's no other in-game way
+  yet to gain that much height. Added in phase 8 to test Sleeping's
+  wake-on-impact — see `test/integration/test_sleeping.lua`'s
+  `hard_landing()` helper for the exact fall-height/frame-count math.
 - **A stress value set to exactly the ceiling (100) can transiently dip
   below a threshold one frame later, even though nothing external changed
   it.** `accumulate_continuous_stress` decides whether to accumulate or
@@ -472,7 +481,7 @@ and drafted commit (Conventional Commits + the version shown) — see
 | 5 | Panic | Random impulses + player knockback (done) |
 | 6 | Explosive | `core/explosive.lua` with dual trigger (stress>=100 OR phase timer) from day one (done) |
 | 7 | Magnetized | Hazard attraction within `MAGNET_RADIUS` (done — see the Magnetized note under Testing; real hazard-side wiring deferred to phase 9a) |
-| 8 | Sleeping | Wake-on-impact |
+| 8 | Sleeping | Wake-on-impact (done) |
 | 9a | Hazards + death | Spikes, saws, falling platforms, pits, off-screen check — overlap detection via AABB (see [Known environment limitations](#known-environment-limitations)), not engine physics queries. Also wire Magnetized's attraction (`core/magnetism.lua`, built in phase 7) from the hazard side — each hazard adapter calls `magnetism.attraction_force` against the package's position/state and moves itself. Promote `magnet_radius`/`magnet_strength` to `go.property` **on `package.script`** at that point (a single source of truth describing the package's own field, read by every hazard via `go.get("/package#script", ...)`), not declared per-hazard — the package is what defines the field, not each hazard independently. |
 | 9b | Delivery + win + restart | Delivery zone, win condition, instant restart |
 | 10 | Level 1: Tutorial Soft | First fully playable level, section 11 acceptance checklist |

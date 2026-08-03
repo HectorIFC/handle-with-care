@@ -64,6 +64,7 @@ local STATE_COLORS = {
 	[package_state_machine.HEAVY] = vmath.vector4(0.55, 0.4, 0.25, 1),
 	[package_state_machine.LIGHT] = vmath.vector4(0.6, 0.85, 1, 1),
 	[package_state_machine.MAGNETIZED] = vmath.vector4(0.7, 0.3, 0.9, 1),
+	[package_state_machine.SLEEPING] = vmath.vector4(0.35, 0.35, 0.45, 1),
 }
 local DEFAULT_COLOR = vmath.vector4(1, 1, 1, 1)
 
@@ -265,6 +266,21 @@ function on_message(self, message_id, message)
 		self.stress = stress.apply_jump(self.stress, stress_config(self))
 	elseif message_id == hash("player_landed") then
 		self.stress = stress.apply_heavy_landing(self.stress, stress_config(self))
+		-- PRD 4.4: Sleeping "só muda de estado com impacto forte" — a hard
+		-- landing (the only impact-detection channel that exists before
+		-- hazards arrive in phase 9a) is that impact. wake_on_impact hands
+		-- control back to the stress ladder (STABLE is re-derivable)
+		-- instead of hardcoding "always Nervous" or "always Panic" — the
+		-- current_state go.property mirror is only published by apply_hud
+		-- at the end of update(), after update_from_stress, so the
+		-- intermediate STABLE this line writes is never published as-is:
+		-- update() always re-derives the state from the post-bump stress
+		-- before anything is observable. That re-derivation legitimately
+		-- yields "stable" (not Nervous/Panic) when the 18-point landing
+		-- bump alone stays under nervous_threshold (30) — see
+		-- test_sleeping.lua's "a hard landing wakes the package", which
+		-- wakes at ~17 stress and correctly reports "stable".
+		self.machine = package_state_machine.wake_on_impact(self.machine)
 	elseif message_id == hash("player_changed_direction") then
 		self.stress = stress.apply_direction_change(self.stress, stress_config(self))
 	elseif message_id == hash("test_reset") then

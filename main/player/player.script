@@ -167,6 +167,17 @@ function on_message(self, message_id, message)
 	if message_id == hash("test_set_input") then
 		self.input.move_x = message.move_x or 0
 		self.input.jump_pressed = message.jump_pressed or false
+	elseif message_id == hash("test_set_position") then
+		-- Test-only: teleports the player and forces it airborne, so a
+		-- test can produce a fall tall enough to exceed
+		-- heavy_landing_velocity on impact — no ordinary jump does (a
+		-- normal jump's return speed roughly equals its own launch
+		-- velocity, well under the heavy-landing threshold), and there's
+		-- no in-game way yet to gain that much height otherwise.
+		local pos = go.get_position()
+		go.set_position(vmath.vector3(message.x or pos.x, message.y or pos.y, pos.z))
+		self.state = player_movement.set_grounded(self.state, false)
+		self.grounded = self.state.grounded -- keep the go.property mirror in sync, same as test_reset does
 	elseif message_id == hash("knockback") then
 		self.knockback = knockback.apply(
 			self.knockback,

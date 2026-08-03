@@ -85,6 +85,39 @@ return function()
 		end)
 	end)
 
+	describe("package_state_machine.wake_on_impact", function()
+		test("wakes Sleeping to Stable", function()
+			local state = package_state_machine.set_state(package_state_machine.new(), package_state_machine.SLEEPING)
+			state = package_state_machine.wake_on_impact(state)
+			assert(state.current_state == package_state_machine.STABLE)
+		end)
+
+		test("is a no-op for Stable", function()
+			-- Asserts the exact same table comes back untouched, not just
+			-- current_state == STABLE — that alone can't distinguish a real
+			-- no-op from a broken implementation that unconditionally
+			-- returns {current_state = STABLE} regardless of input.
+			local state = package_state_machine.new()
+			assert(package_state_machine.wake_on_impact(state) == state)
+		end)
+
+		test("does not knock Explosive off its one-way path", function()
+			-- The whole point of an impact event is that it can happen at
+			-- any time — including while a package is already mid-detonation.
+			-- Explosive must stay sticky through it, the same way it's
+			-- immune to update_from_stress (see RE_DERIVABLE_STATES).
+			local state = package_state_machine.set_state(package_state_machine.new(), package_state_machine.EXPLOSIVE)
+			state = package_state_machine.wake_on_impact(state)
+			assert(state.current_state == package_state_machine.EXPLOSIVE)
+		end)
+
+		test("is a no-op for other non-ladder states (e.g. Heavy)", function()
+			local state = package_state_machine.set_state(package_state_machine.new(), package_state_machine.HEAVY)
+			state = package_state_machine.wake_on_impact(state)
+			assert(state.current_state == package_state_machine.HEAVY)
+		end)
+	end)
+
 	describe("package_state_machine.shake_intensity", function()
 		test("zero when Stable", function()
 			local state = { current_state = package_state_machine.STABLE }

@@ -5,8 +5,13 @@
 -- Stable/Nervous/Panic transition automatically from the stress value (see
 -- update_from_stress, driven by core/stress.lua). Heavy/Light/Magnetized/
 -- Sleeping are NOT part of the stress ladder — the PRD triggers them from
--- other conditions (cyclic timers, hazard proximity, impact detection) that
--- later phases (4, 7, 8) will call directly via set_state.
+-- other conditions (cyclic timers, hazard proximity, a level-driven sleep
+-- trigger) that package.script routes through set_state — today only via
+-- its debug_set_state hook; the real entry triggers land with the phase
+-- that needs each one (Magnetized in 9a, Heavy/Light in 13, Sleeping's own
+-- entry in 18's Sleepy Package level). Sleeping's *exit* is the one
+-- already wired to a real trigger: the dedicated wake_on_impact below,
+-- called from a hard landing.
 --
 -- Explosive is a one-way exit from the ladder, reachable from it (stress
 -- crossing explosive_threshold) but never re-derived back down once
@@ -64,9 +69,25 @@ end
 
 -- Directly sets the state, bypassing stress-driven logic. Used by later
 -- phases for triggers that aren't stress-based (Heavy/Light cycles,
--- Magnetized proximity, Sleeping/wake).
+-- Magnetized proximity, Sleeping's own entry) — Sleeping's exit specifically
+-- goes through wake_on_impact below instead, so its no-op-for-every-other-
+-- state guard applies whenever an impact happens, unconditionally.
 function M.set_state(state, new_state)
 	return { current_state = new_state }
+end
+
+-- PRD 4.4: Sleeping exits only on a strong impact, handing control back to
+-- the stress ladder (STABLE is re-derivable) so update_from_stress picks
+-- Nervous/Panic next frame from the impact's own stress bump, rather than
+-- this function hardcoding a destination. No-op for every other state —
+-- in particular Explosive, which must not be knocked off its one-way path
+-- by a hard landing — so the adapter can call this unconditionally on any
+-- impact event, without checking current_state itself first.
+function M.wake_on_impact(state)
+	if state.current_state ~= M.SLEEPING then
+		return state
+	end
+	return { current_state = M.STABLE }
 end
 
 -- Recomputes current_state from `stress` for the states on the stress

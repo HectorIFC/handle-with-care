@@ -20,6 +20,7 @@ local suites = {
 	require "test.integration.test_panic_impulse",
 	require "test.integration.test_explosive",
 	require "test.integration.test_magnetized",
+	require "test.integration.test_sleeping",
 }
 
 function init(self)
