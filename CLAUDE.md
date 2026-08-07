@@ -354,6 +354,30 @@ new `wait`-heavy integration tests, not just at the very end.
   to act as ground through. One slot is enough for this phase's own test
   collection; real multi-hazard levels (phase 10+) will need to revisit
   this if more than one is ever needed under the player at once.
+- **Restart (phase 9b) is broadcast through Defold's input dispatch, not a
+  registry — and that retires the "arbitrary number of instances" problem
+  phase 9a flagged.** Every restorable object (`player`, `package`, each
+  hazard, the delivery zone) calls `acquire_input_focus` and handles the
+  `restart` action itself, **returning false so the action is never
+  consumed**. Defold then delivers it to all of them, so a level can hold
+  any number of hazards and one key press still restores every one, with
+  nobody registered anywhere and no central controller to keep in sync.
+  Consuming the action in `player.script` would silently leave every other
+  object in its end-of-attempt state while only the player reset — if you
+  ever add a new restorable object, the two things it must do are acquire
+  focus and return false. Each object routes the key into the *same*
+  `reset()` its `"reset"`/`"test_reset"` message handler uses, so a real
+  restart and a test reset can never drift apart.
+- **The delivery zone's position in `test.collection` is load-bearing in a
+  way hazards' positions are not.** It sits at (60, 150), far from every
+  column and Y range the other suites touch (their teleports live at
+  x=192..300; the package settles around (200, 68)). A zone the package
+  could drift into would *win the level* mid-test — and since a win freezes
+  `player.script` exactly like death does, every later assertion in that
+  suite would pass or fail for entirely the wrong reason, with no error to
+  point at it. Only `test_delivery.lua` brings the package into the zone,
+  explicitly. This is the same lesson as the falling-platform placement
+  below, with a much larger blast radius.
 - **A hazard placed in the shared `test.collection` can silently break an
   unrelated suite's test if it sits in that suite's fall path** — a new
   variant of the "reset the whole shared fixture" lesson from phase 5/6,
@@ -666,7 +690,7 @@ and drafted commit (Conventional Commits + the version shown) — see
 | 7 | Magnetized | Hazard attraction within `MAGNET_RADIUS` (done — see the Magnetized note under Testing; hazard-side wiring landed in phase 9a's `lethal_hazard.script`) |
 | 8 | Sleeping | Wake-on-impact (done) |
 | 9a | Hazards + death | Spikes, saws, falling platforms, pits, off-screen check (done — see the Hazards note under Testing; also present in `main.collection`, not just the test fixture). Overlap detection is AABB (see [Known environment limitations](#known-environment-limitations)), not engine physics queries. Spikes/saws share one `lethal_hazard.script` (mechanically identical, PRD's visual distinction doesn't exist yet), pull themselves toward a Magnetized package via `core/magnetism.lua` (closing the loop deferred from phase 7), and build stress via `stress.apply_near_hazard` when within `near_margin` even before contact (PRD 4.5's "perto de spike/serra"). Both hazard contact and the pit/off-screen checks cover the package as well as the player (Panic's impulses can separate them). Falling platforms are a second, optional ground-like surface on the player (`has_extra_ground`/`extra_ground`) — a single fixed slot, not a registry; real multi-hazard levels (phase 10+) will need to revisit this. Pits and off-screen are world-bounds checks (`kill_y`, screen dimensions read via `sys.get_config_int`), not per-instance geometry — no camera/scrolling system exists yet to make per-pit rectangles meaningful. |
-| 9b | Delivery + win + restart | Delivery zone, win condition, instant restart |
+| 9b | Delivery + win + restart | Delivery zone, win condition, instant restart (done — `core/delivery.lua` requires full containment, not mere overlap, per PRD 3.4's "dentro"; `delivery_zone.script` checks itself against the package, same inversion as hazards. `won` on `player.script` mirrors `dead`: sticky, freezes `update()`, and whichever landed first wins so a death and a delivery can't both claim the attempt. Restart (PRD 3.5, R) is broadcast through **Defold's input dispatch** rather than a registry — see the note under Testing.) |
 | 10 | Level 1: Tutorial Soft | First fully playable level, section 11 acceptance checklist |
 | 11 | Menu, save/load, progression | Main menu, `core/save.lua` port + localStorage adapter, level unlocks, result screen, pause |
 | 12 | Level 2: Jump Scare | |
@@ -707,6 +731,7 @@ A slice is done only when:
   /player      # .go/.script adapters
   /package
   /hazards
+  /delivery    # delivery zone (win condition)
   /levels      # 1 .collection per game phase
   /ui
   /audio

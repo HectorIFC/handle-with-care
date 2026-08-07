@@ -216,6 +216,9 @@ function init(self)
 	-- already exposes.
 	self.screen_width = sys.get_config_int("display.width", 384)
 	self.screen_height = sys.get_config_int("display.height", 216)
+	-- PRD 3.5: restart is broadcast through Defold's input dispatch rather
+	-- than a registry of objects to notify — see player.script's on_input.
+	msg.post(".", "acquire_input_focus")
 	apply_hud(self)
 end
 
@@ -389,7 +392,7 @@ function on_message(self, message_id, message)
 		self.near_hazard = true
 	elseif message_id == hash("player_died") then
 		self.player_died_count = self.player_died_count + 1
-	elseif message_id == hash("test_reset") then
+	elseif message_id == hash("reset") or message_id == hash("test_reset") then
 		self.machine = package_state_machine.new()
 		self.stress = stress.new()
 		self.panic_impulse = panic_impulse.new()
@@ -442,4 +445,13 @@ function on_message(self, message_id, message)
 		-- always re-derived from stress (see debug_set_state above).
 		self.stress = stress.set(message.value)
 	end
+end
+
+function on_input(self, action_id, action)
+	if action_id == hash("restart") and action.pressed then
+		-- Routed through the same handler the "reset"/"test_reset" messages
+		-- use, so a restart and a test reset can never drift apart.
+		on_message(self, hash("reset"), {})
+	end
+	return false -- never consume: every other object needs to see this too
 end

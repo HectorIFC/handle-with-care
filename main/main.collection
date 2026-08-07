@@ -1,4 +1,42 @@
 name: "main"
+instances {
+  id: "delivery_zone"
+  prototype: "/main/delivery/delivery_zone.go"
+  position {
+    x: 248.0
+    y: 68.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "package"
+      value: "/package#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "half_width"
+      value: "24"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "half_height"
+      value: "24"
+      type: PROPERTY_TYPE_NUMBER
+    }
+  }
+}
 scale_along_z: 0
 instances {
   id: "ground"

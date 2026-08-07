@@ -8,6 +8,7 @@ local function reset_all()
 	msg.post("/package#script", "test_reset")
 	msg.post("/lethal_hazard#script", "test_reset")
 	msg.post("/falling_platform#script", "test_reset")
+	msg.post("/delivery_zone#script", "test_reset")
 	wait.frames(36) -- let the player land
 end
 
@@ -166,11 +167,23 @@ return function()
 		end)
 
 		test("the package staying off-screen too long also kills the player", function()
-			-- Same margins as the player's own equivalent test above.
-			pin_package(200, 5000, 100) -- comfortably under the 120-frame timeout
-			assert(go.get("/player#script", "dead") == false)
-			pin_package(200, 5000, 40) -- crosses it with real margin
-			assert(go.get("/player#script", "dead") == true)
+			-- Margins deliberately well clear of the 120-frame timeout on
+			-- both sides, rather than the 100/+40 this used to sit at. Each
+			-- pin_package() iteration is a real message dispatch plus a frame
+			-- wait, so the package can start accumulating off-screen time a
+			-- frame or two before the loop's own count begins — enough for a
+			-- knife-edge 100 to intermittently read as already-dead. 60 is
+			-- unambiguously under the timeout and 60+90=150 unambiguously
+			-- over it, which is what this test actually means to assert.
+			-- (The exact timeout arithmetic is unit-tested in
+			-- test/unit/test_offscreen_timer.lua, where dt is injected and
+			-- there is no dispatch timing to race.)
+			pin_package(200, 5000, 60)
+			assert(go.get("/player#script", "dead") == false,
+				"package went off-screen for only 60 frames but the player is already dead")
+			pin_package(200, 5000, 90)
+			assert(go.get("/player#script", "dead") == true,
+				"package was off-screen for 150 frames, past the 120-frame timeout, but the player is alive")
 		end)
 
 		test("multiple near_hazard messages in one frame don't stack stress beyond the per-second rate", function()

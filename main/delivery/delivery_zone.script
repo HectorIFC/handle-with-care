@@ -1,0 +1,86 @@
+-- Delivery zone adapter (PRD 3.4: "Entregar o pacote dentro da Zona de
+-- Entrega"). Thin wrapper over core/delivery.lua — it reads live positions
+-- and posts the result, and owns no win logic of its own (rule 1).
+--
+-- Checks itself against the package rather than having the package look for
+-- a zone, the same inversion phase 9a's hazards use and for the same reason:
+-- go.property can't express "some number of other instances", but a zone can
+-- always be handed the one well-known package. Unlike hazards there is only
+-- ever one zone per level, so this costs nothing here.
+
+local delivery = require "main.core.delivery"
+
+go.property("half_width", 20)
+go.property("half_height", 20)
+-- Must be overridden per collection (component_properties) to point at this
+-- level's player/package instances — see CLAUDE.md rule 5.
+go.property("player", msg.url())
+go.property("package", msg.url())
+
+-- Mirrors the win the same way player.script mirrors `dead`, so tests and
+-- future observers (the result screen in phase 11) can read it synchronously
+-- via go.get instead of racing a message.
+go.property("delivered", false)
+
+function init(self)
+	self.initial_position = go.get_position()
+	-- PRD 3.5: restart is broadcast through Defold's input dispatch rather
+	-- than a registry of objects to notify — see player.script's on_input
+	-- for why. Every restorable object acquires focus and resets itself.
+	msg.post(".", "acquire_input_focus")
+end
+
+function update(self, dt)
+	-- One-way, like death: once the level is won it stays won until an
+	-- explicit reset. Without this the zone would keep re-posting
+	-- package_delivered every frame the package sits in it.
+	if self.delivered then
+		return
+	end
+
+	local pos = go.get_position()
+	local zone = {
+		x = pos.x,
+		y = pos.y,
+		half_width = self.half_width,
+		half_height = self.half_height,
+	}
+
+	local package_pos = go.get_position(self.package)
+	local package_rect = {
+		x = package_pos.x,
+		y = package_pos.y,
+		half_width = go.get(self.package, "half_width"),
+		half_height = go.get(self.package, "half_height"),
+	}
+
+	-- Both disqualifiers are read straight from the two owners rather than
+	-- tracked here, so there is one source of truth for each (rule 5).
+	local package_state = {
+		detonated = go.get(self.package, "detonated"),
+		player_dead = go.get(self.player, "dead"),
+	}
+
+	if delivery.is_delivered(package_rect, zone, package_state) then
+		self.delivered = true
+		msg.post(self.player, "package_delivered")
+	end
+end
+
+local function reset(self)
+	self.delivered = false
+	go.set_position(self.initial_position)
+end
+
+function on_input(self, action_id, action)
+	if action_id == hash("restart") and action.pressed then
+		reset(self)
+	end
+	return false -- never consume: every other object needs to see this too
+end
+
+function on_message(self, message_id, message)
+	if message_id == hash("reset") or message_id == hash("test_reset") then
+		reset(self)
+	end
+end

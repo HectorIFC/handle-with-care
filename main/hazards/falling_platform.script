@@ -30,6 +30,9 @@ go.property("is_falling", false)
 function init(self)
 	self.initial_position = go.get_position()
 	self.platform = falling_platform.new()
+	-- PRD 3.5: restart is broadcast through Defold's input dispatch rather
+	-- than a registry of hazards to notify — see player.script's on_input.
+	msg.post(".", "acquire_input_focus")
 end
 
 function update(self, dt)
@@ -52,10 +55,21 @@ function update(self, dt)
 	end
 end
 
+local function reset(self)
+	self.platform = falling_platform.new()
+	self.is_falling = false
+	go.set_position(self.initial_position)
+end
+
+function on_input(self, action_id, action)
+	if action_id == hash("restart") and action.pressed then
+		reset(self)
+	end
+	return false -- never consume: every other object needs to see this too
+end
+
 function on_message(self, message_id, message)
-	if message_id == hash("test_reset") then
-		self.platform = falling_platform.new()
-		self.is_falling = false
-		go.set_position(self.initial_position)
+	if message_id == hash("reset") or message_id == hash("test_reset") then
+		reset(self)
 	end
 end

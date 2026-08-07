@@ -66,11 +66,16 @@ go.property("package_exploded_count", 0)
 -- PRD 3.3/4.7's fail conditions, unified into one sticky flag: hazard
 -- contact, a pit/off-world fall, the package exploding, or staying fully
 -- off-screen too long all funnel through die() below. Once true, update()
--- freezes everything at the position/pose death happened at — no restart
--- system exists yet (phase 9b), so freezing is this phase's only visible
--- consequence, the same forward-declared-with-a-visible-signal approach
--- Explosive's "BOOM" HUD suffix used in phase 6.
+-- freezes everything at the position/pose death happened at until the
+-- player restarts (PRD 3.5, R).
 go.property("dead", false)
+
+-- PRD 3.4's win condition, posted by delivery_zone.script. Sticky and
+-- freezing for the same reason `dead` is: the attempt is over either way,
+-- and the only thing that clears it is a restart. Kept as its own flag
+-- rather than reusing `dead` so a result screen (phase 11) can tell a win
+-- from a loss without a second signal.
+go.property("won", false)
 
 -- PRD 3.3/4.7: "queda em buraco" — falling below this Y counts as a pit
 -- death. A single world-bottom threshold rather than per-pit geometry:
@@ -126,6 +131,27 @@ local function die(self)
 	msg.post(self.package, "player_died")
 end
 
+-- Restores the whole attempt to its starting state (PRD 3.5: "quase
+-- instantâneo... reinicia do início"). Shared by the R key and by tests'
+-- "test_reset", so a restart and a test reset can never drift apart — a
+-- field added to one is automatically cleared by the other.
+local function reset(self)
+	self.state = player_movement.new()
+	self.input = { move_x = 0, jump_pressed = false }
+	self.move_left_held = false
+	self.move_right_held = false
+	self.facing = self.state.facing
+	self.grounded = self.state.grounded
+	self.previous_facing = self.state.facing
+	self.just_landed = false
+	self.knockback = knockback.new()
+	self.package_exploded_count = 0
+	self.dead = false
+	self.won = false
+	self.offscreen = offscreen_timer.new()
+	go.set_position(self.initial_position)
+end
+
 local function apply_animation(self)
 	local anim = self.just_landed and "land" or player_movement.animation_state(self.state)
 	if anim ~= self.current_animation then
@@ -157,9 +183,9 @@ function init(self)
 end
 
 function update(self, dt)
-	-- PRD 3.3/4.7: once dead, freeze exactly where/how it happened — no
-	-- restart system exists yet (phase 9b) to do anything else with it.
-	if self.dead then
+	-- PRD 3.3/4.7 and 3.4: the attempt is over, win or lose — freeze exactly
+	-- where/how it ended until the player restarts (PRD 3.5).
+	if self.dead or self.won then
 		return
 	end
 
@@ -248,10 +274,19 @@ function on_input(self, action_id, action)
 	elseif action_id == hash("jump") and action.pressed then
 		self.input.jump_pressed = true
 		return true
+	elseif action_id == hash("restart") and action.pressed then
+		-- PRD 3.5. Deliberately NOT consumed (falls through to `return
+		-- false` below): every object that needs restoring — the package,
+		-- each hazard, the delivery zone — acquires input focus and handles
+		-- this same action itself. Defold's input dispatch is the broadcast
+		-- here, which is what lets a restart reach an arbitrary number of
+		-- hazards without any of them being registered anywhere. Consuming
+		-- it would silently leave every other object in its end-of-attempt
+		-- state while only the player reset.
+		reset(self)
 	end
-	-- "restart"/"pause" are bound (see input/game.input_binding) but not
-	-- handled here — left unconsumed so they propagate to the level
-	-- controller (phase 9b) and pause menu (phase 11) once those exist.
+	-- "pause" is bound (see input/game.input_binding) but not handled here —
+	-- left unconsumed for the pause menu (phase 11) once it exists.
 	return false
 end
 
@@ -289,19 +324,15 @@ function on_message(self, message_id, message)
 		-- package explicitly for both) — same unification as
 		-- package_exploded above.
 		die(self)
-	elseif message_id == hash("test_reset") then
-		self.state = player_movement.new()
-		self.input = { move_x = 0, jump_pressed = false }
-		self.move_left_held = false
-		self.move_right_held = false
-		self.facing = self.state.facing
-		self.grounded = self.state.grounded
-		self.previous_facing = self.state.facing
-		self.just_landed = false
-		self.knockback = knockback.new()
-		self.package_exploded_count = 0
-		self.dead = false
-		self.offscreen = offscreen_timer.new()
-		go.set_position(self.initial_position)
+	elseif message_id == hash("package_delivered") then
+		-- PRD 3.4, posted by delivery_zone.script. Guarded like die(): the
+		-- zone is already one-way, but a win arriving after a death must not
+		-- overwrite the loss (or vice versa) — whichever landed first is the
+		-- outcome of the attempt.
+		if not self.dead and not self.won then
+			self.won = true
+		end
+	elseif message_id == hash("reset") or message_id == hash("test_reset") then
+		reset(self)
 	end
 end
