@@ -48,6 +48,18 @@ return function()
 		end)
 	end)
 
+	describe("stress.apply_near_hazard", function()
+		test("scales with dt at the default per-second rate", function()
+			local state = stress.apply_near_hazard(stress.new(), 0.5)
+			assert(math.abs(state.value - 6) < 1e-9) -- 12/sec * 0.5s
+		end)
+
+		test("respects a custom config rate", function()
+			local state = stress.apply_near_hazard(stress.new(), 1, { stress_near_hazard_per_sec = 20 })
+			assert(state.value == 20)
+		end)
+	end)
+
 	describe("stress.set", function()
 		test("builds a state at the given value", function()
 			assert(stress.set(42).value == 42)

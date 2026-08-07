@@ -66,6 +66,16 @@ instances {
       value: "/package#script"
       type: PROPERTY_TYPE_URL
     }
+    properties {
+      id: "has_extra_ground"
+      value: "true"
+      type: PROPERTY_TYPE_BOOLEAN
+    }
+    properties {
+      id: "extra_ground"
+      value: "/falling_platform#script"
+      type: PROPERTY_TYPE_URL
+    }
   }
 }
 instances {
@@ -74,6 +84,57 @@ instances {
   position {
     x: 200.0
     y: 112.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+  }
+}
+instances {
+  id: "lethal_hazard"
+  prototype: "/main/hazards/lethal_hazard.go"
+  position {
+    x: 300.0
+    y: 56.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "package"
+      value: "/package#script"
+      type: PROPERTY_TYPE_URL
+    }
+  }
+}
+instances {
+  id: "falling_platform"
+  prototype: "/main/hazards/falling_platform.go"
+  position {
+    x: 250.0
+    y: 150.0
     z: 0.0
   }
   rotation {

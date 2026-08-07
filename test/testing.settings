@@ -1,2 +1,5 @@
 [bootstrap]
 main_collection = /test/test.collectionc
+
+[engine]
+run_while_iconified = 1

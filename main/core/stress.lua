@@ -7,8 +7,8 @@
 -- bullet, and separately lists "queda de altura média/alta" — this module
 -- covers both with a single apply_heavy_landing, since impact velocity at
 -- landing is a fair proxy for fall severity regardless of whether a jump
--- preceded it. "Perto de spike/serra" (near a hazard) isn't wired until
--- phase 9a adds hazards to react to.
+-- preceded it. "Perto de spike/serra" (near a hazard) is apply_near_hazard
+-- below, wired in phase 9a once hazards exist to be near.
 
 local M = {}
 
@@ -20,6 +20,7 @@ local DEFAULT_STRESS_HEAVY_LANDING = 18
 local DEFAULT_STRESS_DIRECTION_CHANGE = 8
 local DEFAULT_STRESS_PANIC_PER_SEC = 14
 local DEFAULT_STRESS_DECAY_SAFE_PER_SEC = 6
+local DEFAULT_STRESS_NEAR_HAZARD_PER_SEC = 12
 
 local function clamp(value, min_value, max_value)
 	if value < min_value then
@@ -72,6 +73,17 @@ function M.decay_safe(state, dt, config)
 	config = config or {}
 	local rate = config.stress_decay_safe_per_sec or DEFAULT_STRESS_DECAY_SAFE_PER_SEC
 	return apply(state, -rate * dt)
+end
+
+-- Per-second accumulation while a hazard is nearby (PRD 4.5: "perto de
+-- spike/serra"). Separate from decay_safe/apply_panic — a hazard being
+-- "near" (not yet touching) doesn't change whether the package is
+-- grounded or in Panic, so package.script accumulates this on top of
+-- whichever of those already applied this frame, not instead of it.
+function M.apply_near_hazard(state, dt, config)
+	config = config or {}
+	local rate = config.stress_near_hazard_per_sec or DEFAULT_STRESS_NEAR_HAZARD_PER_SEC
+	return apply(state, rate * dt)
 end
 
 return M

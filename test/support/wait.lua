@@ -8,6 +8,22 @@ local M = {}
 -- Coroutines waiting on M.frames(), ticked down by M.tick().
 local pending_frame_waits = {}
 
+-- Monotonic count of coroutines resumed, for the runner's stall watchdog.
+-- Deliberately observed from test_runner.script's own update() rather than
+-- only from inside tick(): a stall was reproduced in which tick()'s own
+-- detector never fired at all over ~57,000 frames, which only makes sense
+-- if tick() itself was not running — so the watchdog must live outside it
+-- to be able to tell those two cases apart.
+local total_resumes = 0
+
+-- Returns the resume counter and how many coroutines are parked, so the
+-- runner can distinguish "update() stopped being called" (nothing prints at
+-- all) from "update() runs but nothing is ever resumed" (counter frozen)
+-- from "resumed every frame without progressing" (counter climbing).
+function M.stats()
+	return total_resumes, #pending_frame_waits
+end
+
 -- Waits for exactly `n` real engine update() ticks, regardless of each
 -- frame's dt. Prefer this over M.seconds() for anything that depends on a
 -- specific number of simulation steps (e.g. lerp convergence): M.seconds()
@@ -44,8 +60,26 @@ function M.tick()
 		end
 	end
 	pending_frame_waits = still_pending
+
 	for _, co in ipairs(due) do
-		coroutine.resume(co)
+		total_resumes = total_resumes + 1
+		local ok, err = coroutine.resume(co)
+		if not ok then
+			-- Never discard this result. Lua 5.1's pcall can't yield, so
+			-- deftest's own pcall/resume only ever wraps a test body up to
+			-- its FIRST M.frames() call — everything after that resumes
+			-- here instead. Swallowing the error would both hide it and
+			-- leave deftest waiting forever on a coroutine that is already
+			-- dead, turning an ordinary test failure into a silent,
+			-- permanent hang of the whole suite (which is exactly what it
+			-- did: the run stalled mid-suite at ~1.5% CPU with a healthy
+			-- engine and not one line of error output). Exiting non-zero
+			-- here matches deftest's own os.exit-on-failure contract, so
+			-- run_tests.sh still reports the failure through its exit code.
+			print("ERROR:TEST: " .. tostring(err))
+			print(debug.traceback(co))
+			os.exit(1)
+		end
 	end
 end
 

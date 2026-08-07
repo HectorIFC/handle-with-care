@@ -112,7 +112,97 @@ java -jar "$BOB" --variant=headless --settings test/testing.settings resolve bui
 
 echo "Running tests..."
 # deftest.run() calls os.exit(0) on success and os.exit(1) on any failure or
-# error, so dmengine_headless's own exit code IS the test result. `exec`
-# replaces this shell with dmengine_headless so that code becomes this
-# script's exit code directly.
-exec "$DMENGINE"
+# error, so dmengine_headless's own exit code IS the test result, and this
+# script propagates it unchanged.
+#
+# dmengine_headless wedges intermittently (~1 run in 3 on arm64-macos): the
+# process stays alive and its main loop keeps sleeping in the normal frame
+# limiter, but the engine stops running the update phase entirely — no game
+# object updates, and test_runner.script's own unconditional heartbeat stops
+# printing, so no test ever completes and this script would otherwise wait
+# forever. It is NOT caused by this project's code: it reproduces at the
+# boundary of phase 1/2 suites that have been stable for many phases, with a
+# healthy engine and zero errors logged. See CLAUDE.md for the full
+# investigation and the hypotheses already ruled out.
+#
+# Retrying is safe here specifically because it only ever retries a run that
+# produced NO result. A genuine pass (0) or genuine test failure (1) is
+# returned immediately and never retried, so this cannot mask a real failing
+# test (CLAUDE.md architecture rule 8) — it only distinguishes "the engine
+# died without answering" from "the tests answered".
+# Backstop only: caps an attempt that wedges (or fails to boot) BEFORE
+# test_runner.script ever writes a heartbeat, which the idle check below
+# cannot see. ~1.5x a healthy ~102s run, and it must grow as the suite grows
+# — export STALL_TIMEOUT rather than editing this default when running on a
+# slower machine or a loaded CI runner.
+STALL_TIMEOUT="${STALL_TIMEOUT:-150}"
+MAX_ATTEMPTS="${MAX_ATTEMPTS:-5}"
+# The primary detector: how long test_runner.script's file heartbeat may stop
+# advancing before the run is treated as wedged. This is what keeps a wedge
+# cheap — caught in ~15s instead of burning the whole STALL_TIMEOUT, which
+# matters a lot given how often attempts wedge. It watches a file rather than
+# stdout because the engine block-buffers its output when that output is not
+# a terminal, so a perfectly healthy run can look silent for tens of seconds.
+HEARTBEAT_IDLE="${HEARTBEAT_IDLE:-15}"
+
+HEARTBEAT_FILE="$(mktemp "${TMPDIR:-/tmp}/hwc_heartbeat.XXXXXX")"
+export HWC_HEARTBEAT_FILE="$HEARTBEAT_FILE"
+trap 'rm -f "$HEARTBEAT_FILE"' EXIT
+
+attempt=1
+while :; do
+	: > "$HEARTBEAT_FILE"
+	attempt_started="$SECONDS"
+	"$DMENGINE" &
+	engine_pid=$!
+	(
+		waited=0
+		idle=0
+		last=""
+		while kill -0 "$engine_pid" 2>/dev/null; do
+			sleep 3
+			waited=$((waited + 3))
+			current="$(cat "$HEARTBEAT_FILE" 2>/dev/null || true)"
+			if [ -n "$current" ] && [ "$current" = "$last" ]; then
+				idle=$((idle + 3))
+			else
+				idle=0
+				last="$current"
+			fi
+			# The idle check needs the heartbeat to have started at all, so
+			# STALL_TIMEOUT stays as the backstop for a run that wedges (or
+			# never boots) before writing even once.
+			if [ "$idle" -ge "$HEARTBEAT_IDLE" ] || [ "$waited" -ge "$STALL_TIMEOUT" ]; then
+				kill -9 "$engine_pid" 2>/dev/null || true
+				exit 0
+			fi
+		done
+	) &
+	watchdog_pid=$!
+
+	engine_code=0
+	wait "$engine_pid" || engine_code=$?
+
+	kill "$watchdog_pid" 2>/dev/null || true
+	wait "$watchdog_pid" 2>/dev/null || true
+
+	# deftest.run() calls os.exit(0) on success and os.exit(1) on any failure
+	# or error, so these two are the real test result and are final.
+	if [ "$engine_code" -eq 0 ] || [ "$engine_code" -eq 1 ]; then
+		exit "$engine_code"
+	fi
+
+	# Anything else means the watchdog killed a wedged engine (128+9=137).
+	# Report the attempt's real duration rather than a fixed number: a wedge
+	# is normally caught by the heartbeat in ~HEARTBEAT_IDLE seconds, and
+	# only falls back to the much longer STALL_TIMEOUT when it wedged before
+	# writing a heartbeat at all — telling those apart matters if this ever
+	# needs debugging again.
+	attempt_seconds=$((SECONDS - attempt_started))
+	if [ "$attempt" -ge "$MAX_ATTEMPTS" ]; then
+		echo "Engine wedged (no test result) on all ${MAX_ATTEMPTS} attempts; giving up." >&2
+		exit 1
+	fi
+	echo "Engine wedged (no test result) after ${attempt_seconds}s; retrying (attempt $((attempt + 1))/${MAX_ATTEMPTS})..." >&2
+	attempt=$((attempt + 1))
+done

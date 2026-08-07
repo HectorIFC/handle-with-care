@@ -9,3 +9,4 @@ build/
 # Editor / OS cruft
 .vscode/
 *.swp
+*.txt

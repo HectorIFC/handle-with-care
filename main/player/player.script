@@ -1,5 +1,7 @@
 local player_movement = require "main.core.player_movement"
 local knockback = require "main.core.knockback"
+local hazards = require "main.core.hazards"
+local offscreen_timer = require "main.core.offscreen_timer"
 
 go.property("move_speed", 90)
 go.property("gravity", -900)
@@ -12,11 +14,23 @@ go.property("half_height", 8)
 -- isolated, from-scratch reproduction) to never report a hit under this
 -- project's headless test environment on this platform, so gameplay-
 -- critical ground detection cannot depend on them — see CLAUDE.md. These
--- properties describe the single ground platform's rectangle; a real
--- multi-platform/hazard registry arrives in phase 9a.
+-- properties describe the single main ground platform's rectangle; a
+-- falling platform (phase 9a) is a second, optional ground-like surface,
+-- see has_extra_ground/extra_ground below.
 go.property("ground_x_min", 128)
 go.property("ground_x_max", 256)
 go.property("ground_y_top", 48)
+
+-- One additional ground-like surface a level can wire in via
+-- component_properties (a falling platform, see main/hazards/
+-- falling_platform.script) — has_extra_ground gates it since an empty
+-- msg.url() isn't a reliable "unset" sentinel to compare against. A
+-- single optional slot, not a dynamic list: this project has no object
+-- registry (Defold's go.property can't express "an arbitrary number of
+-- other instances"), and real multi-hazard levels don't arrive until
+-- phase 10+ — revisit then if more than one is ever needed at once.
+go.property("has_extra_ground", false)
+go.property("extra_ground", msg.url())
 
 -- Mirrors self.state.facing/grounded so other objects (the package) can
 -- read them synchronously via go.get(player_url, ...) — the same
@@ -47,8 +61,28 @@ go.property("knockback_damping", 0.85)
 -- A count, not a latch: a test covering re-arm (detonate, reset, detonate
 -- again) needs to see the SECOND delivery too, not just "at least once
 -- ever" — a boolean that's only ever set true can't tell those apart.
--- No real reaction to it yet — death/restart lands with phase 9a/9b.
 go.property("package_exploded_count", 0)
+
+-- PRD 3.3/4.7's fail conditions, unified into one sticky flag: hazard
+-- contact, a pit/off-world fall, the package exploding, or staying fully
+-- off-screen too long all funnel through die() below. Once true, update()
+-- freezes everything at the position/pose death happened at — no restart
+-- system exists yet (phase 9b), so freezing is this phase's only visible
+-- consequence, the same forward-declared-with-a-visible-signal approach
+-- Explosive's "BOOM" HUD suffix used in phase 6.
+go.property("dead", false)
+
+-- PRD 3.3/4.7: "queda em buraco" — falling below this Y counts as a pit
+-- death. A single world-bottom threshold rather than per-pit geometry:
+-- this project has no camera/scrolling system yet, so "fell into a pit"
+-- and "fell off the bottom of the world" are the same event for now (see
+-- core/hazards.below_kill_plane).
+go.property("kill_y", -20)
+
+-- PRD 3.3: "pacote fugiu da tela" — no PRD-given threshold for "too long"
+-- exists; matches core/offscreen_timer.lua's own DEFAULT_TIMEOUT, exposed
+-- here as the tunable per rule 5.
+go.property("offscreen_timeout", 2.0)
 
 -- Heavy/Light change the package's mass, which drags on the player's own
 -- speed/jump/gravity (PRD 4.6) — read synchronously via go.get, same as
@@ -66,6 +100,30 @@ end
 
 local function ground_rect(self)
 	return { x_min = self.ground_x_min, x_max = self.ground_x_max, y_top = self.ground_y_top }
+end
+
+-- The extra ground slot's rect, converted from its live center position
+-- (it can move — a falling platform drops) into the same static
+-- { x_min, x_max, y_top } shape resting_y_on_ground expects. Read fresh
+-- every frame, unlike the main ground_rect's fixed go.property values.
+local function extra_ground_rect(self)
+	local pos = go.get_position(self.extra_ground)
+	local half_width = go.get(self.extra_ground, "half_width")
+	local half_height = go.get(self.extra_ground, "half_height")
+	return { x_min = pos.x - half_width, x_max = pos.x + half_width, y_top = pos.y + half_height }
+end
+
+-- Unifies every PRD 3.3/4.7 fail condition (hazard contact, pit/off-world
+-- fall, the package exploding, staying off-screen too long) into one
+-- sticky flag and a single forward-declared message — mirrors
+-- package_exploded's own no-listener-yet convention (phase 9b is the
+-- real consumer).
+local function die(self)
+	if self.dead then
+		return
+	end
+	self.dead = true
+	msg.post(self.package, "player_died")
 end
 
 local function apply_animation(self)
@@ -87,11 +145,24 @@ function init(self)
 	self.grounded = self.state.grounded
 	self.previous_facing = self.state.facing
 	self.knockback = knockback.new()
+	self.offscreen = offscreen_timer.new()
+	-- Read game.project's actual configured display size rather than
+	-- duplicating it as a separate tunable default that could drift from
+	-- it (rule 5) — sys.get_config_int is the single source of truth,
+	-- shared with whatever the engine is actually rendering at.
+	self.screen_width = sys.get_config_int("display.width", 384)
+	self.screen_height = sys.get_config_int("display.height", 216)
 	msg.post(".", "acquire_input_focus")
 	apply_animation(self)
 end
 
 function update(self, dt)
+	-- PRD 3.3/4.7: once dead, freeze exactly where/how it happened — no
+	-- restart system exists yet (phase 9b) to do anything else with it.
+	if self.dead then
+		return
+	end
+
 	local was_grounded = self.state.grounded
 	local jumped_this_frame = was_grounded and self.input.jump_pressed
 
@@ -107,6 +178,15 @@ function update(self, dt)
 
 	local grounded = false
 	local resting_y = player_movement.resting_y_on_ground(target_x, self.half_width, pos.y, target_y, self.half_height, ground_rect(self))
+	-- is_falling is specific to falling_platform.script (the only thing
+	-- extra_ground points at today) — an accelerating fall always
+	-- eventually re-meets a constant-velocity one, so relying on geometry
+	-- alone to "stop matching" isn't enough once a platform is falling;
+	-- see falling_platform.script's own comment for the chase-cycle this
+	-- explicit exclusion prevents.
+	if not resting_y and self.has_extra_ground and not go.get(self.extra_ground, "is_falling") then
+		resting_y = player_movement.resting_y_on_ground(target_x, self.half_width, pos.y, target_y, self.half_height, extra_ground_rect(self))
+	end
 	if resting_y then
 		target_y = resting_y
 		grounded = true
@@ -127,6 +207,18 @@ function update(self, dt)
 	if self.facing ~= self.previous_facing then
 		msg.post(self.package, "player_changed_direction")
 		self.previous_facing = self.facing
+	end
+
+	if hazards.below_kill_plane(target_y, self.kill_y) then
+		die(self)
+	end
+
+	local self_rect = { x = target_x, y = target_y, half_width = self.half_width, half_height = self.half_height }
+	local is_offscreen = hazards.fully_offscreen(self_rect, self.screen_width, self.screen_height)
+	local offscreen_died
+	self.offscreen, offscreen_died = offscreen_timer.update(self.offscreen, is_offscreen, dt, { timeout = self.offscreen_timeout })
+	if offscreen_died then
+		die(self)
 	end
 
 	apply_animation(self)
@@ -186,6 +278,17 @@ function on_message(self, message_id, message)
 		)
 	elseif message_id == hash("package_exploded") then
 		self.package_exploded_count = self.package_exploded_count + 1
+		-- PRD 4.7: the package exploding is one of the attempt's fail
+		-- conditions — the player never drops the package, so its death
+		-- kills the player too (see die()'s unified-flag comment).
+		die(self)
+	elseif message_id == hash("hazard_hit") then
+		die(self)
+	elseif message_id == hash("package_died") then
+		-- The package's own pit/off-screen death (PRD 3.3/4.7 name the
+		-- package explicitly for both) — same unification as
+		-- package_exploded above.
+		die(self)
 	elseif message_id == hash("test_reset") then
 		self.state = player_movement.new()
 		self.input = { move_x = 0, jump_pressed = false }
@@ -197,6 +300,8 @@ function on_message(self, message_id, message)
 		self.just_landed = false
 		self.knockback = knockback.new()
 		self.package_exploded_count = 0
+		self.dead = false
+		self.offscreen = offscreen_timer.new()
 		go.set_position(self.initial_position)
 	end
 end

@@ -3,6 +3,8 @@ local package_state_machine = require "main.core.package_state_machine"
 local stress = require "main.core.stress"
 local panic_impulse = require "main.core.panic_impulse"
 local explosive = require "main.core.explosive"
+local hazards = require "main.core.hazards"
+local offscreen_timer = require "main.core.offscreen_timer"
 
 go.property("offset_x", 8)
 go.property("offset_y", 12)
@@ -11,6 +13,24 @@ go.property("velocity_damping", 0.85)
 -- Must be overridden per collection (component_properties) to point at the
 -- player instance this package is attached to — see CLAUDE.md rule 5.
 go.property("player", msg.url())
+
+-- The package's own hitbox for hazard overlap checks (phase 9a) — smaller
+-- than the player's (half_width/half_height 8), matching PRD 7.1's 16x16/
+-- 20x20 package art versus the player's 24x24. Exposed here (rather than
+-- guessed by each hazard adapter) so the package stays the single source
+-- of truth for its own size, the same reasoning as every other package
+-- tunable (rule 5).
+go.property("half_width", 6)
+go.property("half_height", 6)
+
+-- PRD 4.4/4.8's Magnetized field, describing the package's own attraction
+-- (not each hazard's) — a single source of truth every hazard adapter
+-- reads via go.get("/package#script", ...) instead of guessing its own
+-- copy, per rule 5. Defaults match core/magnetism.lua's own (radius from
+-- PRD 4.8's MAGNET_RADIUS; strength is this project's own initial guess,
+-- no PRD value exists, see magnetism.lua).
+go.property("magnet_radius", 95)
+go.property("magnet_strength", 150)
 
 go.property("nervous_threshold", 30)
 go.property("panic_threshold", 70)
@@ -25,6 +45,7 @@ go.property("stress_heavy_landing", 18)
 go.property("stress_direction_change", 8)
 go.property("stress_panic_per_sec", 14)
 go.property("stress_decay_safe_per_sec", 6)
+go.property("stress_near_hazard_per_sec", 12)
 
 go.property("heavy_mass", 2.5)
 go.property("light_mass", 0.4)
@@ -49,6 +70,12 @@ go.property("panic_vertical_max", 160)
 go.property("current_state", hash("stable"))
 go.property("current_stress", 0)
 go.property("mass", 1.0)
+-- Mirrors receipt of the player's "player_died" message (PRD 3.3), the
+-- same reasoning as player.script's own package_exploded_count mirror: a
+-- count, not a latch, since a test could need to see more than one death
+-- (e.g. reset and re-trigger) and a boolean can't distinguish that from
+-- "at least once ever".
+go.property("player_died_count", 0)
 -- Sticky, not a one-shot event: stays true after detonation so tests and
 -- manual checks can just wait and read it, without needing to catch the
 -- exact frame the timer crossed zero. Cleared again (with the timer
@@ -106,6 +133,7 @@ local function stress_config(self)
 		stress_direction_change = self.stress_direction_change,
 		stress_panic_per_sec = self.stress_panic_per_sec,
 		stress_decay_safe_per_sec = self.stress_decay_safe_per_sec,
+		stress_near_hazard_per_sec = self.stress_near_hazard_per_sec,
 	}
 end
 
@@ -141,6 +169,18 @@ local function accumulate_continuous_stress(self, dt)
 	elseif go.get(self.player, "grounded") then
 		self.stress = stress.decay_safe(self.stress, dt, stress_config(self))
 	end
+
+	-- PRD 4.5: "perto de spike/serra" builds stress on top of whatever
+	-- else applied above, not instead of it — being near a hazard doesn't
+	-- change whether the package is grounded or in Panic. self.near_hazard
+	-- is a per-frame latch (see on_message's "near_hazard" branch), not a
+	-- per-message dt accumulation: each hazard within range posts once a
+	-- frame regardless of how many hazards there are, so N hazards would
+	-- otherwise multiply this to N times stress_near_hazard_per_sec.
+	if self.near_hazard then
+		self.stress = stress.apply_near_hazard(self.stress, dt, stress_config(self))
+		self.near_hazard = false
+	end
 end
 
 local function apply_hud(self)
@@ -160,15 +200,35 @@ end
 function init(self)
 	self.time = 0
 	local pos = go.get_position()
+	self.initial_position = pos
 	self.physics = package_physics.new(pos.x, pos.y)
 	self.machine = package_state_machine.new()
 	self.stress = stress.new()
 	self.panic_impulse = panic_impulse.new()
 	self.explosive = explosive.new()
+	self.offscreen = offscreen_timer.new()
+	self.near_hazard = false
+	-- Read game.project's actual configured display size directly, the
+	-- same way player.script does — both independently reading the one
+	-- authoritative config key isn't rule-5 duplication (that's about not
+	-- hardcoding the same VALUE twice); it just means neither adapter
+	-- depends on the other's internal fields for something Defold itself
+	-- already exposes.
+	self.screen_width = sys.get_config_int("display.width", 384)
+	self.screen_height = sys.get_config_int("display.height", 216)
 	apply_hud(self)
 end
 
 function update(self, dt)
+	-- Mirrors player.script's own dead freeze: once the player is gone,
+	-- the package shouldn't keep accumulating stress (a corpse sitting
+	-- next to a hazard would otherwise still build near_hazard stress
+	-- forever and eventually detonate) or keep re-posting package_died
+	-- every frame it happens to still be below kill_y/off-screen.
+	if go.get(self.player, "dead") then
+		return
+	end
+
 	self.time = self.time + dt
 
 	accumulate_continuous_stress(self, dt)
@@ -258,11 +318,44 @@ function update(self, dt)
 	local pos = go.get_position()
 	go.set_position(vmath.vector3(self.physics.position_x, self.physics.position_y, pos.z))
 
+	-- PRD 3.3/4.7 name the PACKAGE explicitly ("pacote fugiu da tela",
+	-- "condições de morte do pacote") — Panic's own impulses can separate
+	-- it meaningfully from the player, so checking only the player's
+	-- position (player.script has its own, identical-shaped checks)
+	-- isn't equivalent. kill_y/offscreen_timeout are read from the
+	-- player rather than duplicated here — one source of truth for a
+	-- design tunable, per rule 5 (screen dimensions are a platform config
+	-- read directly above, not a design tunable, so no sharing needed).
+	local package_rect = {
+		x = self.physics.position_x,
+		y = self.physics.position_y,
+		half_width = self.half_width,
+		half_height = self.half_height,
+	}
+	local package_died = hazards.below_kill_plane(self.physics.position_y, go.get(self.player, "kill_y"))
+	local is_offscreen = hazards.fully_offscreen(package_rect, self.screen_width, self.screen_height)
+	local offscreen_died
+	self.offscreen, offscreen_died = offscreen_timer.update(self.offscreen, is_offscreen, dt, { timeout = go.get(self.player, "offscreen_timeout") })
+	if package_died or offscreen_died then
+		msg.post(self.player, "package_died")
+	end
+
 	apply_hud(self)
 end
 
 function on_message(self, message_id, message)
-	if message_id == hash("player_jumped") then
+	if message_id == hash("test_set_position") then
+		-- Test-only: overrides the physics-driven position directly (not
+		-- just go.set_position) so the very next update()'s pit/off-screen
+		-- checks see the overridden value before package_physics.update()
+		-- lerps toward the player+offset target again — lets a test drive
+		-- the package somewhere dangerous independently of the player, to
+		-- exercise the package's OWN pit/off-screen checks in isolation.
+		self.physics.position_x = message.x or self.physics.position_x
+		self.physics.position_y = message.y or self.physics.position_y
+		local pos = go.get_position()
+		go.set_position(vmath.vector3(self.physics.position_x, self.physics.position_y, pos.z))
+	elseif message_id == hash("player_jumped") then
 		self.stress = stress.apply_jump(self.stress, stress_config(self))
 	elseif message_id == hash("player_landed") then
 		self.stress = stress.apply_heavy_landing(self.stress, stress_config(self))
@@ -283,17 +376,48 @@ function on_message(self, message_id, message)
 		self.machine = package_state_machine.wake_on_impact(self.machine)
 	elseif message_id == hash("player_changed_direction") then
 		self.stress = stress.apply_direction_change(self.stress, stress_config(self))
+	elseif message_id == hash("near_hazard") then
+		-- Posted every frame a hazard is within its own near_margin of the
+		-- player or package (see lethal_hazard.script) — a continuous,
+		-- frequent signal, the same shape as knockback's per-impulse
+		-- messages, just repurposed here since the package has no list of
+		-- hazards to poll itself. Only latches a flag rather than applying
+		-- stress directly: applying per-message would let N hazards in
+		-- range multiply this to N times stress_near_hazard_per_sec — see
+		-- accumulate_continuous_stress, which consumes and clears this
+		-- exactly once per frame regardless of how many messages arrived.
+		self.near_hazard = true
+	elseif message_id == hash("player_died") then
+		self.player_died_count = self.player_died_count + 1
 	elseif message_id == hash("test_reset") then
 		self.machine = package_state_machine.new()
 		self.stress = stress.new()
 		self.panic_impulse = panic_impulse.new()
 		self.explosive = explosive.new()
 		self.detonated = false
+		self.player_died_count = 0
+		self.offscreen = offscreen_timer.new()
+		self.near_hazard = false
 		-- Panic/Explosive can leave residual velocity in self.physics
 		-- (decayed but nonzero); left alone it would bleed into whatever
 		-- runs next.
 		self.physics.velocity_x = 0
 		self.physics.velocity_y = 0
+		-- Unlike the small Panic-scale position lag this reset historically
+		-- left alone (see CLAUDE.md), a test that drives the package into
+		-- a pit/off-screen via test_set_position can leave it far below
+		-- kill_y, frozen there by the player's own death (package.script's
+		-- update() early-returns while the player is dead, so the lerp
+		-- never gets a chance to reconverge). Left unreset, the very next
+		-- frame re-derives package_died/offscreen_died from that same
+		-- stale position and kills the player again before it can recover,
+		-- leaking a lethal position into whatever test runs next. Snapping
+		-- back to the spawn point closes that gap the same way
+		-- player.script/lethal_hazard.script already reset their own
+		-- position on test_reset.
+		self.physics.position_x = self.initial_position.x
+		self.physics.position_y = self.initial_position.y
+		go.set_position(self.initial_position)
 	elseif message_id == hash("debug_set_state") then
 		-- Manual/test override for the NON-ladder states (message.state,
 		-- e.g. "heavy") — this is how Heavy/Light are entered for now. A

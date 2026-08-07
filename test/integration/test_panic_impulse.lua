@@ -11,6 +11,8 @@ local PANIC_THRESHOLD = 70
 local function reset_all()
 	msg.post("/player#script", "test_reset")
 	msg.post("/package#script", "test_reset")
+	msg.post("/lethal_hazard#script", "test_reset")
+	msg.post("/falling_platform#script", "test_reset")
 	wait.frames(36) -- let the player land
 end
 

@@ -6,6 +6,8 @@ local EXPLOSIVE_FRAMES = 90
 local function reset_all()
 	msg.post("/player#script", "test_reset")
 	msg.post("/package#script", "test_reset")
+	msg.post("/lethal_hazard#script", "test_reset")
+	msg.post("/falling_platform#script", "test_reset")
 	wait.frames(36) -- let the player land
 end
 
@@ -84,6 +86,16 @@ return function()
 			wait.frames(EXPLOSIVE_FRAMES + 15)
 			assert(go.get("/package#script", "detonated") == true)
 
+			-- This detonation posts package_exploded, which (phase 9a)
+			-- also kills the player via the unified death funnel — and
+			-- package.script now freezes entirely once the player is
+			-- dead (so a corpse can't keep accumulating stress/detonating
+			-- again). This test is about Explosive's own re-arm logic,
+			-- not player death, so revive the player to let package.script
+			-- keep updating for the rest of the scenario.
+			msg.post("/player#script", "test_reset")
+			wait.frames(1)
+
 			-- Stress must drop too, not just the state: Explosive is sticky
 			-- regardless of stress, but Stable (what we're forcing it back
 			-- to) is still re-derivable — leaving stress at 100 would just
@@ -97,10 +109,12 @@ return function()
 			set_stress(100)
 			wait.frames(EXPLOSIVE_FRAMES + 15)
 			assert(go.get("/package#script", "detonated") == true)
-			-- 2, not just truthy: the flag from the FIRST detonation would
-			-- already read "delivered" going in, so only a count actually
-			-- proves this second explosion posted its own message too.
-			assert(go.get("/player#script", "package_exploded_count") == 2)
+			-- 1, not just truthy: the player's test_reset above (needed to
+			-- revive it after the first detonation) also wipes
+			-- package_exploded_count back to 0, so this counts only the
+			-- SECOND explosion's own post, proving it happened rather than
+			-- just reusing stale state from the first.
+			assert(go.get("/player#script", "package_exploded_count") == 1)
 		end)
 
 		test("shake grows over the countdown (near zero at entry, visible before detonation)", function()

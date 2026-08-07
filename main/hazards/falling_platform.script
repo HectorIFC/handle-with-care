@@ -1,0 +1,61 @@
+-- Falling platform adapter (roadmap phase 9a: "plataformas que caem").
+-- Acts as solid ground (the player's own script checks this instance via
+-- its optional extra_ground slot) until the player has stood on it for
+-- fall_delay seconds, then it genuinely falls.
+--
+-- is_falling is an explicit, permanent exclusion, not just a side effect
+-- of the platform moving away: relying on geometric divergence alone is
+-- wrong, because the player's fall accelerates (gravity) while the
+-- platform's own fall is constant-velocity (fall_speed) — an accelerating
+-- faller always eventually catches up to a constant-velocity one. Without
+-- this flag, resting_y_on_ground would re-match the platform mid-chase,
+-- re-grounding the player for one frame (zeroing velocity_y), which then
+-- free-falls and re-catches it again, repeating — each catch a fresh
+-- just_landed/potential heavy-landing event, worse the longer both keep
+-- falling. Once is_falling is true, player.script skips this instance
+-- entirely, so the player free-falls to the real ground exactly once.
+
+local falling_platform = require "main.core.falling_platform"
+local hazards = require "main.core.hazards"
+
+go.property("half_width", 32)
+go.property("half_height", 8)
+-- Must be overridden per collection (component_properties) to point at
+-- this level's player instance — see CLAUDE.md rule 5.
+go.property("player", msg.url())
+go.property("fall_delay", 1.0)
+go.property("fall_speed", 200)
+go.property("is_falling", false)
+
+function init(self)
+	self.initial_position = go.get_position()
+	self.platform = falling_platform.new()
+end
+
+function update(self, dt)
+	local pos = go.get_position()
+	local player_pos = go.get_position(self.player)
+	local player_rect = {
+		x = player_pos.x,
+		y = player_pos.y,
+		half_width = go.get(self.player, "half_width"),
+		half_height = go.get(self.player, "half_height"),
+	}
+	local self_rect = { x = pos.x, y = pos.y, half_width = self.half_width, half_height = self.half_height }
+
+	local is_standing_on = hazards.standing_on(player_rect, self_rect)
+	self.platform = falling_platform.update(self.platform, is_standing_on, dt, { fall_delay = self.fall_delay })
+	self.is_falling = self.platform.falling
+
+	if self.platform.falling then
+		go.set_position(vmath.vector3(pos.x, pos.y - self.fall_speed * dt, pos.z))
+	end
+end
+
+function on_message(self, message_id, message)
+	if message_id == hash("test_reset") then
+		self.platform = falling_platform.new()
+		self.is_falling = false
+		go.set_position(self.initial_position)
+	end
+end

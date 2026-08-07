@@ -1,0 +1,93 @@
+-- Shared adapter for every instantly-lethal hazard type (PRD 4.7: "contato
+-- com spike, serra"). Spikes and saws are mechanically identical — contact
+-- with either the player or the package kills — so one script covers both;
+-- the visual distinction (once real sprites exist) comes from whichever
+-- image is assigned in the Editor, not from separate scripts. Also pulls
+-- itself toward the package while it's Magnetized (PRD Level 5 "Magnet
+-- Madness" names spikes/serras specifically, not falling platforms — see
+-- CLAUDE.md's Magnetized note for why this wiring was deferred to phase 9a).
+--
+-- Inverted from every other overlap check in this project: instead of the
+-- player enumerating every hazard in a level (Defold's go.property can't
+-- express "an arbitrary number of other instances"), each hazard checks
+-- itself against the one well-known player/package pair. This scales to
+-- any number of hazards without a registry.
+
+local hazards = require "main.core.hazards"
+local magnetism = require "main.core.magnetism"
+
+go.property("half_width", 8)
+go.property("half_height", 8)
+-- Must be overridden per collection (component_properties) to point at
+-- this level's player/package instances — see CLAUDE.md rule 5.
+go.property("player", msg.url())
+go.property("package", msg.url())
+
+-- PRD 4.5: "perto de spike/serra" builds stress even before contact. No
+-- PRD value exists for how close counts as "near" (only the per-second
+-- rate, stress.lua's stress_near_hazard_per_sec) — this is this project's
+-- own initial guess, same as magnetism.lua's DEFAULT_STRENGTH.
+go.property("near_margin", 24)
+
+local function rect_for(url, half_width, half_height)
+	local pos = go.get_position(url)
+	return { x = pos.x, y = pos.y, half_width = half_width, half_height = half_height }
+end
+
+function init(self)
+	self.initial_position = go.get_position()
+end
+
+function update(self, dt)
+	if go.get(self.package, "current_state") == hash("magnetized") then
+		local package_pos = go.get_position(self.package)
+		local pos = go.get_position()
+		local config = {
+			radius = go.get(self.package, "magnet_radius"),
+			strength = go.get(self.package, "magnet_strength"),
+		}
+		local force = magnetism.attraction_force(package_pos.x, package_pos.y, pos.x, pos.y, config)
+		go.set_position(vmath.vector3(pos.x + force.x * dt, pos.y + force.y * dt, pos.z))
+	end
+
+	local self_rect = rect_for(".", self.half_width, self.half_height)
+	local player_rect = rect_for(self.player, go.get(self.player, "half_width"), go.get(self.player, "half_height"))
+	local package_rect = rect_for(self.package, go.get(self.package, "half_width"), go.get(self.package, "half_height"))
+
+	local near_rect = {
+		x = self_rect.x,
+		y = self_rect.y,
+		half_width = self.half_width + self.near_margin,
+		half_height = self.half_height + self.near_margin,
+	}
+	if hazards.rect_overlap(near_rect, player_rect) or hazards.rect_overlap(near_rect, package_rect) then
+		msg.post(self.package, "near_hazard", { dt = dt })
+	end
+
+	if hazards.rect_overlap(self_rect, player_rect) then
+		msg.post(self.player, "hazard_hit")
+		return
+	end
+
+	if hazards.rect_overlap(self_rect, package_rect) then
+		msg.post(self.player, "hazard_hit")
+	end
+end
+
+function on_message(self, message_id, message)
+	if message_id == hash("test_reset") then
+		-- A prior test's Magnetized attraction can have moved this
+		-- instance; restore it so the next test starts from a known rect.
+		go.set_position(self.initial_position)
+	elseif message_id == hash("test_set_position") then
+		-- Test-only: lets a specific test bring a hazard within
+		-- magnet_radius on demand, without changing this instance's
+		-- default spawn point — which stays deliberately OUTSIDE the
+		-- radius so every other suite (anything that debug-sets
+		-- Magnetized without expecting a hazard nearby) isn't at risk of
+		-- this hazard drifting into contact mid-test. See CLAUDE.md's
+		-- Magnetized/hazards note.
+		local pos = go.get_position()
+		go.set_position(vmath.vector3(message.x or pos.x, message.y or pos.y, pos.z))
+	end
+end
