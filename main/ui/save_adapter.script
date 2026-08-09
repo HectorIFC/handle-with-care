@@ -1,0 +1,96 @@
+-- Persistence adapter for core/save.lua. This is the only place in the
+-- project that touches a disk (rule 1): core/save.lua owns what a save
+-- contains and how progression advances, and knows nothing about how it is
+-- stored.
+--
+-- PRD 9.4 asks for LocalStorage on Web and a local file on Steam.
+-- `sys.save`/`sys.load` already cover both — Defold maps them onto
+-- IndexedDB/localStorage in an HTML5 build and onto a real file elsewhere —
+-- so no per-platform branch is needed here today. If Steam ever needs a
+-- specific path (phase 23), this script is the single file that changes.
+--
+-- Other objects talk to this through messages rather than requiring it, so
+-- there is exactly one in-memory copy of the save and one writer. Reads are
+-- answered by posting `save_state` back to the sender.
+
+local save = require "main.core.save"
+
+-- PRD section 10 ships 10 levels. Exposed as a property so a test or a
+-- future level pack can override it rather than editing this file (rule 5).
+go.property("total_levels", 10)
+
+-- Mirrors the in-memory state's headline values for synchronous go.get
+-- reads, the same convention player.script uses for facing/grounded — a
+-- menu asking "is level 3 unlocked?" shouldn't need a message round-trip.
+go.property("unlocked", 1)
+go.property("has_progress", false)
+go.property("all_complete", false)
+
+-- Test-only: skips touching the real save file, so a test run can never
+-- read or clobber the developer's own progress. Left as a property rather
+-- than a #define so test.collection can set it explicitly (rule 5).
+go.property("in_memory_only", false)
+
+local SAVE_FILE = "progress"
+
+local function save_path(self)
+	-- sys.get_save_file namespaces by application id, so two Defold games
+	-- on the same machine can't collide.
+	return sys.get_save_file("handle_with_care", SAVE_FILE)
+end
+
+local function publish(self)
+	self.unlocked = self.state.unlocked
+	self.has_progress = save.has_progress(self.state)
+	self.all_complete = save.all_complete(self.state)
+end
+
+local function persist(self)
+	if self.in_memory_only then
+		return
+	end
+	-- sys.save returns false rather than erroring when the write fails
+	-- (a full or read-only disk). Losing progress silently is the worst
+	-- outcome here, so it is logged — but it is deliberately NOT fatal:
+	-- a player mid-level should keep playing, not lose the session to a
+	-- failed background write.
+	if not sys.save(save_path(self), self.state) then
+		print("WARNING: could not write save file; progress this session will not persist")
+	end
+end
+
+function init(self)
+	if self.in_memory_only then
+		self.state = save.new(self.total_levels)
+	else
+		-- sys.load returns an empty table when the file doesn't exist yet,
+		-- which sanitize() turns into a fresh save — so first run and
+		-- corrupt-file both land on a playable state with no special case.
+		self.state = save.sanitize(sys.load(save_path(self)), self.total_levels)
+	end
+	publish(self)
+end
+
+function on_message(self, message_id, message, sender)
+	if message_id == hash("level_started") then
+		self.state = save.record_attempt(self.state, message.level)
+		publish(self)
+		persist(self)
+	elseif message_id == hash("level_completed") then
+		-- PRD 6.2: completing a level unlocks the next and saves
+		-- automatically. `time` comes from the caller (rule 3 — this
+		-- module reads no clock of its own).
+		self.state = save.complete_level(self.state, message.level, message.time)
+		publish(self)
+		persist(self)
+	elseif message_id == hash("new_game") then
+		-- PRD 6.1: "Novo Jogo (apaga save e começa da Fase 1)".
+		self.state = save.wipe(self.state)
+		publish(self)
+		persist(self)
+	elseif message_id == hash("query_save") then
+		-- Answers with the whole state for the level-select screen, which
+		-- needs per-level completion and times, not just the mirrors above.
+		msg.post(sender, "save_state", { state = self.state })
+	end
+end

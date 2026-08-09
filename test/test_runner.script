@@ -17,6 +17,7 @@ local suites = {
 	require "test.unit.test_offscreen_timer",
 	require "test.unit.test_falling_platform",
 	require "test.unit.test_delivery",
+	require "test.unit.test_save",
 	-- DISABLED (phase 9a): the engine wedges intermittently, and every wedge
 	-- observed up to this point had landed inside these two suites (after
 	-- 189, 191, 193 and 193 tests), so they were disabled to try to isolate
@@ -39,6 +40,7 @@ local suites = {
 	require "test.integration.test_sleeping",
 	require "test.integration.test_hazards",
 	require "test.integration.test_delivery",
+	require "test.integration.test_save_progression",
 }
 
 -- Stall watchdog. The suite wedges intermittently (see CLAUDE.md): the

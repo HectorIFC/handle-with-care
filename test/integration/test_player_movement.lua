@@ -16,6 +16,7 @@ local function reset_all()
 	msg.post("/lethal_hazard#script", "test_reset")
 	msg.post("/falling_platform#script", "test_reset")
 	msg.post("/delivery_zone#script", "test_reset")
+	msg.post("/level_controller#script", "test_reset")
 	wait.frames(36) -- let the player land
 end
 

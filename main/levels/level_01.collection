@@ -235,4 +235,60 @@ instances {
     }
   }
 }
+instances {
+  id: "save_adapter"
+  prototype: "/main/ui/save_adapter.go"
+  position {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "in_memory_only"
+      value: "false"
+      type: PROPERTY_TYPE_BOOLEAN
+    }
+  }
+}
+instances {
+  id: "level_controller"
+  prototype: "/main/levels/level_controller.go"
+  position {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "save_adapter"
+      value: "/save_adapter#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "level_number"
+      value: "1"
+      type: PROPERTY_TYPE_NUMBER
+    }
+  }
+}
 scale_along_z: 0

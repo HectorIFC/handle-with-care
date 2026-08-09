@@ -9,6 +9,7 @@ local function reset_all()
 	msg.post("/lethal_hazard#script", "test_reset")
 	msg.post("/falling_platform#script", "test_reset")
 	msg.post("/delivery_zone#script", "test_reset")
+	msg.post("/level_controller#script", "test_reset")
 	wait.frames(36) -- let the player land
 end
 
@@ -140,11 +141,18 @@ return function()
 			-- timer, and can't tell the two conditions apart. y=5000 takes
 			-- ~200 frames to fall to kill_y, comfortably outlasting the
 			-- timeout, so death here is unambiguously the offscreen timer.
+			-- 60/+90 rather than 100/+40, matching the package's equivalent
+			-- test below: 100 sat close enough to the 120-frame timeout to
+			-- fail intermittently. A 150-frame fall from y=5000 only reaches
+			-- ~y=2190, so the wider window still cannot reach kill_y and the
+			-- death stays unambiguously the off-screen timer's.
 			teleport_player(192, 5000)
-			wait.frames(100) -- under the 120-frame timeout
-			assert(go.get("/player#script", "dead") == false)
-			wait.frames(40) -- crosses the 120-frame timeout with margin, still nowhere near kill_y
-			assert(go.get("/player#script", "dead") == true)
+			wait.frames(60)
+			assert(go.get("/player#script", "dead") == false,
+				"player off-screen for only 60 frames but already dead")
+			wait.frames(90)
+			assert(go.get("/player#script", "dead") == true,
+				"player off-screen for 150 frames, past the 120-frame timeout, but still alive")
 		end)
 
 		test("briefly going offscreen and back does not kill the player", function()
