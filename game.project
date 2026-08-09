@@ -1,10 +1,10 @@
 [project]
 title = Handle With Care
-version = 0.11.0
+version = 0.12.0
 dependencies#0 = https://github.com/britzl/deftest/archive/refs/tags/2.8.0.zip
 
 [bootstrap]
-main_collection = /main/main.collectionc
+main_collection = /main/levels/level_01.collectionc
 render = /builtins/render/default.renderc
 
 [display]

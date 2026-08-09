@@ -14,23 +14,13 @@ go.property("half_height", 8)
 -- isolated, from-scratch reproduction) to never report a hit under this
 -- project's headless test environment on this platform, so gameplay-
 -- critical ground detection cannot depend on them — see CLAUDE.md. These
--- properties describe the single main ground platform's rectangle; a
--- falling platform (phase 9a) is a second, optional ground-like surface,
--- see has_extra_ground/extra_ground below.
+-- properties describe the level's base floor, the one surface that is
+-- always present. Every OTHER walkable surface — static platforms, falling
+-- platforms — registers itself instead (see "register_platform" in
+-- on_message), which is what lets a level have any number of them.
 go.property("ground_x_min", 128)
 go.property("ground_x_max", 256)
 go.property("ground_y_top", 48)
-
--- One additional ground-like surface a level can wire in via
--- component_properties (a falling platform, see main/hazards/
--- falling_platform.script) — has_extra_ground gates it since an empty
--- msg.url() isn't a reliable "unset" sentinel to compare against. A
--- single optional slot, not a dynamic list: this project has no object
--- registry (Defold's go.property can't express "an arbitrary number of
--- other instances"), and real multi-hazard levels don't arrive until
--- phase 10+ — revisit then if more than one is ever needed at once.
-go.property("has_extra_ground", false)
-go.property("extra_ground", msg.url())
 
 -- Mirrors self.state.facing/grounded so other objects (the package) can
 -- read them synchronously via go.get(player_url, ...) — the same
@@ -107,14 +97,14 @@ local function ground_rect(self)
 	return { x_min = self.ground_x_min, x_max = self.ground_x_max, y_top = self.ground_y_top }
 end
 
--- The extra ground slot's rect, converted from its live center position
+-- A registered platform's rect, converted from its live center position
 -- (it can move — a falling platform drops) into the same static
 -- { x_min, x_max, y_top } shape resting_y_on_ground expects. Read fresh
 -- every frame, unlike the main ground_rect's fixed go.property values.
-local function extra_ground_rect(self)
-	local pos = go.get_position(self.extra_ground)
-	local half_width = go.get(self.extra_ground, "half_width")
-	local half_height = go.get(self.extra_ground, "half_height")
+local function platform_rect(url)
+	local pos = go.get_position(url)
+	local half_width = go.get(url, "half_width")
+	local half_height = go.get(url, "half_height")
 	return { x_min = pos.x - half_width, x_max = pos.x + half_width, y_top = pos.y + half_height }
 end
 
@@ -162,6 +152,12 @@ end
 
 function init(self)
 	self.initial_position = go.get_position()
+	-- Filled by "register_platform" messages that every walkable surface
+	-- posts from its own init(). A message is right for this precisely
+	-- because registration is a one-off discrete event; the per-frame
+	-- position reads it enables stay synchronous go.get_position calls
+	-- (rule 4), so no frame of lag is introduced where it would matter.
+	self.platforms = {}
 	self.state = player_movement.new()
 	self.input = { move_x = 0, jump_pressed = false }
 	self.move_left_held = false
@@ -204,14 +200,27 @@ function update(self, dt)
 
 	local grounded = false
 	local resting_y = player_movement.resting_y_on_ground(target_x, self.half_width, pos.y, target_y, self.half_height, ground_rect(self))
-	-- is_falling is specific to falling_platform.script (the only thing
-	-- extra_ground points at today) — an accelerating fall always
+	-- Every platform that registered itself at init (see on_message's
+	-- "register_platform"), checked in turn. Replaces phase 9a's single
+	-- has_extra_ground/extra_ground slot, which could only ever hold one
+	-- surface — a real level needs several, and go.property can't express
+	-- a list.
+	--
+	-- is_falling is why every registered platform must expose that property
+	-- (a static one is permanently false): an accelerating faller always
 	-- eventually re-meets a constant-velocity one, so relying on geometry
-	-- alone to "stop matching" isn't enough once a platform is falling;
+	-- alone to "stop matching" isn't enough once a platform is dropping;
 	-- see falling_platform.script's own comment for the chase-cycle this
 	-- explicit exclusion prevents.
-	if not resting_y and self.has_extra_ground and not go.get(self.extra_ground, "is_falling") then
-		resting_y = player_movement.resting_y_on_ground(target_x, self.half_width, pos.y, target_y, self.half_height, extra_ground_rect(self))
+	if not resting_y then
+		for _, platform in ipairs(self.platforms) do
+			if not go.get(platform, "is_falling") then
+				resting_y = player_movement.resting_y_on_ground(target_x, self.half_width, pos.y, target_y, self.half_height, platform_rect(platform))
+				if resting_y then
+					break
+				end
+			end
+		end
 	end
 	if resting_y then
 		target_y = resting_y
@@ -290,8 +299,15 @@ function on_input(self, action_id, action)
 	return false
 end
 
-function on_message(self, message_id, message)
-	if message_id == hash("test_set_input") then
+function on_message(self, message_id, message, sender)
+	if message_id == hash("register_platform") then
+		-- The sender IS the registration — no URL needs to be authored on
+		-- either side, so adding a platform to a level is just placing it.
+		-- Every registered platform must expose half_width, half_height and
+		-- is_falling (permanently false for a static one); update() reads
+		-- all three each frame.
+		table.insert(self.platforms, sender)
+	elseif message_id == hash("test_set_input") then
 		self.input.move_x = message.move_x or 0
 		self.input.jump_pressed = message.jump_pressed or false
 	elseif message_id == hash("test_set_position") then

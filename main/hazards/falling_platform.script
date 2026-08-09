@@ -33,6 +33,9 @@ function init(self)
 	-- PRD 3.5: restart is broadcast through Defold's input dispatch rather
 	-- than a registry of hazards to notify — see player.script's on_input.
 	msg.post(".", "acquire_input_focus")
+	-- Registers as a walkable surface, exactly like a static platform does
+	-- (main/level/platform.script) — the player skips it while is_falling.
+	msg.post(self.player, "register_platform")
 end
 
 function update(self, dt)

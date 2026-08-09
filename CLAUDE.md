@@ -354,6 +354,21 @@ new `wait`-heavy integration tests, not just at the very end.
   to act as ground through. One slot is enough for this phase's own test
   collection; real multi-hazard levels (phase 10+) will need to revisit
   this if more than one is ever needed under the player at once.
+- **Walkable surfaces register themselves with the player (phase 10); the
+  player does not hold a list of them.** `main/level/platform.script` and
+  `falling_platform.script` each post `register_platform` to the player from
+  their own `init()`, and `player.script` keeps the `sender` URLs in
+  `self.platforms`. This replaces phase 9a's single `has_extra_ground`/
+  `extra_ground` slot, which could only ever hold one surface. A message is
+  the right tool here *because registration is a one-off discrete event* —
+  the per-frame position reads it enables are still synchronous
+  `go.get_position` calls, so rule 4 is intact and no frame of lag is
+  introduced where it would matter. **Every registered platform must expose
+  `half_width`, `half_height` and `is_falling`**; a static platform's
+  `is_falling` is permanently false, and it exists so the player can skip a
+  dropping platform without having to know which kind it is looking at. The
+  player's own `ground_x_min`/`ground_x_max`/`ground_y_top` stay as the
+  level's always-present base floor.
 - **Restart (phase 9b) is broadcast through Defold's input dispatch, not a
   registry — and that retires the "arbitrary number of instances" problem
   phase 9a flagged.** Every restorable object (`player`, `package`, each
@@ -629,6 +644,24 @@ new `wait`-heavy integration tests, not just at the very end.
   `shasum -a 256` it), and update the cache key in `ci.yml` to match — all as
   one reviewable commit, never resolved automatically at run time.
 
+### Level 1 fits one screen, and that is a systems limit, not a design choice
+
+`main/levels/level_01.collection` is 384x216 — the whole level, no scrolling.
+There is no camera system yet, and `player.script`'s own off-screen death
+check (PRD 3.3) actively kills anything that leaves the visible area, so a
+level physically cannot extend past one screen today. A successful attempt
+therefore runs ~15 seconds, well under **the PRD's 35-75s target (section
+10's "Duração alvo por tentativa")**. Closing that gap needs a camera plus
+making the off-screen check camera-relative rather than screen-relative —
+neither is on the roadmap yet, and both should be, before levels 2-10 are
+built to a duration they cannot currently reach.
+
+The level's geometry was verified by arithmetic against the player's real
+constants (`move_speed` 90, `jump_velocity` 320, `gravity` -900 → ~57 units
+of apex, ~64 of horizontal reach): gap 1 needs 26 units of airborne travel,
+gap 2 needs 16 plus a 24-unit step up, and the delivery zone is reachable
+from anywhere in x 286..322 on platform_2 (which supports x 240..336).
+
 ### What tests do NOT cover (accepted, documented gaps)
 
 - **FPS/performance**: `dmengine_headless` has no real GPU/vsync, so
@@ -636,6 +669,19 @@ new `wait`-heavy integration tests, not just at the very end.
   item (Chrome/Firefox DevTools), not an automated test.
 - **Visual regression** (pixel art correctness): not automated. Rely on the
   manual test checklist that accompanies every slice.
+- **Level collection geometry.** The suite boots `test/test.collection`, so
+  nothing automated ever loads `main/levels/level_01.collection` — a gap
+  whose bite is on record: phase 1 shipped a `main.collection` whose ground
+  didn't match the player's properties, and only the test collection was
+  covered. Level geometry is checked by arithmetic (see above) and by the
+  manual checklist. Adding a second booted collection to the suite is the
+  obvious fix but not a free one — rule 7 keeps engine boot time bounded on
+  purpose, and the headless wedge makes every extra second of runtime worse.
+- **`main/main.collection` is no longer the bootstrap** (phase 10 pointed
+  `game.project` at `level_01`) and nothing loads it. It is kept as a dev
+  sandbox, but it is now exactly the kind of unmaintained second production
+  scene that caused the phase 1 bug — delete it, or wire it into something
+  that checks it, rather than letting it drift.
 
 ## Git workflow — read this before touching git
 
@@ -691,7 +737,7 @@ and drafted commit (Conventional Commits + the version shown) — see
 | 8 | Sleeping | Wake-on-impact (done) |
 | 9a | Hazards + death | Spikes, saws, falling platforms, pits, off-screen check (done — see the Hazards note under Testing; also present in `main.collection`, not just the test fixture). Overlap detection is AABB (see [Known environment limitations](#known-environment-limitations)), not engine physics queries. Spikes/saws share one `lethal_hazard.script` (mechanically identical, PRD's visual distinction doesn't exist yet), pull themselves toward a Magnetized package via `core/magnetism.lua` (closing the loop deferred from phase 7), and build stress via `stress.apply_near_hazard` when within `near_margin` even before contact (PRD 4.5's "perto de spike/serra"). Both hazard contact and the pit/off-screen checks cover the package as well as the player (Panic's impulses can separate them). Falling platforms are a second, optional ground-like surface on the player (`has_extra_ground`/`extra_ground`) — a single fixed slot, not a registry; real multi-hazard levels (phase 10+) will need to revisit this. Pits and off-screen are world-bounds checks (`kill_y`, screen dimensions read via `sys.get_config_int`), not per-instance geometry — no camera/scrolling system exists yet to make per-pit rectangles meaningful. |
 | 9b | Delivery + win + restart | Delivery zone, win condition, instant restart (done — `core/delivery.lua` requires full containment, not mere overlap, per PRD 3.4's "dentro"; `delivery_zone.script` checks itself against the package, same inversion as hazards. `won` on `player.script` mirrors `dead`: sticky, freezes `update()`, and whichever landed first wins so a death and a delivery can't both claim the attempt. Restart (PRD 3.5, R) is broadcast through **Defold's input dispatch** rather than a registry — see the note under Testing.) |
-| 10 | Level 1: Tutorial Soft | First fully playable level, section 11 acceptance checklist |
+| 10 | Level 1: Tutorial Soft | First fully playable level, section 11 acceptance checklist (done — `main/levels/level_01.collection`, now the bootstrap collection. Required generalizing ground detection first: walkable surfaces **register themselves** with the player (`register_platform`), replacing phase 9a's single `has_extra_ground`/`extra_ground` slot, so a level can have any number. See the notes below on that and on the level's one-screen constraint.) |
 | 11 | Menu, save/load, progression | Main menu, `core/save.lua` port + localStorage adapter, level unlocks, result screen, pause |
 | 12 | Level 2: Jump Scare | |
 | 13 | Level 3: Heavy Duty | New cyclic timer driver for Heavy cycles |

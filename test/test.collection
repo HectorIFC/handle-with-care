@@ -104,16 +104,6 @@ instances {
       value: "/package#script"
       type: PROPERTY_TYPE_URL
     }
-    properties {
-      id: "has_extra_ground"
-      value: "true"
-      type: PROPERTY_TYPE_BOOLEAN
-    }
-    properties {
-      id: "extra_ground"
-      value: "/falling_platform#script"
-      type: PROPERTY_TYPE_URL
-    }
   }
 }
 instances {

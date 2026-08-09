@@ -1,0 +1,27 @@
+-- A static walkable surface. Levels are built out of these plus the
+-- player's own base floor (player.script's ground_x_min/max/y_top).
+--
+-- Registers itself with the player at init instead of the player holding a
+-- list of platform URLs: go.property can't express "an arbitrary number of
+-- other instances", so a level with five platforms would otherwise need
+-- five authored slots. Posting the registration makes placing a platform in
+-- a collection the only step — the same problem hazards solved by checking
+-- themselves against the player, solved the other way round here because
+-- ground detection has to happen inside the player's own movement
+-- integration, synchronously, not a frame later via a message.
+
+go.property("half_width", 32)
+go.property("half_height", 8)
+-- Must be overridden per collection (component_properties) to point at this
+-- level's player instance — see CLAUDE.md rule 5.
+go.property("player", msg.url())
+
+-- Static platforms never fall, but player.script reads this on every
+-- registered platform to skip a falling one (see its update()), so the
+-- property has to exist here too rather than the player having to know
+-- which kind of platform it is looking at.
+go.property("is_falling", false)
+
+function init(self)
+	msg.post(self.player, "register_platform")
+end
