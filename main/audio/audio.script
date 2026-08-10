@@ -1,0 +1,43 @@
+-- Plays sound cues (PRD section 8). Thin adapter (rule 1): core/audio_cues.lua
+-- owns the catalogue and grouping; this owns one sound component per cue and
+-- plays the one named by a "play_cue" message.
+--
+-- One shared audio object, addressed by every trigger site: the menu posts
+-- to "/audio#script", a proxy-loaded level to "main:/audio#script". Group
+-- gains (set by settings_adapter) apply globally, so a cue plays at the
+-- right sfx/music volume without this script knowing the volumes at all.
+
+local audio_cues = require "main.core.audio_cues"
+
+function init(self)
+	self.playing_music = nil
+end
+
+function on_message(self, message_id, message)
+	if message_id == hash("play_cue") then
+		local cue = message.cue
+		if not audio_cues.exists(cue) then
+			return
+		end
+		-- Music is looping and exclusive: starting a track stops the last
+		-- one, so menu music does not bleed into gameplay music. SFX just
+		-- fire and overlap freely.
+		if audio_cues.group_of(cue) == "music" then
+			if self.playing_music == cue then
+				return -- already playing this track
+			end
+			if self.playing_music then
+				pcall(sound.stop, "#" .. self.playing_music)
+			end
+			self.playing_music = cue
+		end
+		-- pcall: a headless/null sound device and any missing component must
+		-- never crash a gameplay frame over a sound effect.
+		pcall(sound.play, "#" .. cue)
+	elseif message_id == hash("stop_music") then
+		if self.playing_music then
+			pcall(sound.stop, "#" .. self.playing_music)
+			self.playing_music = nil
+		end
+	end
+end

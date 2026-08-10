@@ -45,6 +45,13 @@ go.property("last_requested_level", 0)
 
 -- Real randomness lives only in the adapter (rule 3) — screen_flow.quip
 -- takes this as an injected rng and never calls math.random itself.
+-- Fire-and-forget: the audio object is a sibling in this same collection,
+-- so a bare path resolves. Guarded by the audio script's own pcall, so a
+-- missing device never reaches here.
+local function cue(name)
+	msg.post("/audio#script", "play_cue", { cue = name })
+end
+
 local function rng(min_value, max_value)
 	return math.random(min_value, max_value)
 end
@@ -153,6 +160,7 @@ local function load_level(self, level)
 		msg.post(proxy_for(self, level), "async_load")
 	end
 	self.state = flow.set_screen(self.state, flow.PLAYING)
+	cue("music_gameplay")
 	render(self)
 end
 
@@ -179,6 +187,7 @@ local function show_result(self, won)
 	self.result_time = self.pending_time or 0
 	self.result_attempts = self.pending_attempts or 1
 	self.result_quip = flow.quip(won, rng)
+	cue(won and "music_win" or "music_gameover")
 	unload_level(self)
 	self.state = flow.set_screen(self.state, flow.RESULT)
 	render(self)
@@ -213,6 +222,7 @@ local function perform(self, action)
 		load_level(self, math.min(self.result_level + 1, self.total_levels))
 	elseif action == flow.ACTION_TO_MENU then
 		unload_level(self)
+		cue("music_menu")
 		self.state = flow.set_screen(self.state, flow.MENU)
 	elseif action == flow.ACTION_QUIT then
 		-- Guarded: a test selecting Quit would otherwise terminate the whole
@@ -226,6 +236,7 @@ end
 
 function init(self)
 	msg.post(".", "acquire_input_focus")
+	cue("music_menu")
 	self.state = flow.new()
 	self.total_levels = go.get(self.save_adapter, "total_levels")
 	self.current_level = nil
@@ -304,11 +315,14 @@ local function handle_action(self, action_id)
 
 	if action_id == hash("menu_up") then
 		self.state = flow.move_cursor(self.state, -1, #entries)
+		cue("ui_move")
 	elseif action_id == hash("menu_down") then
 		self.state = flow.move_cursor(self.state, 1, #entries)
+		cue("ui_move")
 	elseif action_id == hash("confirm") then
 		local entry = entries[self.state.cursor]
 		if entry then
+			cue(entry.action == flow.ACTION_TO_MENU and "ui_back" or "ui_confirm")
 			perform(self, entry.action)
 		end
 		return true

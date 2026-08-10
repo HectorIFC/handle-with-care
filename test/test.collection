@@ -35,6 +35,16 @@ instances {
       value: "24"
       type: PROPERTY_TYPE_NUMBER
     }
+    properties {
+      id: "has_audio"
+      value: "true"
+      type: PROPERTY_TYPE_BOOLEAN
+    }
+    properties {
+      id: "audio"
+      value: "/audio#script"
+      type: PROPERTY_TYPE_URL
+    }
   }
 }
 instances {
@@ -149,6 +159,21 @@ instances {
     }
   }
 }
+instances {
+  id: "audio"
+  prototype: "/main/audio/audio.go"
+  position {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+}
 scale_along_z: 0
 instances {
   id: "test_runner"
@@ -216,6 +241,16 @@ instances {
       value: "/package#script"
       type: PROPERTY_TYPE_URL
     }
+    properties {
+      id: "has_audio"
+      value: "true"
+      type: PROPERTY_TYPE_BOOLEAN
+    }
+    properties {
+      id: "audio"
+      value: "/audio#script"
+      type: PROPERTY_TYPE_URL
+    }
   }
 }
 instances {
@@ -237,6 +272,16 @@ instances {
     properties {
       id: "player"
       value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "has_audio"
+      value: "true"
+      type: PROPERTY_TYPE_BOOLEAN
+    }
+    properties {
+      id: "audio"
+      value: "/audio#script"
       type: PROPERTY_TYPE_URL
     }
   }

@@ -60,6 +60,16 @@ instances {
       value: "/camera#script"
       type: PROPERTY_TYPE_URL
     }
+    properties {
+      id: "has_audio"
+      value: "true"
+      type: PROPERTY_TYPE_BOOLEAN
+    }
+    properties {
+      id: "audio"
+      value: "main:/audio#script"
+      type: PROPERTY_TYPE_URL
+    }
   }
 }
 instances {
@@ -81,6 +91,16 @@ instances {
     properties {
       id: "player"
       value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "has_audio"
+      value: "true"
+      type: PROPERTY_TYPE_BOOLEAN
+    }
+    properties {
+      id: "audio"
+      value: "main:/audio#script"
       type: PROPERTY_TYPE_URL
     }
   }
@@ -613,6 +633,16 @@ instances {
       id: "half_height"
       value: "24"
       type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "has_audio"
+      value: "true"
+      type: PROPERTY_TYPE_BOOLEAN
+    }
+    properties {
+      id: "audio"
+      value: "main:/audio#script"
+      type: PROPERTY_TYPE_URL
     }
   }
 }

@@ -53,6 +53,12 @@ go.property("input_inversion", msg.url())
 go.property("has_gravity_mood", false)
 go.property("gravity_mood", msg.url())
 
+-- The shared audio object, when the level wires one. Gated like every other
+-- optional level object; without it, cue() is a no-op so the game is silent
+-- but never errors.
+go.property("has_audio", false)
+go.property("audio", msg.url())
+
 go.property("has_camera", false)
 go.property("camera", msg.url())
 
@@ -145,6 +151,12 @@ end
 -- Read fresh every frame rather than cached: the camera moves, and an
 -- off-screen judgement made against last frame's view would be wrong
 -- exactly when the camera is scrolling fastest. Synchronous (rule 4).
+local function cue(self, name)
+	if self.has_audio then
+		msg.post(self.audio, "play_cue", { cue = name })
+	end
+end
+
 local function camera_x(self)
 	if not self.has_camera then
 		return 0
@@ -178,6 +190,7 @@ local function die(self)
 	end
 	self.dead = true
 	msg.post(self.package, "player_died")
+	cue(self, "player_death")
 end
 
 -- Restores the whole attempt to its starting state (PRD 3.5: "quase
@@ -293,11 +306,15 @@ function update(self, dt)
 	go.set_position(vmath.vector3(target_x, target_y, pos.z))
 	self.state = player_movement.set_grounded(self.state, grounded)
 	self.just_landed = grounded and not was_grounded
+	if self.just_landed then
+		cue(self, "land")
+	end
 	self.facing = self.state.facing
 	self.grounded = grounded
 
 	if jumped_this_frame then
 		msg.post(self.package, "player_jumped")
+		cue(self, "jump")
 	end
 	if self.just_landed and math.abs(velocity_y_before_landing) >= self.heavy_landing_velocity then
 		msg.post(self.package, "player_landed", { impact_velocity = velocity_y_before_landing })

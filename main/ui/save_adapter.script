@@ -3,17 +3,19 @@
 -- contains and how progression advances, and knows nothing about how it is
 -- stored.
 --
--- PRD 9.4 asks for LocalStorage on Web and a local file on Steam.
--- `sys.save`/`sys.load` already cover both — Defold maps them onto
--- IndexedDB/localStorage in an HTML5 build and onto a real file elsewhere —
--- so no per-platform branch is needed here today. If Steam ever needs a
--- specific path (phase 23), this script is the single file that changes.
+-- PRD 9.4 asks for LocalStorage on Web and a local file on Steam. Where the
+-- bytes go is core/save_location.lua's decision, acted on by
+-- main/ui/storage.lua (which this shares with settings_adapter): a Steam
+-- build sets the `steam` property and saves route through Steam Cloud;
+-- everything else uses sys.save, which Defold already maps onto
+-- IndexedDB/localStorage in an HTML5 build and a real file on desktop.
 --
 -- Other objects talk to this through messages rather than requiring it, so
 -- there is exactly one in-memory copy of the save and one writer. Reads are
 -- answered by posting `save_state` back to the sender.
 
 local save = require "main.core.save"
+local storage = require "main.ui.storage"
 
 -- PRD section 10 ships 10 levels. Exposed as a property so a test or a
 -- future level pack can override it rather than editing this file (rule 5).
@@ -31,13 +33,10 @@ go.property("all_complete", false)
 -- than a #define so test.collection can set it explicitly (rule 5).
 go.property("in_memory_only", false)
 
-local SAVE_FILE = "progress"
-
-local function save_path(self)
-	-- sys.get_save_file namespaces by application id, so two Defold games
-	-- on the same machine can't collide.
-	return sys.get_save_file("handle_with_care", SAVE_FILE)
-end
+-- Set true only in a Steam build (component_properties), routing saves
+-- through Steam Cloud. Off everywhere else — Web, editor, DRM-free desktop —
+-- where sys.save already does the right thing. See core/save_location.lua.
+go.property("steam", false)
 
 local function publish(self)
 	self.unlocked = self.state.unlocked
@@ -54,7 +53,7 @@ local function persist(self)
 	-- outcome here, so it is logged — but it is deliberately NOT fatal:
 	-- a player mid-level should keep playing, not lose the session to a
 	-- failed background write.
-	if not sys.save(save_path(self), self.state) then
+	if not storage.save("progress", self.state, self.steam) then
 		print("WARNING: could not write save file; progress this session will not persist")
 	end
 end
@@ -66,7 +65,7 @@ function init(self)
 		-- sys.load returns an empty table when the file doesn't exist yet,
 		-- which sanitize() turns into a fresh save — so first run and
 		-- corrupt-file both land on a playable state with no special case.
-		self.state = save.sanitize(sys.load(save_path(self)), self.total_levels)
+		self.state = save.sanitize(storage.load("progress", self.steam), self.total_levels)
 	end
 	publish(self)
 end

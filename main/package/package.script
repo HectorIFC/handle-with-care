@@ -15,19 +15,25 @@ go.property("velocity_damping", 0.85)
 -- player instance this package is attached to — see CLAUDE.md rule 5.
 go.property("player", msg.url())
 
+-- The shared audio object, when the level wires one. Gated by a flag for the
+-- same reason as every other optional level object (an empty msg.url() is not
+-- a reliable "unset" sentinel); without one, cue() is a no-op so the game is
+-- silent but never errors.
+go.property("has_audio", false)
+go.property("audio", msg.url())
+
+-- Level 9's mirror driver, when the level has one. Same gating-flag
+-- reasoning. Without one the reaction sign is 1, so every other level is
+-- untouched.
+go.property("has_mirror", false)
+go.property("mirror", msg.url())
+
 -- The package's own hitbox for hazard overlap checks (phase 9a) — smaller
 -- than the player's (half_width/half_height 8), matching PRD 7.1's 16x16/
 -- 20x20 package art versus the player's 24x24. Exposed here (rather than
 -- guessed by each hazard adapter) so the package stays the single source
 -- of truth for its own size, the same reasoning as every other package
 -- tunable (rule 5).
--- Level 9's mirror driver, when the level has one. Same gating-flag
--- reasoning as the player's has_camera: an empty msg.url() is not a
--- reliable "unset" sentinel. Without one the sign is 1, so every other
--- level is untouched.
-go.property("has_mirror", false)
-go.property("mirror", msg.url())
-
 go.property("half_width", 6)
 go.property("half_height", 6)
 
@@ -102,6 +108,25 @@ local STATE_COLORS = {
 	[package_state_machine.SLEEPING] = vmath.vector4(0.35, 0.35, 0.45, 1),
 }
 local DEFAULT_COLOR = vmath.vector4(1, 1, 1, 1)
+
+-- PRD section 8's package sounds, keyed by the state that triggers each.
+-- Fired on entry to a state (see the change check in update()), not every
+-- frame. Stable has no cue; wake is handled separately as a transition OUT
+-- of Sleeping.
+local STATE_CUES = {
+	nervous = "package_shake",
+	panic = "package_panic",
+	heavy = "package_heavy",
+	light = "package_light",
+	sleeping = "package_sleep",
+	magnetized = "package_magnet",
+}
+
+local function cue(self, name)
+	if self.has_audio and name then
+		msg.post(self.audio, "play_cue", { cue = name })
+	end
+end
 
 -- Real randomness lives only in the adapter (rule 3) — core/panic_impulse.lua
 -- takes this as an injected `rng` function and never calls math.random itself.
@@ -227,6 +252,10 @@ function init(self)
 	self.explosive = explosive.new()
 	self.offscreen = offscreen_timer.new()
 	self.near_hazard = false
+	-- Seeded so the state-change cue in update() doesn't fire on the very
+	-- first frame for the starting state (and never mistakes a level that
+	-- opens Sleeping for a wake).
+	self.last_cued_state = self.machine.current_state
 	-- Read game.project's actual configured display size directly, the
 	-- same way player.script does — both independently reading the one
 	-- authoritative config key isn't rule-5 duplication (that's about not
@@ -299,6 +328,7 @@ function update(self, dt)
 		self.explosive, detonated = explosive.update(self.explosive, dt)
 		if detonated then
 			self.detonated = true
+			cue(self, "package_explode")
 			-- PRD 4.7: explosive_timer reaching zero is a death condition.
 			-- No listener exists yet (hazard/death handling arrives with
 			-- phase 9a/9b) — this is the same forward-declared convention
@@ -367,6 +397,20 @@ function update(self, dt)
 		msg.post(self.player, "package_died")
 	end
 
+	-- Sound on state ENTRY only: compare the state apply_hud just published
+	-- against last frame's. wake gets its own cue since it is a transition
+	-- OUT of sleeping, which the STATE_CUES map (keyed by the state entered)
+	-- can't express.
+	local now_state = self.machine.current_state
+	if now_state ~= self.last_cued_state then
+		if self.last_cued_state == package_state_machine.SLEEPING then
+			cue(self, "package_wake")
+		else
+			cue(self, STATE_CUES[now_state])
+		end
+		self.last_cued_state = now_state
+	end
+
 	apply_hud(self)
 end
 
@@ -425,6 +469,7 @@ function on_message(self, message_id, message)
 		self.player_died_count = 0
 		self.offscreen = offscreen_timer.new()
 		self.near_hazard = false
+		self.last_cued_state = self.machine.current_state
 		-- Panic/Explosive can leave residual velocity in self.physics
 		-- (decayed but nonzero); left alone it would bleed into whatever
 		-- runs next.

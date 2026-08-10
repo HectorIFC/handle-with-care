@@ -22,6 +22,9 @@ go.property("package", msg.url())
 -- via go.get instead of racing a message.
 go.property("delivered", false)
 
+go.property("has_audio", false)
+go.property("audio", msg.url())
+
 function init(self)
 	self.initial_position = go.get_position()
 	-- PRD 3.5: restart is broadcast through Defold's input dispatch rather
@@ -64,6 +67,9 @@ function update(self, dt)
 	if delivery.is_delivered(package_rect, zone, package_state) then
 		self.delivered = true
 		msg.post(self.player, "package_delivered")
+		if self.has_audio then
+			msg.post(self.audio, "play_cue", { cue = "delivery" })
+		end
 	end
 end
 

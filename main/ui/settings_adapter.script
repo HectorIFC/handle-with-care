@@ -7,20 +7,18 @@
 -- files, so one cannot clobber the other.
 
 local settings = require "main.core.settings"
+local storage = require "main.ui.storage"
 
 go.property("in_memory_only", false)
+
+-- See save_adapter.script: true only in a Steam build.
+go.property("steam", false)
 
 -- Mirrors for synchronous reads (rule 4) by the options screen.
 go.property("master", 0.8)
 go.property("music", 0.8)
 go.property("sfx", 0.8)
 go.property("fullscreen", false)
-
-local SETTINGS_FILE = "settings"
-
-local function path()
-	return sys.get_save_file("handle_with_care", SETTINGS_FILE)
-end
 
 -- Applies the gains to Defold's sound groups. Wrapped because the groups
 -- only exist once a sound component references them: with no audio assets
@@ -48,7 +46,7 @@ local function persist(self)
 	if self.in_memory_only then
 		return
 	end
-	if not sys.save(path(), self.state) then
+	if not storage.save("settings", self.state, self.steam) then
 		print("WARNING: could not write settings file; changes will not persist")
 	end
 end
@@ -57,7 +55,7 @@ function init(self)
 	if self.in_memory_only then
 		self.state = settings.new()
 	else
-		self.state = settings.sanitize(sys.load(path()))
+		self.state = settings.sanitize(storage.load("settings", self.steam))
 	end
 	apply(self)
 end

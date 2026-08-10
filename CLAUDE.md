@@ -721,27 +721,40 @@ Both are pinned by unit tests against the PRD numbers. Heavy's jump reach
 went from 10 units (unjumpable) to 34.8 — punishing but playable, which is
 what level 3's gaps are sized against.
 
-### Audio is wired but silent: the assets are the missing half
+### Audio: placeholder assets generated and fully wired (phase 23b)
 
-Phase 21 shipped everything about sound EXCEPT the sound. `core/settings.lua`
-owns the three gains and fullscreen; `settings_adapter.script` applies them to
-Defold's mixer groups and persists them in their OWN file (separate from the
-save, so New Game cannot reset a player's volume); `core/audio_cues.lua` lists
-all ~24 PRD section 8 cues, each routed to the sfx or music group.
+The audio is no longer silent. `scripts/generate_audio.py` synthesizes 22
+deterministic 8-bit `.ogg` placeholders (square/triangle/noise, one per
+core/audio_cues.lua cue) into `main/audio/`, and they are wired end to end:
+`main/audio/audio.script` plays the cue named by a `play_cue` message,
+one shared audio object per bootstrap collection, addressed as `/audio#script`
+from the menu and `main:/audio#script` from a proxy-loaded level (via each
+gameplay object's `has_audio`/`audio` property). Music is looping and
+exclusive; SFX overlap. Group gains from `settings_adapter` apply globally,
+so the volume sliders are now real.
 
-What is missing is the ~24 chiptune `.ogg` files, which are assets and cannot
-be produced in this environment. Consequences worth knowing:
-- `settings_adapter`'s `apply_gain` wraps `sound.set_group_gain` in `pcall`:
-  a mixer group only exists once a sound component references one, so with no
-  audio in the project the call would error and take the options screen down.
-  Failing quiet is deliberate — a missing group must not stop a player
-  changing a setting that will apply the moment the clips exist.
-- No adapter posts audio cues at its trigger sites yet. The cue NAMES are
-  settled (audio_cues.lua), so wiring them is mechanical once there is
-  something to play; doing it now would be trigger sites pointing at nothing.
-- Controls remapping (PRD 6.1's "Controles") is not implemented — the input
-  bindings are fixed. The Options screen covers volumes and fullscreen only.
+These are PLACEHOLDERS — a musician replaces them with real chiptune, and
+because the filenames match the cue catalogue that swap is drop-in, no
+trigger site changes. The synth is checked in so the placeholders are
+reproducible rather than opaque binaries.
 
+What headless still cannot check: that anything is AUDIBLE. The suite proves
+the wiring reaches the audio object and never throws (audio.script pcalls
+sound.play); the null sound device plays nothing. Audibility stays a
+manual-checklist item.
+
+### Sprites: placeholder art generated, atlas built, not yet wired
+
+`scripts/generate_sprites.py` produces 12 placeholder pixel-art PNGs (player
+24x24, one per package state 16x16, ground/spike tiles, delivery marker) into
+`main/sprites/`, collected in `main/sprites/game.atlas` (which builds). They
+are NOT yet swapped in for the `[label]`-text placeholders the game renders
+today: doing that changes rendered behavior across every `.go` and every
+collection, and cannot be verified without seeing the screen — the same
+reason this file never claims an untested result. Wiring the atlas (replacing
+the `visual` label components with sprite components, and mapping package
+state -> image in apply_hud) is the remaining visual step, and wants a human
+looking at it.
 ### What tests do NOT cover (accepted, documented gaps)
 
 - **FPS/performance**: `dmengine_headless` has no real GPU/vsync, so
@@ -830,7 +843,7 @@ and drafted commit (Conventional Commits + the version shown) — see
 | 20 | Level 10: Final Delivery | done — combination level, no new mechanic: gravity moods + airborne-only control inversion + a Magnetized cycle. **Not every combination is legal, and this is where that bites.** The first draft stacked the heavy gravity mood (1.8g) on a Heavy package (mass 2.5): jump reach collapses to 19.3 and apex to 22.1, which is *below* the level's own 24-unit step-ups — impossible, not hard. Level 10 therefore cycles Magnetized instead of Heavy, since Magnetized adds chaos without touching the player's mobility. **Before combining two modifiers, multiply their effects and check the result against the level's tightest gap and tallest step.** |
 | 21 | Audio + Options + Credits | **code done, audio assets blocked.** `core/settings.lua` (volumes + fullscreen, sanitized like save.lua), `main/ui/settings_adapter.script` (the only place touching the settings file and the sound mixer, in its own file so "New Game" can't wipe preferences), and the Options/Credits screens are shipped and tested. `core/audio_cues.lua` catalogs every PRD section 8 sound so the list is reviewable and every trigger site can name its cue today. **The ~24 .ogg files themselves cannot be authored here (assets, not code)** — when they land, only the audio adapter's clip table changes, no trigger site. Controls remapping (PRD 6.1) is not built. |
 | 22 | Polish, playtest, performance | 60 FPS tuning, atlas optimization, Chrome/Firefox checklist (manual only) |
-| 23 | Final build | Steam file-save adapter, Web (Poki) + Steam builds, full section 10/11 acceptance → `v1.0.0` |
+| 23 | Final build | **in progress.** Steam save routing is done in code: `core/save_location.lua` (pure — app id, filenames, sys-vs-Steam backend decision, all unit-tested) plus `main/ui/storage.lua` (the single read/write seam both adapters share). A Steam build sets each adapter's `steam` property and writes route through Steam Cloud, falling back to a local file if the extension is absent or the cloud write fails; every other target uses sys.save unchanged. **Still needs a human/native environment:** adding the Steam Defold extension (the `steam` module storage.lua guards for), the actual Web (Poki) and Steam builds, and the section 10/11 acceptance playtest → `v1.0.0`. |
 
 Full rationale and formula-level detail for each slice lives in
 [`Handle_With_Care_PRD_v2.1.md`](Handle_With_Care_PRD_v2.1.md).

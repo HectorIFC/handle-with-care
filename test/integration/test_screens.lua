@@ -195,6 +195,18 @@ return function()
 			assert(go.get("/settings_adapter#script", "master") == quieter)
 		end)
 
+		test("menu navigation and selection drive the audio object without error", function()
+			-- The audio object plays through a headless null device, so this
+			-- proves the wiring reaches it and the play_cue path is safe
+			-- (audio.script pcalls sound.play) rather than that a sound is
+			-- audible — which no headless test can check.
+			press("menu_down")
+			press("menu_up")
+			press("confirm") -- New Game
+			-- Reaching PLAYING means confirm's cue + music swap did not throw.
+			assert(go.get("/screens#script", "screen") == hash(flow.PLAYING))
+		end)
+
 		test("gameplay keys are ignored by the screens object while playing", function()
 			-- The level owns the keyboard once it is live; the screens object
 			-- must not eat a jump or move as menu navigation.
