@@ -1,0 +1,690 @@
+name: "level_04"
+instances {
+  id: "ground"
+  prototype: "/main/player/ground.go"
+  position {
+    x: 70.0
+    y: 40.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+}
+instances {
+  id: "player"
+  prototype: "/main/player/player.go"
+  position {
+    x: 32.0
+    y: 56.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "ground_x_min"
+      value: "0"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "ground_x_max"
+      value: "140"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "ground_y_top"
+      value: "48"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "package"
+      value: "/package#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "has_camera"
+      value: "true"
+      type: PROPERTY_TYPE_BOOLEAN
+    }
+    properties {
+      id: "camera"
+      value: "/camera#script"
+      type: PROPERTY_TYPE_URL
+    }
+  }
+}
+instances {
+  id: "package"
+  prototype: "/main/package/package.go"
+  position {
+    x: 40.0
+    y: 68.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "explosive_time"
+      value: "2.5"
+      type: PROPERTY_TYPE_NUMBER
+    }
+  }
+}
+instances {
+  id: "camera"
+  prototype: "/main/level/camera.go"
+  position {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "level_width"
+      value: "1150"
+      type: PROPERTY_TYPE_NUMBER
+    }
+  }
+}
+instances {
+  id: "hot_potato"
+  prototype: "/main/level/heavy_cycle.go"
+  position {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "package"
+      value: "/package#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "explosive_mode"
+      value: "true"
+      type: PROPERTY_TYPE_BOOLEAN
+    }
+    properties {
+      id: "normal_duration"
+      value: "9.0"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "heavy_duration"
+      value: "2.5"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "start_heavy"
+      value: "false"
+      type: PROPERTY_TYPE_BOOLEAN
+    }
+  }
+}
+instances {
+  id: "platform_1"
+  prototype: "/main/level/platform.go"
+  position {
+    x: 210.0
+    y: 40.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "half_width"
+      value: "45"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "half_height"
+      value: "8"
+      type: PROPERTY_TYPE_NUMBER
+    }
+  }
+}
+instances {
+  id: "platform_2"
+  prototype: "/main/level/platform.go"
+  position {
+    x: 340.0
+    y: 40.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "half_width"
+      value: "45"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "half_height"
+      value: "8"
+      type: PROPERTY_TYPE_NUMBER
+    }
+  }
+}
+instances {
+  id: "platform_3"
+  prototype: "/main/level/platform.go"
+  position {
+    x: 470.0
+    y: 64.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "half_width"
+      value: "45"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "half_height"
+      value: "8"
+      type: PROPERTY_TYPE_NUMBER
+    }
+  }
+}
+instances {
+  id: "platform_4"
+  prototype: "/main/level/platform.go"
+  position {
+    x: 600.0
+    y: 64.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "half_width"
+      value: "45"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "half_height"
+      value: "8"
+      type: PROPERTY_TYPE_NUMBER
+    }
+  }
+}
+instances {
+  id: "platform_5"
+  prototype: "/main/level/platform.go"
+  position {
+    x: 730.0
+    y: 40.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "half_width"
+      value: "45"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "half_height"
+      value: "8"
+      type: PROPERTY_TYPE_NUMBER
+    }
+  }
+}
+instances {
+  id: "platform_6"
+  prototype: "/main/level/platform.go"
+  position {
+    x: 870.0
+    y: 40.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "half_width"
+      value: "50"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "half_height"
+      value: "8"
+      type: PROPERTY_TYPE_NUMBER
+    }
+  }
+}
+instances {
+  id: "platform_7"
+  prototype: "/main/level/platform.go"
+  position {
+    x: 1040.0
+    y: 40.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "half_width"
+      value: "70"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "half_height"
+      value: "8"
+      type: PROPERTY_TYPE_NUMBER
+    }
+  }
+}
+instances {
+  id: "spike_1"
+  prototype: "/main/hazards/lethal_hazard.go"
+  position {
+    x: 158.0
+    y: 16.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "package"
+      value: "/package#script"
+      type: PROPERTY_TYPE_URL
+    }
+  }
+}
+instances {
+  id: "spike_2"
+  prototype: "/main/hazards/lethal_hazard.go"
+  position {
+    x: 275.0
+    y: 16.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "package"
+      value: "/package#script"
+      type: PROPERTY_TYPE_URL
+    }
+  }
+}
+instances {
+  id: "spike_3"
+  prototype: "/main/hazards/lethal_hazard.go"
+  position {
+    x: 405.0
+    y: 16.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "package"
+      value: "/package#script"
+      type: PROPERTY_TYPE_URL
+    }
+  }
+}
+instances {
+  id: "spike_4"
+  prototype: "/main/hazards/lethal_hazard.go"
+  position {
+    x: 535.0
+    y: 16.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "package"
+      value: "/package#script"
+      type: PROPERTY_TYPE_URL
+    }
+  }
+}
+instances {
+  id: "spike_5"
+  prototype: "/main/hazards/lethal_hazard.go"
+  position {
+    x: 665.0
+    y: 16.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "package"
+      value: "/package#script"
+      type: PROPERTY_TYPE_URL
+    }
+  }
+}
+instances {
+  id: "spike_6"
+  prototype: "/main/hazards/lethal_hazard.go"
+  position {
+    x: 800.0
+    y: 16.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "package"
+      value: "/package#script"
+      type: PROPERTY_TYPE_URL
+    }
+  }
+}
+instances {
+  id: "spike_7"
+  prototype: "/main/hazards/lethal_hazard.go"
+  position {
+    x: 950.0
+    y: 16.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "package"
+      value: "/package#script"
+      type: PROPERTY_TYPE_URL
+    }
+  }
+}
+instances {
+  id: "delivery_zone"
+  prototype: "/main/delivery/delivery_zone.go"
+  position {
+    x: 1060.0
+    y: 68.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "package"
+      value: "/package#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "half_width"
+      value: "24"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "half_height"
+      value: "24"
+      type: PROPERTY_TYPE_NUMBER
+    }
+  }
+}
+instances {
+  id: "save_adapter"
+  prototype: "/main/ui/save_adapter.go"
+  position {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "in_memory_only"
+      value: "false"
+      type: PROPERTY_TYPE_BOOLEAN
+    }
+  }
+}
+instances {
+  id: "level_controller"
+  prototype: "/main/levels/level_controller.go"
+  position {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "save_adapter"
+      value: "/save_adapter#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "level_number"
+      value: "4"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "screens"
+      value: "main:/screens#script"
+      type: PROPERTY_TYPE_URL
+    }
+  }
+}
+scale_along_z: 0

@@ -41,6 +41,18 @@ go.property("package", msg.url())
 -- without a camera (test.collection, and any level narrower than the
 -- screen) reports 0, which makes every camera-relative check identical to
 -- the screen-relative one it replaced.
+-- The level's gravity mood driver, when it has one (level 6). Gated by a
+-- flag for the same reason has_camera is: an empty msg.url() is not a
+-- reliable "unset" sentinel. A level without one reports 1.0, so every
+-- other level's physics is untouched.
+-- Level 7's control inversion, when the level has one. Same gating flag
+-- reasoning as has_camera/has_gravity_mood.
+go.property("has_input_inversion", false)
+go.property("input_inversion", msg.url())
+
+go.property("has_gravity_mood", false)
+go.property("gravity_mood", msg.url())
+
 go.property("has_camera", false)
 go.property("camera", msg.url())
 
@@ -89,6 +101,27 @@ go.property("kill_y", -20)
 -- here as the tunable per rule 5.
 go.property("offscreen_timeout", 2.0)
 
+-- Applied where move_x is CONSUMED, not where it is recorded: the level's
+-- inversion can flip mid-hold (timed) or the instant the player leaves the
+-- ground (airborne), and a value baked in at key-press time would keep the
+-- old direction until the key was released and pressed again.
+local function effective_move_x(self)
+	if not self.has_input_inversion then
+		return self.input.move_x
+	end
+	if go.get(self.input_inversion, "inverted") then
+		return -self.input.move_x
+	end
+	return self.input.move_x
+end
+
+local function mood_multiplier(self)
+	if not self.has_gravity_mood then
+		return 1
+	end
+	return go.get(self.gravity_mood, "multiplier")
+end
+
 -- Heavy/Light change the package's mass, which drags on the player's own
 -- speed/jump/gravity (PRD 4.6) — read synchronously via go.get, same as
 -- facing/grounded (rule 4).
@@ -98,7 +131,10 @@ local function movement_config(self)
 	local gravity_multiplier = player_movement.gravity_multiplier(mass)
 	return {
 		move_speed = self.move_speed * speed_multiplier,
-		gravity = self.gravity * gravity_multiplier,
+		-- Level 6's mood multiplies the package's own Light/Heavy effect
+		-- rather than replacing it, so a floaty mood while carrying a Light
+		-- package compounds, which is the point of the level.
+		gravity = self.gravity * gravity_multiplier * mood_multiplier(self),
 		-- Its own multiplier, not the speed one: the PRD gives Heavy
 		-- different penalties for speed (~35%) and jump height (~30%), and
 		-- reusing the speed figure made Heavy nearly unjumpable.
@@ -211,7 +247,11 @@ function update(self, dt)
 	local was_grounded = self.state.grounded
 	local jumped_this_frame = was_grounded and self.input.jump_pressed
 
-	self.state = player_movement.update(self.state, self.input, dt, movement_config(self))
+	local effective_input = {
+		move_x = effective_move_x(self),
+		jump_pressed = self.input.jump_pressed,
+	}
+	self.state = player_movement.update(self.state, effective_input, dt, movement_config(self))
 	local velocity_y_before_landing = self.state.velocity_y
 
 	self.knockback = knockback.decay(self.knockback, { damping = self.knockback_damping })
@@ -290,13 +330,13 @@ function update(self, dt)
 end
 
 local function recompute_move_x(self)
+	local move_x = 0
 	if self.move_left_held and not self.move_right_held then
-		self.input.move_x = -1
+		move_x = -1
 	elseif self.move_right_held and not self.move_left_held then
-		self.input.move_x = 1
-	else
-		self.input.move_x = 0
+		move_x = 1
 	end
+	self.input.move_x = move_x
 end
 
 function on_input(self, action_id, action)

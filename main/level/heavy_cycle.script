@@ -16,6 +16,21 @@ go.property("heavy_duration", 3.0)
 go.property("normal_duration", 5.0)
 go.property("start_heavy", false)
 
+-- Level 4 "Hot Potato" reuses this exact driver to force Explosive on a
+-- timer instead of Heavy (architecture rule 6). A boolean rather than two
+-- hash properties because go.property has no string type and a hash cannot
+-- be turned back into the name core/heavy_cycle.lua works in.
+go.property("explosive_mode", false)
+
+-- Level 5 "Magnet Madness" holds Magnetized for long stretches with short
+-- windows of relief, using this same driver again. Same reasoning as
+-- explosive_mode: a boolean per mode, because go.property has no string.
+go.property("magnetized_mode", false)
+
+-- Level 8 "Sleepy Package" again: long sleeping stretches with short waking
+-- windows. Same one-boolean-per-mode shape as the two above.
+go.property("sleeping_mode", false)
+
 -- Mirrors the cycle for tests and for a future on-screen telegraph, read
 -- synchronously via go.get like every other mirror in this project (rule 4).
 go.property("heavy", false)
@@ -25,6 +40,11 @@ local function config(self)
 	return {
 		heavy_duration = self.heavy_duration,
 		normal_duration = self.normal_duration,
+		heavy_state = (self.explosive_mode and "explosive")
+			or (self.magnetized_mode and "magnetized")
+			or (self.sleeping_mode and "sleeping")
+			or heavy_cycle.HEAVY,
+		normal_state = heavy_cycle.NORMAL,
 	}
 end
 
@@ -34,8 +54,12 @@ local function reset(self)
 	self.progress = 0
 	-- Push the opening state immediately rather than waiting for the first
 	-- flip: a level that starts heavy must actually start heavy.
+	local heavy_state = (self.explosive_mode and "explosive")
+		or (self.magnetized_mode and "magnetized")
+		or (self.sleeping_mode and "sleeping")
+		or heavy_cycle.HEAVY
 	msg.post(self.package, "set_package_state",
-		{ state = self.start_heavy and heavy_cycle.HEAVY or heavy_cycle.NORMAL })
+		{ state = self.start_heavy and heavy_state or heavy_cycle.NORMAL })
 end
 
 function init(self)

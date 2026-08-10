@@ -35,6 +35,16 @@ function M.new(start_heavy)
 	}
 end
 
+-- The two state names are config, not constants: level 4 "Hot Potato" is
+-- the same cycle driving stable -> explosive instead of stable -> heavy
+-- (PRD level 4, and architecture rule 6's expectation that the phase-timer
+-- trigger needs no change to explosive.lua or the state machine). Keeping
+-- the driver state-agnostic is what makes that a config change rather than
+-- a second near-identical module.
+local function state_names(config)
+	return config.heavy_state or M.HEAVY, config.normal_state or M.NORMAL
+end
+
 local function duration_for(heavy, config)
 	if heavy then
 		return config.heavy_duration or DEFAULT_HEAVY_DURATION
@@ -60,8 +70,9 @@ function M.update(state, dt, config)
 	-- zero, so a long frame cannot make cycles drift steadily longer than
 	-- configured over the course of a level.
 	local now_heavy = not state.heavy
+	local heavy_state, normal_state = state_names(config)
 	return { heavy = now_heavy, elapsed = elapsed - duration },
-		(now_heavy and M.HEAVY or M.NORMAL)
+		(now_heavy and heavy_state or normal_state)
 end
 
 -- How far through the current phase, 0..1. For a HUD or a telegraph so the

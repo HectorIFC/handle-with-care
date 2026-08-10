@@ -1,0 +1,42 @@
+-- Drives Mirror World's package-side inversion (PRD level 9). Thin adapter
+-- (rule 1): core/mirror.lua decides whether reactions are mirrored right
+-- now; this reads the player's position and publishes the answer.
+--
+-- The world's GEOMETRY is mirrored at authoring time (positions in the
+-- collection), not here — mirroring it live would fight every other system
+-- that reads a position. This object only handles the package's reactions,
+-- which is the half that has to change during play.
+
+local mirror = require "main.core.mirror"
+
+-- Must be overridden per collection (component_properties) — see rule 5.
+go.property("player", msg.url())
+
+go.property("level_width", 1000)
+-- PRD's "seção final não espelhada": the last stretch of world plays
+-- normally.
+go.property("normal_section_width", 0)
+-- ...but the package can be pinned mirrored throughout, which is the real
+-- trap: familiar-looking geometry with backwards reactions.
+go.property("package_always_mirrored", false)
+
+-- Mirror for synchronous reads (rule 4): package.script multiplies its
+-- horizontal offset and impulses by this.
+go.property("reaction_sign", 1)
+go.property("mirrored", true)
+
+function init(self)
+	msg.post(".", "acquire_input_focus")
+end
+
+function update(self, dt)
+	local player_x = go.get_position(self.player).x
+	local is_mirrored = mirror.package_mirrored({
+		player_x = player_x,
+		level_width = self.level_width,
+		normal_section_width = self.normal_section_width,
+		package_always_mirrored = self.package_always_mirrored,
+	})
+	self.mirrored = is_mirrored
+	self.reaction_sign = mirror.reaction_sign(is_mirrored)
+end

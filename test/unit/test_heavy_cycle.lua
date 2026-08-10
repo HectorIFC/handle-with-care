@@ -95,6 +95,22 @@ return function()
 		end)
 	end)
 
+	describe("heavy_cycle state names are configurable", function()
+		test("level 4 Hot Potato drives explosive with the same driver", function()
+			-- Architecture rule 6: the phase-timer trigger must need no
+			-- change to explosive.lua or the state machine.
+			local config = { heavy_duration = 1.0, normal_duration = 2.0,
+				heavy_state = "explosive", normal_state = "stable" }
+			local _, flips = advance(heavy_cycle.new(), 2.2, config)
+			assert(flips[1] == "explosive")
+		end)
+
+		test("defaults stay heavy/stable when not configured", function()
+			local _, flips = advance(heavy_cycle.new(), 2.2, CONFIG)
+			assert(flips[1] == "heavy")
+		end)
+	end)
+
 	describe("heavy_cycle.progress", function()
 		test("runs 0..1 across the current phase", function()
 			local state = heavy_cycle.new()

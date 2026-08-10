@@ -21,6 +21,13 @@ go.property("player", msg.url())
 -- guessed by each hazard adapter) so the package stays the single source
 -- of truth for its own size, the same reasoning as every other package
 -- tunable (rule 5).
+-- Level 9's mirror driver, when the level has one. Same gating-flag
+-- reasoning as the player's has_camera: an empty msg.url() is not a
+-- reliable "unset" sentinel. Without one the sign is 1, so every other
+-- level is untouched.
+go.property("has_mirror", false)
+go.property("mirror", msg.url())
+
 go.property("half_width", 6)
 go.property("half_height", 6)
 
@@ -102,9 +109,20 @@ local function rng(min_value, max_value)
 	return min_value + math.random() * (max_value - min_value)
 end
 
+-- +1 normally, -1 while the level mirrors the package's reactions. Applied
+-- to the carry offset and to Panic's horizontal impulses — never to
+-- anything vertical, since gravity does not care which way the level runs
+-- and flipping it would read as a bug rather than a mirror.
+local function reaction_sign(self)
+	if not self.has_mirror then
+		return 1
+	end
+	return go.get(self.mirror, "reaction_sign")
+end
+
 local function movement_config(self)
 	return {
-		offset_x = self.offset_x,
+		offset_x = self.offset_x * reaction_sign(self),
 		offset_y = self.offset_y,
 		lerp_factor = self.lerp_factor,
 		velocity_damping = self.velocity_damping,
@@ -312,7 +330,7 @@ function update(self, dt)
 	end
 	local package_state = {
 		shake_intensity = shake_intensity,
-		horizontal_force = self.panic_impulse.horizontal_force,
+		horizontal_force = self.panic_impulse.horizontal_force * reaction_sign(self),
 		vertical_force = package_state_machine.vertical_force(self.machine, sm_config) + self.panic_impulse.vertical_force,
 		offset_y_bonus = package_state_machine.offset_y_bonus(self.machine, sm_config),
 	}

@@ -1,0 +1,59 @@
+-- Drives the level's gravity moods (PRD level 6 "Gravity Moods"). Thin
+-- adapter (rule 1): core/gravity_driver.lua owns the schedule, the choice
+-- and the telegraph; this only injects randomness and publishes the result.
+
+local gravity_driver = require "main.core.gravity_driver"
+
+-- Must be overridden per collection (component_properties) — see rule 5.
+go.property("player", msg.url())
+
+go.property("mood_duration", 4.0)
+go.property("telegraph", 1.0)
+
+-- Mirrors for synchronous reads (rule 4): player.script multiplies its own
+-- gravity by this, and a HUD can show the warning.
+go.property("multiplier", 1.0)
+go.property("telegraphing", false)
+
+-- Real randomness lives only in the adapter (rule 3).
+local function rng(min_value, max_value)
+	return math.random(min_value, max_value)
+end
+
+local function config(self)
+	return { mood_duration = self.mood_duration, telegraph = self.telegraph }
+end
+
+local function publish(self)
+	self.multiplier = gravity_driver.multiplier(self.state)
+	self.telegraphing = gravity_driver.telegraphing(self.state)
+end
+
+local function reset(self)
+	self.state = gravity_driver.new()
+	publish(self)
+end
+
+function init(self)
+	-- PRD 3.5: restart is broadcast through Defold's input dispatch.
+	msg.post(".", "acquire_input_focus")
+	reset(self)
+end
+
+function update(self, dt)
+	self.state = gravity_driver.update(self.state, dt, rng, config(self))
+	publish(self)
+end
+
+function on_input(self, action_id, action)
+	if action_id == hash("restart") and action.pressed then
+		reset(self)
+	end
+	return false -- never consume: every other object needs to see this too
+end
+
+function on_message(self, message_id, message)
+	if message_id == hash("reset") or message_id == hash("test_reset") then
+		reset(self)
+	end
+end
