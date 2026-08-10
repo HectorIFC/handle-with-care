@@ -26,20 +26,18 @@ local suites = {
 	require "test.unit.test_mirror",
 	require "test.unit.test_settings",
 	require "test.unit.test_audio_cues",
-	-- DISABLED (phase 9a): the engine wedges intermittently, and every wedge
-	-- observed up to this point had landed inside these two suites (after
-	-- 189, 191, 193 and 193 tests), so they were disabled to try to isolate
-	-- it. Be clear about the result: it did NOT work — a run with both of
-	-- them commented out still wedged once and was only saved by
-	-- run_tests.sh's retry. That is consistent with the rest of the
-	-- evidence (see CLAUDE.md's "dmengine_headless intermittently stops
-	-- updating game objects"): the engine stops updating wherever the suite
-	-- happens to be, so no individual test owns the fault. These two cover
-	-- player movement and package attachment — the game's two most basic
-	-- mechanics — and should be restored as soon as the engine issue is
-	-- understood, since disabling them costs real coverage and buys nothing.
-	-- require "test.integration.test_player_movement",
-	-- require "test.integration.test_package_physics",
+	-- RE-ENABLED (phase 22). These two were commented out in phase 9a to try
+	-- to isolate the engine wedge, on the theory that it always landed inside
+	-- them. It did not work — a run with both disabled still wedged — and the
+	-- accumulated evidence (see CLAUDE.md's "dmengine_headless intermittently
+	-- stops updating game objects") is that the engine stops wherever the
+	-- suite happens to be, so no individual test owns the fault. Disabling
+	-- them only cost the coverage of the game's two most basic mechanics —
+	-- player movement and package attachment — which is exactly the coverage
+	-- that would have caught the phase-13 Heavy magnitude bug earlier. The
+	-- wedge is handled by run_tests.sh's retry, not by hiding these.
+	require "test.integration.test_player_movement",
+	require "test.integration.test_package_physics",
 	require "test.integration.test_package_state_and_stress",
 	require "test.integration.test_heavy_light",
 	require "test.integration.test_panic_impulse",

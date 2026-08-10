@@ -277,16 +277,14 @@ only a run that produced **no result at all** is retried. Both values are
 env-overridable and **both must grow as the suite grows**, since a wedged
 engine emits nothing, making total runtime the only signal available.
 
-**Also disabled, and this did not help:** `test.integration.test_player_movement`
-and `test.integration.test_package_physics` are commented out in
-`test_runner.script` (commented, not deleted), because every wedge observed
-before that point had landed inside them. It made no difference — the very
-next run wedged anyway with both disabled, and only the retry saved it,
-which is exactly what the "no individual test owns the fault" conclusion
-predicts. The suite is therefore 229 tests rather than 236, and the game's
-two most basic mechanics (player movement, package attachment) currently
-have no integration coverage. **Re-enable both lines** once the engine
-issue is understood; there is no reason to keep them off beyond that.
+**Previously disabled, re-enabled in phase 22:**
+`test.integration.test_player_movement` and
+`test.integration.test_package_physics` were commented out in phase 9a to
+try to isolate the wedge, on the theory it always landed inside them. That
+did not help — the next run wedged anyway with both off — so they are back.
+The wedge is handled by run_tests.sh's retry, not by hiding suites, and
+their coverage of the two most basic mechanics is what would have caught
+the phase-13 Heavy magnitude bug earlier.
 
 **A second, subtler bug surfaced fixing the first one:** the initial
 `M.tick()` iterated `pending_frame_waits` in place while resuming
