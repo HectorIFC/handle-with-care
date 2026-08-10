@@ -50,15 +50,4 @@ function M.below_kill_plane(y, kill_y)
 	return y < kill_y
 end
 
--- Is `rect` completely outside the visible play area (PRD 3.3: "pacote
--- fugiu da tela")? Fully outside, not just partially past an edge —
--- matches the PRD's "sai COMPLETAMENTE da tela". screen_width/
--- screen_height are the adapter's own read of game.project's actual
--- display settings (see player.script), not a duplicated constant here.
-function M.fully_offscreen(rect, screen_width, screen_height)
-	local min_x, max_x = rect.x - rect.half_width, rect.x + rect.half_width
-	local min_y, max_y = rect.y - rect.half_height, rect.y + rect.half_height
-	return max_x < 0 or min_x > screen_width or max_y < 0 or min_y > screen_height
-end
-
 return M

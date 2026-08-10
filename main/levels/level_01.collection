@@ -50,6 +50,16 @@ instances {
       value: "/package#script"
       type: PROPERTY_TYPE_URL
     }
+    properties {
+      id: "has_camera"
+      value: "true"
+      type: PROPERTY_TYPE_BOOLEAN
+    }
+    properties {
+      id: "camera"
+      value: "/camera#script"
+      type: PROPERTY_TYPE_URL
+    }
   }
 }
 instances {
@@ -198,10 +208,254 @@ instances {
   }
 }
 instances {
+  id: "platform_3"
+  prototype: "/main/level/platform.go"
+  position {
+    x: 420.0
+    y: 64.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "half_width"
+      value: "40"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "half_height"
+      value: "8"
+      type: PROPERTY_TYPE_NUMBER
+    }
+  }
+}
+instances {
+  id: "platform_4"
+  prototype: "/main/level/platform.go"
+  position {
+    x: 540.0
+    y: 64.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "half_width"
+      value: "40"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "half_height"
+      value: "8"
+      type: PROPERTY_TYPE_NUMBER
+    }
+  }
+}
+instances {
+  id: "platform_5"
+  prototype: "/main/level/platform.go"
+  position {
+    x: 680.0
+    y: 64.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "half_width"
+      value: "48"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "half_height"
+      value: "8"
+      type: PROPERTY_TYPE_NUMBER
+    }
+  }
+}
+instances {
+  id: "platform_6"
+  prototype: "/main/level/platform.go"
+  position {
+    x: 820.0
+    y: 64.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "half_width"
+      value: "48"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "half_height"
+      value: "8"
+      type: PROPERTY_TYPE_NUMBER
+    }
+  }
+}
+instances {
+  id: "spike_pit_3"
+  prototype: "/main/hazards/lethal_hazard.go"
+  position {
+    x: 348.0
+    y: 16.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "package"
+      value: "/package#script"
+      type: PROPERTY_TYPE_URL
+    }
+  }
+}
+instances {
+  id: "spike_pit_4"
+  prototype: "/main/hazards/lethal_hazard.go"
+  position {
+    x: 480.0
+    y: 16.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "package"
+      value: "/package#script"
+      type: PROPERTY_TYPE_URL
+    }
+  }
+}
+instances {
+  id: "spike_pit_5"
+  prototype: "/main/hazards/lethal_hazard.go"
+  position {
+    x: 606.0
+    y: 16.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "package"
+      value: "/package#script"
+      type: PROPERTY_TYPE_URL
+    }
+  }
+}
+instances {
+  id: "spike_pit_6"
+  prototype: "/main/hazards/lethal_hazard.go"
+  position {
+    x: 750.0
+    y: 16.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "package"
+      value: "/package#script"
+      type: PROPERTY_TYPE_URL
+    }
+  }
+}
+instances {
   id: "delivery_zone"
   prototype: "/main/delivery/delivery_zone.go"
   position {
-    x: 312.0
+    x: 830.0
     y: 92.0
     z: 0.0
   }
@@ -293,6 +547,34 @@ instances {
       id: "screens"
       value: "main:/screens#script"
       type: PROPERTY_TYPE_URL
+    }
+  }
+}
+instances {
+  id: "camera"
+  prototype: "/main/level/camera.go"
+  position {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "level_width"
+      value: "960"
+      type: PROPERTY_TYPE_NUMBER
     }
   }
 }

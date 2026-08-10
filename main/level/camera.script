@@ -1,0 +1,66 @@
+-- Side-scrolling camera adapter. Thin wrapper over core/camera.lua (rule
+-- 1): it reads the player's position, asks the core where to be, and moves
+-- the render view. It owns no follow rules of its own.
+--
+-- Every object that needs to know where the camera is reads `x` from here
+-- synchronously via go.get (rule 4) — the player and package both do, for
+-- their camera-relative off-screen checks, and a message would put those a
+-- frame behind the view they are being judged against.
+
+local camera_core = require "main.core.camera"
+
+-- Must be overridden per collection (component_properties) — see rule 5.
+go.property("player", msg.url())
+
+-- How wide this level actually is. The camera never scrolls past
+-- level_width - screen_width, so a level that forgets to set this is
+-- treated as one screen wide and simply never scrolls — the safe failure,
+-- and exactly how the pre-camera levels behave.
+go.property("level_width", 384)
+
+go.property("dead_zone", 48)
+go.property("follow_lerp", 0.12)
+
+-- Mirrors the camera's left edge in world space for synchronous reads.
+go.property("x", 0)
+
+local function config(self)
+	return {
+		screen_width = self.screen_width,
+		level_width = self.level_width,
+		dead_zone = self.dead_zone,
+		follow_lerp = self.follow_lerp,
+	}
+end
+
+function init(self)
+	-- Same authoritative source the player and package already read rather
+	-- than a duplicated constant (rule 5).
+	self.screen_width = sys.get_config_int("display.width", 384)
+	self.screen_height = sys.get_config_int("display.height", 216)
+
+	-- Start already framing the player instead of easing in from 0, which
+	-- would drag the view across the level on the first second of every
+	-- attempt.
+	local player_pos = go.get_position(self.player)
+	local centered = player_pos.x - self.screen_width * 0.5
+	self.state = camera_core.new(camera_core.clamp(centered, self.level_width, self.screen_width))
+	self.x = self.state.x
+	go.set_position(vmath.vector3(self.state.x, 0, 0))
+end
+
+function update(self, dt)
+	local player_pos = go.get_position(self.player)
+	self.state = camera_core.update(self.state, player_pos.x, dt, config(self))
+	self.x = self.state.x
+	-- Moving this game object is what scrolls the view: the render script
+	-- draws relative to it. Y stays 0 — the camera only pans horizontally
+	-- (see core/camera.lua).
+	go.set_position(vmath.vector3(self.state.x, 0, 0))
+end
+
+function on_message(self, message_id, message)
+	if message_id == hash("reset") or message_id == hash("test_reset") then
+		init(self)
+	end
+end

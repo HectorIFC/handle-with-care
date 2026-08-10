@@ -5,6 +5,7 @@ local panic_impulse = require "main.core.panic_impulse"
 local explosive = require "main.core.explosive"
 local hazards = require "main.core.hazards"
 local offscreen_timer = require "main.core.offscreen_timer"
+local camera = require "main.core.camera"
 
 go.property("offset_x", 8)
 go.property("offset_y", 12)
@@ -336,7 +337,12 @@ function update(self, dt)
 		half_height = self.half_height,
 	}
 	local package_died = hazards.below_kill_plane(self.physics.position_y, go.get(self.player, "kill_y"))
-	local is_offscreen = hazards.fully_offscreen(package_rect, self.screen_width, self.screen_height)
+	-- Camera-relative, mirroring player.script's own check — see its
+	-- camera_x() comment for why a fixed screen rectangle capped every
+	-- level at one screen. kill_y, offscreen_timeout and now the camera
+	-- are all read from the player rather than duplicated (rule 5).
+	local cam_x = go.get(self.player, "has_camera") and go.get(go.get(self.player, "camera"), "x") or 0
+	local is_offscreen = camera.rect_offscreen(package_rect, cam_x, self.screen_width, self.screen_height)
 	local offscreen_died
 	self.offscreen, offscreen_died = offscreen_timer.update(self.offscreen, is_offscreen, dt, { timeout = go.get(self.player, "offscreen_timeout") })
 	if package_died or offscreen_died then

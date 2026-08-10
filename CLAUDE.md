@@ -667,23 +667,37 @@ new `wait`-heavy integration tests, not just at the very end.
   `shasum -a 256` it), and update the cache key in `ci.yml` to match — all as
   one reviewable commit, never resolved automatically at run time.
 
-### Level 1 fits one screen, and that is a systems limit, not a design choice
+### Levels can be wider than one screen (phase 11c added the camera)
 
-`main/levels/level_01.collection` is 384x216 — the whole level, no scrolling.
-There is no camera system yet, and `player.script`'s own off-screen death
-check (PRD 3.3) actively kills anything that leaves the visible area, so a
-level physically cannot extend past one screen today. A successful attempt
-therefore runs ~15 seconds, well under **the PRD's 35-75s target (section
-10's "Duração alvo por tentativa")**. Closing that gap needs a camera plus
-making the off-screen check camera-relative rather than screen-relative —
-neither is on the roadmap yet, and both should be, before levels 2-10 are
-built to a duration they cannot currently reach.
+`main/core/camera.lua` + `main/level/camera.script` scroll horizontally, and
+`main/levels/level_01.collection` is now 960 wide (2.5 screens).
 
-The level's geometry was verified by arithmetic against the player's real
-constants (`move_speed` 90, `jump_velocity` 320, `gravity` -900 → ~57 units
-of apex, ~64 of horizontal reach): gap 1 needs 26 units of airborne travel,
-gap 2 needs 16 plus a 24-unit step up, and the delivery zone is reachable
-from anywhere in x 286..322 on platform_2 (which supports x 240..336).
+The blocker this removed was not the camera alone: `player.script`'s
+off-screen death check compared against a **fixed screen rectangle**, so
+walking right to reach more level was indistinguishable from fleeing the
+play area. `camera.rect_offscreen` replaces `hazards.fully_offscreen`
+(deleted — it had no callers left, and keeping a near-duplicate of a live
+function is how the two drift apart) and judges against the camera's current
+window instead. A level with no camera reports `camera_x = 0`, which makes
+the new check mathematically identical to the old one — which is why
+`test.collection` needed no changes.
+
+**A camera does not by itself reach the PRD's 35-75s target.** Level 1's
+pure walking time is ~9s and a careful attempt runs ~20s. That is now a
+level-design question rather than a blocked capability: levels can be any
+width, so levels 2-10 should simply be built longer.
+
+Design rules for a level, all verified by arithmetic against the player's
+real constants (`move_speed` 90, `jump_velocity` 320, `gravity` -900 →
+apex ~57, horizontal reach ~64):
+- A gap between two same-height surfaces needs `gap - 2 * player_half_width`
+  of airborne travel, so gaps up to ~60 are clearable; level 1's worst is 36.
+- `camera.script`'s `level_width` must match the level's real extent. It
+  defaults to one screen, so a level that forgets it simply never scrolls —
+  the safe failure.
+- The player needs `has_camera = true` and a `camera` URL, or its off-screen
+  check silently judges against a window pinned at 0 and kills anyone who
+  walks past x=384.
 
 ### What tests do NOT cover (accepted, documented gaps)
 

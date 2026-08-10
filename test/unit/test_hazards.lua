@@ -88,43 +88,4 @@ return function()
 		end)
 	end)
 
-	describe("hazards.fully_offscreen", function()
-		local screen_width, screen_height = 384, 216
-
-		test("fully on-screen", function()
-			local rect = { x = 192, y = 100, half_width = 8, half_height = 8 }
-			assert(hazards.fully_offscreen(rect, screen_width, screen_height) == false)
-		end)
-
-		test("partially past the right edge is not fully offscreen", function()
-			local rect = { x = 390, y = 100, half_width = 8, half_height = 8 }
-			assert(hazards.fully_offscreen(rect, screen_width, screen_height) == false)
-		end)
-
-		test("fully past the right edge", function()
-			local rect = { x = 400, y = 100, half_width = 8, half_height = 8 }
-			assert(hazards.fully_offscreen(rect, screen_width, screen_height) == true)
-		end)
-
-		test("fully past the left edge", function()
-			local rect = { x = -20, y = 100, half_width = 8, half_height = 8 }
-			assert(hazards.fully_offscreen(rect, screen_width, screen_height) == true)
-		end)
-
-		test("fully past the top edge", function()
-			local rect = { x = 192, y = 300, half_width = 8, half_height = 8 }
-			assert(hazards.fully_offscreen(rect, screen_width, screen_height) == true)
-		end)
-
-		test("fully past the bottom edge", function()
-			local rect = { x = 192, y = -30, half_width = 8, half_height = 8 }
-			assert(hazards.fully_offscreen(rect, screen_width, screen_height) == true)
-		end)
-
-		test("respects custom screen dimensions", function()
-			local rect = { x = 90, y = 50, half_width = 8, half_height = 8 }
-			assert(hazards.fully_offscreen(rect, 100, 100) == false)
-			assert(hazards.fully_offscreen(rect, 50, 50) == true)
-		end)
-	end)
 end

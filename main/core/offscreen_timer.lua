@@ -16,7 +16,7 @@ function M.new()
 end
 
 -- state: { time_offscreen }
--- is_offscreen: bool, this frame's fully_offscreen() result
+-- is_offscreen: bool, this frame's camera.rect_offscreen() result
 -- returns: new_state, died (true only on the exact frame the timeout is
 --   crossed — false before that frame and on every frame after, the same
 --   one-shot shape as explosive.lua's `active`-gated update(), needed for

@@ -2,6 +2,7 @@ local player_movement = require "main.core.player_movement"
 local knockback = require "main.core.knockback"
 local hazards = require "main.core.hazards"
 local offscreen_timer = require "main.core.offscreen_timer"
+local camera = require "main.core.camera"
 
 go.property("move_speed", 90)
 go.property("gravity", -900)
@@ -33,6 +34,15 @@ go.property("grounded", true)
 -- one-off events are messages, per CLAUDE.md rule 4. Must be overridden
 -- per collection to point at the package this player is carrying.
 go.property("package", msg.url())
+
+-- The level's camera, when it has one. `has_camera` gates it because an
+-- empty msg.url() is not a reliable "unset" sentinel to compare against —
+-- the same reason phase 9a's extra_ground slot needed its own flag. A level
+-- without a camera (test.collection, and any level narrower than the
+-- screen) reports 0, which makes every camera-relative check identical to
+-- the screen-relative one it replaced.
+go.property("has_camera", false)
+go.property("camera", msg.url())
 
 -- A landing faster than this counts as a hard/heavy landing for the stress
 -- system (PRD 4.5's "aterrissagem forte" / "queda de altura média/alta").
@@ -91,6 +101,16 @@ local function movement_config(self)
 		gravity = self.gravity * gravity_multiplier,
 		jump_velocity = self.jump_velocity * speed_multiplier,
 	}
+end
+
+-- Read fresh every frame rather than cached: the camera moves, and an
+-- off-screen judgement made against last frame's view would be wrong
+-- exactly when the camera is scrolling fastest. Synchronous (rule 4).
+local function camera_x(self)
+	if not self.has_camera then
+		return 0
+	end
+	return go.get(self.camera, "x")
 end
 
 local function ground_rect(self)
@@ -249,7 +269,12 @@ function update(self, dt)
 	end
 
 	local self_rect = { x = target_x, y = target_y, half_width = self.half_width, half_height = self.half_height }
-	local is_offscreen = hazards.fully_offscreen(self_rect, self.screen_width, self.screen_height)
+	-- Camera-relative, not screen-relative (PRD 3.3's "pacote fugiu da
+	-- tela"). Against a fixed screen rectangle, walking right to reach more
+	-- of a wide level was indistinguishable from fleeing the play area,
+	-- which is exactly why levels could never exceed one screen. A level
+	-- with no camera reports 0 and behaves as it always did.
+	local is_offscreen = camera.rect_offscreen(self_rect, camera_x(self), self.screen_width, self.screen_height)
 	local offscreen_died
 	self.offscreen, offscreen_died = offscreen_timer.update(self.offscreen, is_offscreen, dt, { timeout = self.offscreen_timeout })
 	if offscreen_died then
