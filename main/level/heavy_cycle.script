@@ -1,0 +1,69 @@
+-- Drives the package between Heavy and normal on a cycle (PRD level 3
+-- "Heavy Duty"). Thin adapter (rule 1): core/heavy_cycle.lua owns the
+-- schedule and decides when to flip; this only forwards the flip.
+--
+-- This is the real trigger that package.script's `debug_set_state` hook has
+-- been standing in for since phase 4 (see CLAUDE.md). It posts the
+-- production message `set_package_state`, not the debug one, so a level
+-- never depends on a test affordance.
+
+local heavy_cycle = require "main.core.heavy_cycle"
+
+-- Must be overridden per collection (component_properties) — see rule 5.
+go.property("package", msg.url())
+
+go.property("heavy_duration", 3.0)
+go.property("normal_duration", 5.0)
+go.property("start_heavy", false)
+
+-- Mirrors the cycle for tests and for a future on-screen telegraph, read
+-- synchronously via go.get like every other mirror in this project (rule 4).
+go.property("heavy", false)
+go.property("progress", 0)
+
+local function config(self)
+	return {
+		heavy_duration = self.heavy_duration,
+		normal_duration = self.normal_duration,
+	}
+end
+
+local function reset(self)
+	self.cycle = heavy_cycle.new(self.start_heavy)
+	self.heavy = self.cycle.heavy
+	self.progress = 0
+	-- Push the opening state immediately rather than waiting for the first
+	-- flip: a level that starts heavy must actually start heavy.
+	msg.post(self.package, "set_package_state",
+		{ state = self.start_heavy and heavy_cycle.HEAVY or heavy_cycle.NORMAL })
+end
+
+function init(self)
+	-- PRD 3.5: restart is broadcast through Defold's input dispatch — see
+	-- player.script's on_input for why nobody consumes the action.
+	msg.post(".", "acquire_input_focus")
+	reset(self)
+end
+
+function update(self, dt)
+	local flipped
+	self.cycle, flipped = heavy_cycle.update(self.cycle, dt, config(self))
+	self.heavy = self.cycle.heavy
+	self.progress = heavy_cycle.progress(self.cycle, config(self))
+	if flipped then
+		msg.post(self.package, "set_package_state", { state = flipped })
+	end
+end
+
+function on_input(self, action_id, action)
+	if action_id == hash("restart") and action.pressed then
+		reset(self)
+	end
+	return false -- never consume: every other object needs to see this too
+end
+
+function on_message(self, message_id, message)
+	if message_id == hash("reset") or message_id == hash("test_reset") then
+		reset(self)
+	end
+end

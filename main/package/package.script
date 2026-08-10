@@ -427,7 +427,12 @@ function on_message(self, message_id, message)
 		self.physics.position_x = self.initial_position.x
 		self.physics.position_y = self.initial_position.y
 		go.set_position(self.initial_position)
-	elseif message_id == hash("debug_set_state") then
+	elseif message_id == hash("set_package_state") or message_id == hash("debug_set_state") then
+		-- set_package_state is the PRODUCTION trigger (phase 13's cyclic Heavy
+		-- driver, main/level/heavy_cycle.script, and any future per-level
+		-- driver). debug_set_state is the same code path kept under its old
+		-- name for manual debugging and tests, so a level never depends on a
+		-- test affordance and the two can never drift apart.
 		-- Manual/test override for the NON-ladder states (message.state,
 		-- e.g. "heavy") — this is how Heavy/Light are entered for now. A
 		-- real per-level trigger (cyclic timer for Heavy Duty, phase 13)

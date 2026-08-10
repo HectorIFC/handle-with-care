@@ -8,9 +8,45 @@ return function()
 			assert(player_movement.speed_multiplier(0.4) == 1)
 		end)
 
-		test("1/mass above the heavy threshold", function()
-			assert(player_movement.speed_multiplier(2.5) == 1 / 2.5)
-			assert(math.abs(player_movement.speed_multiplier(2.0) - 0.5) < 1e-9)
+		test("matches the PRD's ~35% speed reduction at the nominal Heavy mass", function()
+			-- PRD 4.3: Heavy (mass 2.2~2.8) "reduz velocidade máxima do
+			-- personagem em ~35%". This used to be 1/mass = 0.40, a 60%
+			-- reduction — far harsher than designed.
+			assert(math.abs(player_movement.speed_multiplier(2.5) - 0.65) < 0.01)
+		end)
+
+		test("mass still matters within the Heavy range", function()
+			-- 2.2 and 2.8 must not feel identical, or the mass value is
+			-- decoration.
+			assert(player_movement.speed_multiplier(2.2) > player_movement.speed_multiplier(2.8))
+		end)
+
+		test("never slows the player to a standstill", function()
+			-- A floor, not a softlock: an absurd mass is a difficulty spike,
+			-- not a player pinned in place.
+			assert(player_movement.speed_multiplier(50) >= 0.25)
+		end)
+	end)
+
+	describe("player_movement.jump_multiplier", function()
+		test("no change at or below the heavy threshold", function()
+			assert(player_movement.jump_multiplier(1.0) == 1)
+			assert(player_movement.jump_multiplier(1.5) == 1)
+		end)
+
+		test("matches the PRD's ~30% jump HEIGHT reduction at nominal Heavy mass", function()
+			-- The multiplier applies to jump VELOCITY while the PRD's figure
+			-- is about HEIGHT, and height scales with velocity squared — so
+			-- the check is on the square, not on the multiplier itself.
+			local velocity_multiplier = player_movement.jump_multiplier(2.5)
+			assert(math.abs(velocity_multiplier * velocity_multiplier - 0.70) < 0.01)
+		end)
+
+		test("is gentler than the speed multiplier, as the PRD specifies", function()
+			-- 30% height loss vs 35% speed loss. Reusing the speed figure for
+			-- jumps (the old behavior) squared it into an 84% height loss and
+			-- made Heavy effectively unjumpable.
+			assert(player_movement.jump_multiplier(2.5) > player_movement.speed_multiplier(2.5))
 		end)
 	end)
 

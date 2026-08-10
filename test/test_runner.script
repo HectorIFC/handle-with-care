@@ -20,6 +20,7 @@ local suites = {
 	require "test.unit.test_save",
 	require "test.unit.test_screen_flow",
 	require "test.unit.test_camera",
+	require "test.unit.test_heavy_cycle",
 	-- DISABLED (phase 9a): the engine wedges intermittently, and every wedge
 	-- observed up to this point had landed inside these two suites (after
 	-- 189, 191, 193 and 193 tests), so they were disabled to try to isolate

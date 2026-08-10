@@ -99,7 +99,10 @@ local function movement_config(self)
 	return {
 		move_speed = self.move_speed * speed_multiplier,
 		gravity = self.gravity * gravity_multiplier,
-		jump_velocity = self.jump_velocity * speed_multiplier,
+		-- Its own multiplier, not the speed one: the PRD gives Heavy
+		-- different penalties for speed (~35%) and jump height (~30%), and
+		-- reusing the speed figure made Heavy nearly unjumpable.
+		jump_velocity = self.jump_velocity * player_movement.jump_multiplier(mass),
 	}
 end
 

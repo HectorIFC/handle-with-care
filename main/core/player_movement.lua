@@ -34,9 +34,41 @@ local LIGHT_MASS_THRESHOLD = 1.0
 
 -- Multiplier applied to move_speed and jump_velocity for the package's
 -- current mass (see PRD 4.6). 1.0 (no change) below the Heavy threshold.
+-- PRD 4.3 calibration for Heavy (mass 2.2~2.8, nominal 2.5): "Reduz
+-- velocidade máxima do personagem em ~35%" and "Reduz altura do pulo em
+-- ~30%". Expressed as a penalty per unit of excess mass so the mass value
+-- still means something (2.2 and 2.8 must not feel identical), calibrated
+-- to land exactly on the PRD's figures at 2.5: 1.5 excess x 0.2333 = 0.35
+-- speed, 1.5 x 0.2 = 0.30 height.
+--
+-- These used to be a single `1 / mass` applied to BOTH speed and jump
+-- velocity, which was far harsher than designed: at mass 2.5 that is 0.4
+-- speed (60% slower, not 35%) and — because jump height scales with the
+-- SQUARE of launch velocity — 0.16 height, an 84% reduction rather than
+-- 30%. Heavy was effectively unjumpable, which only became visible when
+-- level 3 needed to stay playable during a Heavy cycle.
+local HEAVY_SPEED_PENALTY_PER_MASS = 0.2333
+local HEAVY_JUMP_HEIGHT_PENALTY_PER_MASS = 0.2
+-- Floors, so an absurd mass slows the player down without ever pinning
+-- them in place (which would be a softlock, not a difficulty spike).
+local MIN_SPEED_MULTIPLIER = 0.25
+local MIN_JUMP_HEIGHT_MULTIPLIER = 0.25
+
 function M.speed_multiplier(mass)
 	if mass > HEAVY_MASS_THRESHOLD then
-		return 1 / mass
+		local multiplier = 1 - (mass - 1) * HEAVY_SPEED_PENALTY_PER_MASS
+		return math.max(multiplier, MIN_SPEED_MULTIPLIER)
+	end
+	return 1
+end
+
+-- Applied to jump VELOCITY, while the PRD's figure is about jump HEIGHT —
+-- hence the square root: height scales with velocity squared, so a 30%
+-- lower jump needs velocity x sqrt(0.7), not x 0.7.
+function M.jump_multiplier(mass)
+	if mass > HEAVY_MASS_THRESHOLD then
+		local height = 1 - (mass - 1) * HEAVY_JUMP_HEIGHT_PENALTY_PER_MASS
+		return math.sqrt(math.max(height, MIN_JUMP_HEIGHT_MULTIPLIER))
 	end
 	return 1
 end

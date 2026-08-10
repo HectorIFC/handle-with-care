@@ -699,6 +699,30 @@ apex ~57, horizontal reach ~64):
   check silently judges against a window pinned at 0 and kills anyone who
   walks past x=384.
 
+### Heavy's speed and jump penalties are separate, and were wrong until phase 13
+
+`player_movement` used a single `1 / mass` multiplier for **both** move
+speed and jump velocity. At the nominal Heavy mass of 2.5 that is 0.4, i.e.
+a 60% speed cut where PRD 4.3 asks for ~35% — and, because jump height
+scales with the **square** of launch velocity, an **84%** height cut where
+the PRD asks for ~30%. Heavy was effectively unjumpable.
+
+It went unnoticed from phase 4 to phase 13 because nothing tested the
+*magnitude*: the integration tests assert only that Heavy makes the player
+slower and lower, which stayed true at 84%. It surfaced the moment a level
+had to remain **traversable** during a Heavy cycle.
+
+There are now two multipliers, calibrated as a penalty per unit of excess
+mass so 2.2 and 2.8 still differ, landing on the PRD's figures at 2.5:
+- `speed_multiplier` → 0.65 (35% slower)
+- `jump_multiplier` → `sqrt(0.70)` ≈ 0.837, because the multiplier applies
+  to jump **velocity** while the PRD's 30% is about **height**. Using 0.70
+  directly would be a 51% height cut, not 30%.
+
+Both are pinned by unit tests against the PRD numbers. Heavy's jump reach
+went from 10 units (unjumpable) to 34.8 — punishing but playable, which is
+what level 3's gaps are sized against.
+
 ### What tests do NOT cover (accepted, documented gaps)
 
 - **FPS/performance**: `dmengine_headless` has no real GPU/vsync, so
@@ -777,7 +801,7 @@ and drafted commit (Conventional Commits + the version shown) — see
 | 10 | Level 1: Tutorial Soft | First fully playable level, section 11 acceptance checklist (done — `main/levels/level_01.collection`, now the bootstrap collection. Required generalizing ground detection first: walkable surfaces **register themselves** with the player (`register_platform`), replacing phase 9a's single `has_extra_ground`/`extra_ground` slot, so a level can have any number. See the notes below on that and on the level's one-screen constraint.) |
 | 11 | Menu, save/load, progression | Main menu, `core/save.lua` + save adapter, level unlocks, result screen, pause (done — `core/screen_flow.lua` owns menu entries, cursor wrapping, level-select bounds, time formatting and result quips; `main/ui/screens.script` draws them and owns the collectionproxy that loads levels. `main/main.collection` is the bootstrap again, now a menu shell rather than a dev sandbox. Pause freezes the level by setting the proxy's time step to 0, so no per-script paused flag is needed. See the notes below on the test-mode seam.) |
 | 12 | Level 2: Jump Scare | done — `main/levels/level_02.collection`, 1200 wide. No new core module: PRD 4.5 groups "pulo alto / aterrissagem forte" into the one row already implemented as `stress_heavy_landing`, so "the package hates jumps" is a per-collection `stress_jump` override (6 → 14, rule 5) rather than new code. "Punição da hesitação" is three falling platforms — hesitating on one literally drops you — which needed no new mechanic either. |
-| 13 | Level 3: Heavy Duty | New cyclic timer driver for Heavy cycles |
+| 13 | Level 3: Heavy Duty | done — `core/heavy_cycle.lua` + `main/level/heavy_cycle.script` alternate the package Heavy/normal on a schedule, posting the **production** `set_package_state` message. That retires `debug_set_state` as Heavy's only entry point (it stays as the same code path under its old name, for manual debugging and tests). Fixing this phase also exposed a latent Heavy calibration bug — see the note below. |
 | 14 | Level 4: Hot Potato | Uses `explosive.lua`'s phase-timer trigger |
 | 15 | Level 5: Magnet Madness | |
 | 16 | Level 6: Gravity Moods | New `core/gravity_driver.lua` |
