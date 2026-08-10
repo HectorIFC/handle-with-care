@@ -21,8 +21,8 @@ instances {
       type: PROPERTY_TYPE_URL
     }
     properties {
-      id: "level_proxy"
-      value: "/loader#level_proxy"
+      id: "loader"
+      value: "/loader"
       type: PROPERTY_TYPE_URL
     }
   }
@@ -53,8 +53,12 @@ instances {
 embedded_instances {
   id: "loader"
   data: "components {\n"
-  "  id: \"level_proxy\"\n"
+  "  id: \"level_proxy_1\"\n"
   "  component: \"/main/levels/level_01.collection\"\n"
+  "}\n"
+  "components {\n"
+  "  id: \"level_proxy_2\"\n"
+  "  component: \"/main/levels/level_02.collection\"\n"
   "}\n"
   ""
   position {

@@ -15,7 +15,12 @@ local save = require "main.core.save"
 
 -- Must be overridden per collection (component_properties) — see rule 5.
 go.property("save_adapter", msg.url())
-go.property("level_proxy", msg.url())
+-- The game object holding one collectionproxy component per level, named
+-- level_proxy_1, level_proxy_2, ... Levels are addressed by deriving the
+-- fragment from the level number rather than authoring a URL per level:
+-- Defold needs one proxy component per collection, so adding level N is
+-- then just "add the component and the collection", with no adapter change.
+go.property("loader", msg.url())
 
 -- Mirrors the active screen for tests, the same go.property convention the
 -- rest of the project uses for synchronous reads (rule 4).
@@ -106,6 +111,14 @@ local function render(self)
 	self.selected_level = self.state.selected_level
 end
 
+-- The proxy component for a given level, derived from the loader URL by
+-- swapping the fragment (see the `loader` property).
+local function proxy_for(self, level)
+	local url = msg.url(self.loader)
+	url.fragment = hash("level_proxy_" .. tostring(level))
+	return url
+end
+
 local function load_level(self, level)
 	self.current_level = level
 	self.last_requested_level = level
@@ -113,7 +126,7 @@ local function load_level(self, level)
 		-- Only one level is ever loaded, so an unload of whatever came
 		-- before must complete first — async_load's own "proxy_loaded" is
 		-- what tells us it is safe to enable.
-		msg.post(self.level_proxy, "async_load")
+		msg.post(proxy_for(self, level), "async_load")
 	end
 	self.state = flow.set_screen(self.state, flow.PLAYING)
 	render(self)
@@ -122,7 +135,7 @@ end
 local function unload_level(self)
 	if self.current_level then
 		if not self.test_mode then
-			msg.post(self.level_proxy, "unload")
+			msg.post(proxy_for(self, self.current_level), "unload")
 		end
 		self.current_level = nil
 	end
@@ -130,7 +143,9 @@ end
 
 local function set_level_time_step(self, factor)
 	if not self.test_mode then
-		msg.post(self.level_proxy, "set_time_step", { factor = factor, mode = 0 })
+		if self.current_level then
+			msg.post(proxy_for(self, self.current_level), "set_time_step", { factor = factor, mode = 0 })
+		end
 	end
 end
 
