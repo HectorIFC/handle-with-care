@@ -289,6 +289,11 @@ instances {
       value: "1"
       type: PROPERTY_TYPE_NUMBER
     }
+    properties {
+      id: "screens"
+      value: "main:/screens#script"
+      type: PROPERTY_TYPE_URL
+    }
   }
 }
 scale_along_z: 0

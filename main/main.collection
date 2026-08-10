@@ -1,10 +1,10 @@
 name: "main"
 instances {
-  id: "delivery_zone"
-  prototype: "/main/delivery/delivery_zone.go"
+  id: "screens"
+  prototype: "/main/ui/screens.go"
   position {
-    x: 248.0
-    y: 68.0
+    x: 192.0
+    y: 130.0
     z: 0.0
   }
   rotation {
@@ -16,152 +16,57 @@ instances {
   component_properties {
     id: "script"
     properties {
-      id: "player"
-      value: "/player#script"
+      id: "save_adapter"
+      value: "/save_adapter#script"
       type: PROPERTY_TYPE_URL
     }
     properties {
-      id: "package"
-      value: "/package#script"
+      id: "level_proxy"
+      value: "/loader#level_proxy"
       type: PROPERTY_TYPE_URL
     }
+  }
+}
+instances {
+  id: "save_adapter"
+  prototype: "/main/ui/save_adapter.go"
+  position {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
     properties {
-      id: "half_width"
-      value: "24"
-      type: PROPERTY_TYPE_NUMBER
+      id: "in_memory_only"
+      value: "false"
+      type: PROPERTY_TYPE_BOOLEAN
     }
-    properties {
-      id: "half_height"
-      value: "24"
-      type: PROPERTY_TYPE_NUMBER
-    }
+  }
+}
+embedded_instances {
+  id: "loader"
+  data: "components {\n"
+  "  id: \"level_proxy\"\n"
+  "  component: \"/main/levels/level_01.collection\"\n"
+  "}\n"
+  ""
+  position {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
   }
 }
 scale_along_z: 0
-instances {
-  id: "ground"
-  prototype: "/main/player/ground.go"
-  position {
-    x: 192.0
-    y: 24.0
-    z: 0.0
-  }
-  rotation {
-    x: 0.0
-    y: 0.0
-    z: 0.0
-    w: 1.0
-  }
-}
-instances {
-  id: "player"
-  prototype: "/main/player/player.go"
-  position {
-    x: 192.0
-    y: 100.0
-    z: 0.0
-  }
-  rotation {
-    x: 0.0
-    y: 0.0
-    z: 0.0
-    w: 1.0
-  }
-  component_properties {
-    id: "script"
-    properties {
-      id: "ground_x_min"
-      value: "128"
-      type: PROPERTY_TYPE_NUMBER
-    }
-    properties {
-      id: "ground_x_max"
-      value: "256"
-      type: PROPERTY_TYPE_NUMBER
-    }
-    properties {
-      id: "ground_y_top"
-      value: "32"
-      type: PROPERTY_TYPE_NUMBER
-    }
-    properties {
-      id: "package"
-      value: "/package#script"
-      type: PROPERTY_TYPE_URL
-    }
-  }
-}
-instances {
-  id: "package"
-  prototype: "/main/package/package.go"
-  position {
-    x: 200.0
-    y: 112.0
-    z: 0.0
-  }
-  rotation {
-    x: 0.0
-    y: 0.0
-    z: 0.0
-    w: 1.0
-  }
-  component_properties {
-    id: "script"
-    properties {
-      id: "player"
-      value: "/player#script"
-      type: PROPERTY_TYPE_URL
-    }
-  }
-}
-instances {
-  id: "lethal_hazard"
-  prototype: "/main/hazards/lethal_hazard.go"
-  position {
-    x: 220.0
-    y: 40.0
-    z: 0.0
-  }
-  rotation {
-    x: 0.0
-    y: 0.0
-    z: 0.0
-    w: 1.0
-  }
-  component_properties {
-    id: "script"
-    properties {
-      id: "player"
-      value: "/player#script"
-      type: PROPERTY_TYPE_URL
-    }
-    properties {
-      id: "package"
-      value: "/package#script"
-      type: PROPERTY_TYPE_URL
-    }
-  }
-}
-instances {
-  id: "falling_platform"
-  prototype: "/main/hazards/falling_platform.go"
-  position {
-    x: 250.0
-    y: 59.0
-    z: 0.0
-  }
-  rotation {
-    x: 0.0
-    y: 0.0
-    z: 0.0
-    w: 1.0
-  }
-  component_properties {
-    id: "script"
-    properties {
-      id: "player"
-      value: "/player#script"
-      type: PROPERTY_TYPE_URL
-    }
-  }
-}

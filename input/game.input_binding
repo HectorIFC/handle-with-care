@@ -34,3 +34,27 @@ key_trigger {
   input: KEY_ESC
   action: "pause"
 }
+key_trigger {
+  input: KEY_UP
+  action: "menu_up"
+}
+key_trigger {
+  input: KEY_DOWN
+  action: "menu_down"
+}
+key_trigger {
+  input: KEY_W
+  action: "menu_up"
+}
+key_trigger {
+  input: KEY_S
+  action: "menu_down"
+}
+key_trigger {
+  input: KEY_ENTER
+  action: "confirm"
+}
+key_trigger {
+  input: KEY_SPACE
+  action: "confirm"
+}

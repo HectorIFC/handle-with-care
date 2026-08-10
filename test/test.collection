@@ -93,6 +93,34 @@ instances {
     }
   }
 }
+instances {
+  id: "screens"
+  prototype: "/main/ui/screens.go"
+  position {
+    x: 0.0
+    y: 400.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "save_adapter"
+      value: "/save_adapter#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "test_mode"
+      value: "true"
+      type: PROPERTY_TYPE_BOOLEAN
+    }
+  }
+}
 scale_along_z: 0
 instances {
   id: "test_runner"

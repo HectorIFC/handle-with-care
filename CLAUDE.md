@@ -354,6 +354,29 @@ new `wait`-heavy integration tests, not just at the very end.
   to act as ground through. One slot is enough for this phase's own test
   collection; real multi-hazard levels (phase 10+) will need to revisit
   this if more than one is ever needed under the player at once.
+- **The screens object runs with `test_mode = true` in `test.collection`,
+  and that seam is where the coverage stops (phase 11).** `screens.script`
+  owns a collectionproxy, but the shared test fixture has none — loading a
+  real level into it would duplicate the player and package every other
+  suite depends on. `test_mode` suppresses every proxy message
+  (`async_load`, `unload`, `set_time_step`) and the `@system:exit` that
+  Quit would otherwise fire, while the full screen state machine still
+  runs; `last_requested_level` mirrors what *would* have been loaded so a
+  test can still assert the right level was chosen. **Proxy loading,
+  enabling and time-stepping are therefore manual-checklist items, not
+  automated ones** — and pause in particular is only really provable by
+  playing, since it works by freezing the proxy's time step.
+- **Lifecycle callbacks are not reachable as globals from each other.** A
+  test hook in `screens.script`'s `on_message` originally called
+  `on_input(self, ...)` directly and died with `attempt to call global
+  'on_input' (a nil value)`. Defold does not leave `init`/`update`/
+  `on_message`/`on_input` in the script's global scope for one another to
+  call. Put shared behavior in a `local function` both delegate to
+  (`handle_action` here) — which is better anyway, since the test hook then
+  exercises the exact code the keyboard reaches. Worth knowing because the
+  failure presents as a pile of confusing assertion failures: the real
+  `ERROR:SCRIPT` line sits buried in the log while deftest only reports
+  "assertion failed!".
 - **Walkable surfaces register themselves with the player (phase 10); the
   player does not hold a list of them.** `main/level/platform.script` and
   `falling_platform.script` each post `register_platform` to the player from
@@ -738,7 +761,7 @@ and drafted commit (Conventional Commits + the version shown) — see
 | 9a | Hazards + death | Spikes, saws, falling platforms, pits, off-screen check (done — see the Hazards note under Testing; also present in `main.collection`, not just the test fixture). Overlap detection is AABB (see [Known environment limitations](#known-environment-limitations)), not engine physics queries. Spikes/saws share one `lethal_hazard.script` (mechanically identical, PRD's visual distinction doesn't exist yet), pull themselves toward a Magnetized package via `core/magnetism.lua` (closing the loop deferred from phase 7), and build stress via `stress.apply_near_hazard` when within `near_margin` even before contact (PRD 4.5's "perto de spike/serra"). Both hazard contact and the pit/off-screen checks cover the package as well as the player (Panic's impulses can separate them). Falling platforms are a second, optional ground-like surface on the player (`has_extra_ground`/`extra_ground`) — a single fixed slot, not a registry; real multi-hazard levels (phase 10+) will need to revisit this. Pits and off-screen are world-bounds checks (`kill_y`, screen dimensions read via `sys.get_config_int`), not per-instance geometry — no camera/scrolling system exists yet to make per-pit rectangles meaningful. |
 | 9b | Delivery + win + restart | Delivery zone, win condition, instant restart (done — `core/delivery.lua` requires full containment, not mere overlap, per PRD 3.4's "dentro"; `delivery_zone.script` checks itself against the package, same inversion as hazards. `won` on `player.script` mirrors `dead`: sticky, freezes `update()`, and whichever landed first wins so a death and a delivery can't both claim the attempt. Restart (PRD 3.5, R) is broadcast through **Defold's input dispatch** rather than a registry — see the note under Testing.) |
 | 10 | Level 1: Tutorial Soft | First fully playable level, section 11 acceptance checklist (done — `main/levels/level_01.collection`, now the bootstrap collection. Required generalizing ground detection first: walkable surfaces **register themselves** with the player (`register_platform`), replacing phase 9a's single `has_extra_ground`/`extra_ground` slot, so a level can have any number. See the notes below on that and on the level's one-screen constraint.) |
-| 11 | Menu, save/load, progression | Main menu, `core/save.lua` port + localStorage adapter, level unlocks, result screen, pause. **Partially done** — `core/save.lua` (progression rules, plus a `sanitize()` that never trusts a save file), `main/ui/save_adapter.script` (the one place that touches a disk) and `main/levels/level_controller.script` (attempt timing, the PRD 9.2 "Game Manager") are shipped and covered. **Still to do: main menu, level select, result screen, pause.** Those need collection proxies to load levels, which the project does not use yet. |
+| 11 | Menu, save/load, progression | Main menu, `core/save.lua` + save adapter, level unlocks, result screen, pause (done — `core/screen_flow.lua` owns menu entries, cursor wrapping, level-select bounds, time formatting and result quips; `main/ui/screens.script` draws them and owns the collectionproxy that loads levels. `main/main.collection` is the bootstrap again, now a menu shell rather than a dev sandbox. Pause freezes the level by setting the proxy's time step to 0, so no per-script paused flag is needed. See the notes below on the test-mode seam.) |
 | 12 | Level 2: Jump Scare | |
 | 13 | Level 3: Heavy Duty | New cyclic timer driver for Heavy cycles |
 | 14 | Level 4: Hot Potato | Uses `explosive.lua`'s phase-timer trigger |
