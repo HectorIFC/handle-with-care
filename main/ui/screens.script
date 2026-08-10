@@ -21,6 +21,8 @@ go.property("save_adapter", msg.url())
 -- Defold needs one proxy component per collection, so adding level N is
 -- then just "add the component and the collection", with no adapter change.
 go.property("loader", msg.url())
+-- PRD 6.1's Opções needs somewhere to read and change gains.
+go.property("settings_adapter", msg.url())
 
 -- Mirrors the active screen for tests, the same go.property convention the
 -- rest of the project uses for synchronous reads (rule 4).
@@ -52,6 +54,10 @@ local function entries_for(self)
 		return flow.menu_entries({ has_progress = go.get(self.save_adapter, "has_progress") })
 	elseif self.state.screen == flow.PAUSED then
 		return flow.pause_entries()
+	elseif self.state.screen == flow.OPTIONS then
+		return flow.options_entries()
+	elseif self.state.screen == flow.CREDITS then
+		return { { label = "Back", action = flow.ACTION_TO_MENU } }
 	elseif self.state.screen == flow.RESULT then
 		return flow.result_entries(
 			{ total_levels = self.total_levels },
@@ -74,6 +80,16 @@ local function render(self)
 		table.insert(lines, self.result_quip)
 		table.insert(lines, "time " .. flow.format_time(self.result_time)
 			.. "   attempts " .. tostring(self.result_attempts))
+	elseif self.state.screen == flow.OPTIONS then
+		title = "OPTIONS"
+	elseif self.state.screen == flow.CREDITS then
+		title = "CREDITS"
+		table.insert(lines, "Handle With Care")
+		table.insert(lines, "design, code and everything else:")
+		table.insert(lines, "Hector Cardoso")
+		table.insert(lines, "")
+		table.insert(lines, "built with Defold")
+		table.insert(lines, "")
 	elseif self.state.screen == flow.LEVEL_SELECT then
 		title = "SELECT LEVEL"
 		local unlocked = go.get(self.save_adapter, "unlocked")
@@ -92,7 +108,15 @@ local function render(self)
 
 	for index, entry in ipairs(entries_for(self)) do
 		local marker = (index == self.state.cursor) and "> " or "  "
-		table.insert(lines, marker .. entry.label)
+		local text = entry.label
+		-- An options row has to show its current value, or the player is
+		-- adjusting something invisible.
+		if entry.kind then
+			text = text .. "  " .. flow.volume_bar(go.get(self.settings_adapter, entry.kind), 10)
+		elseif entry.action == flow.ACTION_FULLSCREEN then
+			text = text .. "  " .. (go.get(self.settings_adapter, "fullscreen") and "[on]" or "[off]")
+		end
+		table.insert(lines, marker .. text)
 	end
 
 	label.set_text("#title", title)
@@ -170,6 +194,12 @@ local function perform(self, action)
 		load_level(self, go.get(self.save_adapter, "unlocked"))
 	elseif action == flow.ACTION_LEVEL_SELECT then
 		self.state = flow.set_screen(self.state, flow.LEVEL_SELECT)
+	elseif action == flow.ACTION_OPTIONS then
+		self.state = flow.set_screen(self.state, flow.OPTIONS)
+	elseif action == flow.ACTION_CREDITS then
+		self.state = flow.set_screen(self.state, flow.CREDITS)
+	elseif action == flow.ACTION_FULLSCREEN then
+		msg.post(self.settings_adapter, "toggle_fullscreen")
 	elseif action == flow.ACTION_PLAY_LEVEL then
 		load_level(self, self.state.selected_level)
 	elseif action == flow.ACTION_RESUME then
@@ -230,7 +260,8 @@ local function handle_action(self, action_id)
 		elseif screen == flow.PAUSED then
 			perform(self, flow.ACTION_RESUME)
 			return true
-		elseif screen == flow.LEVEL_SELECT then
+		elseif screen == flow.LEVEL_SELECT or screen == flow.OPTIONS
+			or screen == flow.CREDITS then
 			self.state = flow.set_screen(self.state, flow.MENU)
 			render(self)
 			return true
@@ -258,6 +289,19 @@ local function handle_action(self, action_id)
 	end
 
 	local entries = entries_for(self)
+
+	-- Options sliders are adjusted with left/right on the highlighted row,
+	-- so confirm stays free for the toggle and Back rows.
+	if self.state.screen == flow.OPTIONS then
+		local entry = entries[self.state.cursor]
+		if entry and entry.kind and (action_id == hash("move_left") or action_id == hash("move_right")) then
+			local delta = (action_id == hash("move_right")) and 0.1 or -0.1
+			msg.post(self.settings_adapter, "adjust_volume", { kind = entry.kind, delta = delta })
+			render(self)
+			return true
+		end
+	end
+
 	if action_id == hash("menu_up") then
 		self.state = flow.move_cursor(self.state, -1, #entries)
 	elseif action_id == hash("menu_down") then

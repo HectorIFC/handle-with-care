@@ -1,0 +1,81 @@
+-- Persistence and application for core/settings.lua (PRD 6.1's Opções).
+-- The only place that touches the settings file or the sound mixer (rule 1).
+--
+-- Kept separate from save_adapter.script even though both call sys.save:
+-- progress and preferences have different lifetimes ("Novo Jogo" wipes
+-- progress but must NOT reset the player's volume) and belong in different
+-- files, so one cannot clobber the other.
+
+local settings = require "main.core.settings"
+
+go.property("in_memory_only", false)
+
+-- Mirrors for synchronous reads (rule 4) by the options screen.
+go.property("master", 0.8)
+go.property("music", 0.8)
+go.property("sfx", 0.8)
+go.property("fullscreen", false)
+
+local SETTINGS_FILE = "settings"
+
+local function path()
+	return sys.get_save_file("handle_with_care", SETTINGS_FILE)
+end
+
+-- Applies the gains to Defold's sound groups. Wrapped because the groups
+-- only exist once a sound component references them: with no audio assets
+-- in the project yet (see CLAUDE.md), set_group_gain on an unknown group
+-- would error and take the options screen down with it. Failing quiet here
+-- is right — a missing mixer group must not stop a player changing a
+-- setting that will apply the moment the assets land.
+local function apply_gain(group, gain)
+	local ok = pcall(sound.set_group_gain, hash(group), gain)
+	return ok
+end
+
+local function apply(self)
+	self.master = self.state.master
+	self.music = self.state.music
+	self.sfx = self.state.sfx
+	self.fullscreen = self.state.fullscreen
+
+	apply_gain("master", settings.effective_gain(self.state, "master"))
+	apply_gain("music", settings.effective_gain(self.state, "music"))
+	apply_gain("sfx", settings.effective_gain(self.state, "sfx"))
+end
+
+local function persist(self)
+	if self.in_memory_only then
+		return
+	end
+	if not sys.save(path(), self.state) then
+		print("WARNING: could not write settings file; changes will not persist")
+	end
+end
+
+function init(self)
+	if self.in_memory_only then
+		self.state = settings.new()
+	else
+		self.state = settings.sanitize(sys.load(path()))
+	end
+	apply(self)
+end
+
+function on_message(self, message_id, message)
+	if message_id == hash("adjust_volume") then
+		self.state = settings.adjust_volume(self.state, message.kind, message.delta)
+		apply(self)
+		persist(self)
+	elseif message_id == hash("toggle_fullscreen") then
+		self.state = settings.toggle_fullscreen(self.state)
+		apply(self)
+		persist(self)
+		-- Only attempted, never assumed: a windowed platform (and the
+		-- headless test engine) has no fullscreen to set.
+		pcall(window.set_fullscreen, self.state.fullscreen)
+	elseif message_id == hash("test_reset") then
+		self.state = settings.new()
+		apply(self)
+	end
+end

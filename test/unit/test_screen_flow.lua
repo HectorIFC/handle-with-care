@@ -26,11 +26,52 @@ return function()
 			assert(entries[1].action == flow.ACTION_CONTINUE)
 		end)
 
-		test("Options and Credits are absent until phase 21 implements them", function()
-			local entries = flow.menu_entries({ has_progress = true })
-			for _, entry in ipairs(entries) do
-				assert(entry.label ~= "Options")
-				assert(entry.label ~= "Credits")
+		test("Options and Credits are offered now that they are real screens", function()
+			-- They were withheld until phase 21 on purpose: a menu entry that
+			-- goes nowhere is worse than no entry.
+			local actions = {}
+			for _, entry in ipairs(flow.menu_entries({ has_progress = true })) do
+				actions[entry.action] = true
+			end
+			assert(actions[flow.ACTION_OPTIONS] == true)
+			assert(actions[flow.ACTION_CREDITS] == true)
+		end)
+	end)
+
+	describe("screen_flow.options_entries", function()
+		test("carries the three volume channels the PRD names, plus fullscreen", function()
+			local kinds = {}
+			local has_fullscreen = false
+			for _, entry in ipairs(flow.options_entries()) do
+				if entry.kind then kinds[entry.kind] = true end
+				if entry.action == flow.ACTION_FULLSCREEN then has_fullscreen = true end
+			end
+			assert(kinds.master and kinds.music and kinds.sfx)
+			assert(has_fullscreen)
+		end)
+
+		test("volume rows are marked as sliders so the adapter uses left/right", function()
+			for _, entry in ipairs(flow.options_entries()) do
+				if entry.kind then assert(entry.slider == true) end
+			end
+		end)
+
+		test("the last entry gets the player back out", function()
+			local entries = flow.options_entries()
+			assert(entries[#entries].action == flow.ACTION_TO_MENU)
+		end)
+	end)
+
+	describe("screen_flow.volume_bar", function()
+		test("renders a level rather than a number", function()
+			assert(flow.volume_bar(0, 10) == "..........")
+			assert(flow.volume_bar(1, 10) == "##########")
+			assert(flow.volume_bar(0.5, 10) == "#####.....")
+		end)
+
+		test("always returns the requested width", function()
+			for _, v in ipairs({0, 0.13, 0.5, 0.87, 1}) do
+				assert(#flow.volume_bar(v, 12) == 12)
 			end
 		end)
 	end)

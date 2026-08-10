@@ -24,6 +24,8 @@ local suites = {
 	require "test.unit.test_gravity_driver",
 	require "test.unit.test_input_inversion",
 	require "test.unit.test_mirror",
+	require "test.unit.test_settings",
+	require "test.unit.test_audio_cues",
 	-- DISABLED (phase 9a): the engine wedges intermittently, and every wedge
 	-- observed up to this point had landed inside these two suites (after
 	-- 189, 191, 193 and 193 tests), so they were disabled to try to isolate

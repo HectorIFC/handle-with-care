@@ -119,6 +119,34 @@ instances {
       value: "true"
       type: PROPERTY_TYPE_BOOLEAN
     }
+    properties {
+      id: "settings_adapter"
+      value: "/settings_adapter#script"
+      type: PROPERTY_TYPE_URL
+    }
+  }
+}
+instances {
+  id: "settings_adapter"
+  prototype: "/main/ui/settings_adapter.go"
+  position {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "in_memory_only"
+      value: "true"
+      type: PROPERTY_TYPE_BOOLEAN
+    }
   }
 }
 scale_along_z: 0

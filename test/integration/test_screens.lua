@@ -39,18 +39,19 @@ return function()
 
 		test("menu_down moves the cursor and wraps around the entry list", function()
 			-- A fresh save has no Continue, so the list is New Game / Level
-			-- Select / Quit — three entries, and the fourth press wraps.
-			press("menu_down")
-			assert(go.get("/screens#script", "cursor") == 2)
-			press("menu_down")
-			assert(go.get("/screens#script", "cursor") == 3)
+			-- Select / Options / Credits / Quit — five entries, and the sixth
+			-- press wraps back to the top.
+			for expected = 2, 5 do
+				press("menu_down")
+				assert(go.get("/screens#script", "cursor") == expected)
+			end
 			press("menu_down")
 			assert(go.get("/screens#script", "cursor") == 1)
 		end)
 
 		test("menu_up from the first entry wraps to the last", function()
 			press("menu_up")
-			assert(go.get("/screens#script", "cursor") == 3)
+			assert(go.get("/screens#script", "cursor") == 5)
 		end)
 
 		test("New Game starts level 1", function()
@@ -148,6 +149,50 @@ return function()
 			press("confirm") -- Continue is now the first entry
 			assert(go.get("/screens#script", "screen") == hash(flow.PLAYING))
 			assert(go.get("/screens#script", "last_requested_level") == 2)
+		end)
+
+		test("Options opens, adjusts a volume with left/right, and Esc backs out", function()
+			-- New Game / Level Select / Options is the third entry on a fresh
+			-- save.
+			press("menu_down")
+			press("menu_down")
+			press("confirm")
+			assert(go.get("/screens#script", "screen") == hash(flow.OPTIONS))
+
+			local before = go.get("/settings_adapter#script", "master")
+			press("move_left") -- cursor starts on Master Volume
+			assert(go.get("/settings_adapter#script", "master") < before)
+
+			press("pause")
+			assert(go.get("/screens#script", "screen") == hash(flow.MENU))
+		end)
+
+		test("fullscreen toggles from the options screen", function()
+			goto_screen(flow.OPTIONS)
+			-- Master / Music / SFX / Fullscreen -> down three times.
+			press("menu_down"); press("menu_down"); press("menu_down")
+			local before = go.get("/settings_adapter#script", "fullscreen")
+			press("confirm")
+			assert(go.get("/settings_adapter#script", "fullscreen") ~= before)
+		end)
+
+		test("Credits opens and Back returns to the menu", function()
+			press("menu_down"); press("menu_down"); press("menu_down") -- ...Credits
+			press("confirm")
+			assert(go.get("/screens#script", "screen") == hash(flow.CREDITS))
+			press("confirm") -- the only entry is Back
+			assert(go.get("/screens#script", "screen") == hash(flow.MENU))
+		end)
+
+		test("New Game does not reset the player's volume settings", function()
+			-- Progress and preferences have different lifetimes: wiping a save
+			-- must never touch the mixer.
+			goto_screen(flow.OPTIONS)
+			press("move_left"); press("move_left")
+			local quieter = go.get("/settings_adapter#script", "master")
+			msg.post("/save_adapter#script", "new_game")
+			wait.frames(2)
+			assert(go.get("/settings_adapter#script", "master") == quieter)
 		end)
 
 		test("gameplay keys are ignored by the screens object while playing", function()

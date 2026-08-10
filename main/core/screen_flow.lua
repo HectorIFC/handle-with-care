@@ -14,6 +14,8 @@ M.LEVEL_SELECT = "level_select"
 M.PLAYING = "playing"
 M.PAUSED = "paused"
 M.RESULT = "result"
+M.OPTIONS = "options"
+M.CREDITS = "credits"
 
 -- Menu actions, returned by select() so the adapter knows what to do
 -- without having to match on label text (which is display copy and will be
@@ -27,6 +29,12 @@ M.ACTION_RETRY = "retry"
 M.ACTION_NEXT_LEVEL = "next_level"
 M.ACTION_TO_MENU = "to_menu"
 M.ACTION_PLAY_LEVEL = "play_level"
+M.ACTION_OPTIONS = "options"
+M.ACTION_CREDITS = "credits"
+M.ACTION_VOLUME_MASTER = "volume_master"
+M.ACTION_VOLUME_MUSIC = "volume_music"
+M.ACTION_VOLUME_SFX = "volume_sfx"
+M.ACTION_FULLSCREEN = "fullscreen"
 M.ACTION_NONE = "none"
 
 function M.new()
@@ -36,9 +44,9 @@ end
 -- PRD 6.1's main menu. "Continuar" is present only when a save exists, so
 -- the entry list is derived from save state rather than fixed — which is
 -- also why the cursor is an index into THIS list, never a fixed slot.
--- Options and Credits are deliberately absent: the roadmap puts them in
--- phase 21 with the audio work, and offering a dead entry is worse than
--- not offering it.
+-- Options and Credits joined the list in phase 21, when they became real
+-- screens; they were deliberately withheld until then, since offering a
+-- dead entry is worse than not offering it.
 function M.menu_entries(save_state)
 	local entries = {}
 	if save_state and save_state.has_progress then
@@ -46,8 +54,31 @@ function M.menu_entries(save_state)
 	end
 	table.insert(entries, { label = "New Game", action = M.ACTION_NEW_GAME })
 	table.insert(entries, { label = "Level Select", action = M.ACTION_LEVEL_SELECT })
+	table.insert(entries, { label = "Options", action = M.ACTION_OPTIONS })
+	table.insert(entries, { label = "Credits", action = M.ACTION_CREDITS })
 	table.insert(entries, { label = "Quit", action = M.ACTION_QUIT })
 	return entries
+end
+
+-- PRD 6.1's Opções. Volume rows are adjusted with left/right rather than
+-- confirmed, so they carry their own action and the adapter knows which
+-- channel a row belongs to without matching on the label text.
+function M.options_entries()
+	return {
+		{ label = "Master Volume", action = M.ACTION_VOLUME_MASTER, kind = "master", slider = true },
+		{ label = "Music Volume", action = M.ACTION_VOLUME_MUSIC, kind = "music", slider = true },
+		{ label = "SFX Volume", action = M.ACTION_VOLUME_SFX, kind = "sfx", slider = true },
+		{ label = "Fullscreen", action = M.ACTION_FULLSCREEN, toggle = true },
+		{ label = "Back", action = M.ACTION_TO_MENU },
+	}
+end
+
+-- Renders a 0..1 gain as a fixed-width bar, so the options screen shows a
+-- level rather than a number the player has to interpret.
+function M.volume_bar(value, width)
+	width = width or 10
+	local filled = math.floor(value * width + 0.5)
+	return string.rep("#", filled) .. string.rep(".", width - filled)
 end
 
 function M.pause_entries()
