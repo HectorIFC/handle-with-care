@@ -5,7 +5,9 @@ automated loads a level collection or runs a real graphics context** (see
 CLAUDE.md). Everything below is manual, done in the Defold Editor or a real
 `dmengine` build — not headless. Check each box by actually playing.
 
-This is the acceptance pass for PRD sections 10 and 11.
+This is the acceptance pass for PRD sections 10 and 11. For what is already
+proven, what is still missing, and who can do each remaining piece, see
+[`v1_0_acceptance_status.md`](v1_0_acceptance_status.md).
 
 ## Per-level acceptance (PRD section 11)
 
@@ -17,14 +19,17 @@ For **each** of the 10 levels, confirm:
   at least two distinct, readable ways.
 - [ ] **Common deaths are legible in < 2s** — when you die, it is obvious
   *why* within two seconds (PRD section 11).
-- [ ] **The package reacts visibly** (and audibly, once audio lands).
+- [ ] **The package reacts visibly and audibly** — audio is currently
+  generated placeholders, so judge *whether a cue fires at the right moment*,
+  not whether it sounds good.
 - [ ] **Restart (R) is instant** — no perceptible reload pause.
 - [ ] **No softlocks** — there is no state you can reach with no way forward
   and no death to reset you.
 - [ ] **The madness is clearly felt** — the level's central mechanic is
   unmistakable, not subtle.
-- [ ] **Attempt duration lands in the PRD's 35-75s target** (section 10).
-  Time a clean run; if it is far under, the level is too short.
+- [ ] **Attempt duration lands in the PRD's 35-75s target** (section 5,
+  "Estrutura das 10 Fases"). Time a clean run; if it is far under, the level
+  is too short.
 
 ### Level-specific things to watch
 
@@ -71,13 +76,14 @@ For **each** of the 10 levels, confirm:
 - [ ] Beating level 10 shows the all-complete state; every level is
   replayable afterward (PRD 6.2).
 
-## Options (PRD 6.1) — audio parts are pending assets
+## Options (PRD 6.1)
 
 - [ ] Master/Music/SFX sliders move with left/right and show a bar.
 - [ ] Fullscreen toggles and actually changes the window.
 - [ ] Settings persist across a restart of the game.
-- [ ] **(Blocked until audio assets)** each slider audibly changes its
-  channel; master scales the others.
+- [ ] Each slider **audibly** changes its channel; master scales the others.
+  (Now checkable — placeholder audio is wired. Judge routing and relative
+  levels, not sound quality.)
 
 ## Performance (PRD 9.5) — real build only
 
@@ -88,8 +94,16 @@ For **each** of the 10 levels, confirm:
 
 ## Known gaps carried into this pass
 
-- **Audio**: the ~24 chiptune `.ogg` files do not exist yet; routing and the
-  cue catalogue are in place. Every audio checkbox above is blocked on them.
+- **Audio is placeholders, not final.** All 22 cues from
+  `core/audio_cues.lua` exist as generated 8-bit `.ogg` files
+  (`scripts/generate_audio.py`) and are wired end to end, so every audio
+  checkbox above is now checkable — but judge **whether the right cue fires
+  at the right moment**, not whether it sounds good. Real chiptune is a
+  drop-in swap (filenames match the cue catalogue) and changes no trigger
+  site.
+- **Visuals are still `[label]` text placeholders.** The sprite atlas
+  (`main/sprites/game.atlas`) builds but is not wired in, so nothing below
+  judges final art.
 - **Controls remapping** (PRD 6.1's "Controles") is unimplemented.
 - **`dmengine_headless` intermittent wedge**: affects the automated suite
   only (mitigated by retry), not the real windowed build. If a real build
