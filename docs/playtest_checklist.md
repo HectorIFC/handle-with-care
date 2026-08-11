@@ -82,8 +82,6 @@ For **each** of the 10 levels, confirm:
 - [ ] Fullscreen toggles and actually changes the window.
 - [ ] Settings persist across a restart of the game.
 - [ ] Each slider **audibly** changes its channel; master scales the others.
-  (Now checkable — placeholder audio is wired. Judge routing and relative
-  levels, not sound quality.)
 - [ ] **Controls** opens from Options and shows the current key for Move
   Left, Move Right and Jump.
 - [ ] Selecting a row waits for a key; the key you press becomes the binding
@@ -143,6 +141,27 @@ a human has to look at the screen.
 - [ ] Bursts **clean themselves up**: die repeatedly in one attempt and
   confirm nothing accumulates on screen or slows the game down.
 
+## Music (PRD section 8) — listening test
+
+Nothing in this section can be automated: the suite proves the wiring and
+the generator proves the signal is clean, but **no one has ever heard any of
+this**. Judge it by ear.
+
+- [ ] Each of the ten levels plays its **own theme**, and they are
+  distinguishable from one another.
+- [ ] The theme suits the level: 3 heavy and low, 4 urgent, 8 sparse and
+  slow, 10 the busiest.
+- [ ] **Loops are seamless** — sit on one level for two full loops and
+  listen for a click or a gap at the seam. The generator checks the sample
+  values line up, which is necessary but not sufficient.
+- [ ] Changing level **swaps** the track rather than layering two.
+- [ ] Menu music plays on the menu, stops when a level starts, and comes
+  back on returning to the menu.
+- [ ] Win and game-over stings fire and do not loop.
+- [ ] Nothing distorts at master volume 100%.
+- [ ] No track is so busy it buries the SFX that carry gameplay information
+  (package panic, the explosive fuse).
+
 ## Performance (PRD 9.5) — real build only
 
 - [ ] **60 FPS stable** in Chrome and Firefox (DevTools performance panel),
@@ -152,13 +171,14 @@ a human has to look at the screen.
 
 ## Known gaps carried into this pass
 
-- **Audio is placeholders, not final.** All 22 cues from
-  `core/audio_cues.lua` exist as generated 8-bit `.ogg` files
-  (`scripts/generate_audio.py`) and are wired end to end, so every audio
-  checkbox above is now checkable — but judge **whether the right cue fires
-  at the right moment**, not whether it sounds good. Real chiptune is a
-  drop-in swap (filenames match the cue catalogue) and changes no trigger
-  site.
+- **All audio is synthesized by `scripts/generate_audio.py`** — 32 cues,
+  including ten per-level chiptune themes written by a small NES-style
+  tracker (2 pulse + triangle + noise, ADSR, chord progressions, drums).
+  There are no sampled assets anywhere in this project. It is deterministic,
+  so regenerating is byte-identical and any diff is a real edit.
+  **Nobody has heard it.** The generator asserts what is checkable (no
+  clipping, no DC offset, clean loop seams, every named cue has a file) and
+  the rest is the listening test above.
 - **Visuals are generated placeholder sprites, not final art.** The atlas is
   wired in (`scripts/generate_sprites.py` → `main/sprites/game.atlas`), so
   the game renders shapes rather than `[label]` text — but judge **layout,

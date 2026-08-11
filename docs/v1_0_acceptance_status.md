@@ -27,7 +27,7 @@ known engine wedge and were absorbed by `run_tests.sh`'s retry.
 | 10 complete levels | **Built, acceptance pending** | `main/levels/level_01..10.collection` all exist, are reachable from the menu, and each level's mechanic has unit + integration coverage of its driver. What is *not* proven is section 11 (fairness, legibility, 35-75s pacing) — that needs the playtest. |
 | Sticky package: physics + 8 states | **Done** | `core/package_physics.lua`, `core/package_state_machine.lua`, `core/stress.lua`, plus `explosive`, `magnetism`, `heavy_cycle`, `gravity_driver`, `input_inversion`, `mirror`. All 8 PRD states reachable in play, all unit-tested, all covered by integration suites against a real headless collection. |
 | Menu + Save/Load | **Done in code; persistence across a real restart is manual** | `core/screen_flow.lua` + `main/ui/screens.script` (menu, level select, pause, result screen); `core/save.lua` + `save_adapter`; `core/settings.lua` + `settings_adapter` (kept separate so "New Game" cannot wipe preferences). The suite runs `in_memory_only`, so *actually writing and re-reading a file across a process restart* is a checklist item, not a test. |
-| Complete audio | **Placeholders wired; real assets pending** | `core/audio_cues.lua` catalogs all 22 PRD section 8 cues; `scripts/generate_audio.py` synthesizes deterministic 8-bit `.ogg` placeholders; `main/audio/audio.script` plays the cue named by a `play_cue` message, with group gains from the settings adapter. Tests prove the wiring reaches the audio object and never throws — **not** that anything is audible (the null sound device cannot). Real chiptune is asset work; because filenames match the cue catalogue, the swap is drop-in with no trigger-site changes. |
+| Complete audio | **Written and wired; never heard** | `core/audio_cues.lua` catalogs all 32 cues; `scripts/generate_audio.py` synthesizes every one of them, including ten per-level chiptune themes from a small NES-style tracker (2 pulse + triangle + noise, ADSR, chord progressions, drums). No sampled assets exist in the project. The generator asserts no clipping, no DC offset, clean loop seams, and that every cue the game names has a file. What remains is a **listening test**, not asset work: the null sound device means nothing here has ever been audible to anyone. |
 | Web build (Poki + site) | **Not started — needs a native environment** | No build has been produced or run in a browser. Performance (PRD 9.5) is only checkable there. |
 | Steam build (Windows) | **Save routing done; build not started** | `core/save_location.lua` (pure: app id, filenames, sys-vs-Steam backend decision, unit-tested) + `main/ui/storage.lua` (the single read/write seam). Setting an adapter's `steam` property routes writes through Steam Cloud with a local-file fallback. **The Steam Defold extension that provides the `steam` module `storage.lua` guards for is not added**, and no Windows build exists. |
 | Keyboard support | **Done** | `input/game.input_binding`; move/jump/restart/menu navigation all bound and exercised by integration tests. Controls **remapping** (PRD 6.1) shipped in phase 25 — see below. |
@@ -100,8 +100,10 @@ section 10 scope.
 
 ### Human / native environment only
 
-3. **Real chiptune audio** (22 `.ogg` files) and **real pixel art** — asset
-   authoring, not code. Both swap in without touching trigger sites.
+3. **A listening pass on the music**, and **real pixel art** if the
+   generated placeholders are not good enough. The audio is no longer a
+   placeholder-versus-real question — it is written, and the open question
+   is whether it sounds right, which needs ears.
 4. **The Steam Defold extension**, then an actual **Steam (Windows) build**.
    The code seam is already in place and guarded (`type(_G.steam) == "table"`
    plus `pcall`), so a missing extension degrades to local-file saves rather

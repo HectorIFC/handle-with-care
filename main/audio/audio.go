@@ -87,6 +87,46 @@ components {
   component: "/main/audio/music_gameover.sound"
 }
 components {
+  id: "music_level_1"
+  component: "/main/audio/music_level_1.sound"
+}
+components {
+  id: "music_level_2"
+  component: "/main/audio/music_level_2.sound"
+}
+components {
+  id: "music_level_3"
+  component: "/main/audio/music_level_3.sound"
+}
+components {
+  id: "music_level_4"
+  component: "/main/audio/music_level_4.sound"
+}
+components {
+  id: "music_level_5"
+  component: "/main/audio/music_level_5.sound"
+}
+components {
+  id: "music_level_6"
+  component: "/main/audio/music_level_6.sound"
+}
+components {
+  id: "music_level_7"
+  component: "/main/audio/music_level_7.sound"
+}
+components {
+  id: "music_level_8"
+  component: "/main/audio/music_level_8.sound"
+}
+components {
+  id: "music_level_9"
+  component: "/main/audio/music_level_9.sound"
+}
+components {
+  id: "music_level_10"
+  component: "/main/audio/music_level_10.sound"
+}
+components {
   id: "script"
   component: "/main/audio/audio.script"
 }

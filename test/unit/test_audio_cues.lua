@@ -34,5 +34,22 @@ return function()
 			assert(cues.exists("not_a_cue") == false)
 			assert(cues.group_of("not_a_cue") == nil)
 		end)
+
+		test("every level has its own theme, on the music group", function()
+			-- screens.script builds this name from the level number, so a
+			-- gap here is a level that loads in silence.
+			for level = 1, 10 do
+				local name = "music_level_" .. level
+				assert(cues.exists(name), "missing theme: " .. name)
+				assert(cues.group_of(name) == "music", name .. " is not music")
+			end
+		end)
+
+		test("the fallback theme still exists for a level with no track", function()
+			-- screens.script falls back to this when music_level_N is
+			-- absent; losing it would turn that safe path into a crash.
+			assert(cues.exists("music_gameplay"))
+			assert(cues.group_of("music_gameplay") == "music")
+		end)
 	end)
 end

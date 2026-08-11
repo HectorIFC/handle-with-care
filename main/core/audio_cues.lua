@@ -39,9 +39,25 @@ M.CUES = {
 	ui_back    = { group = "sfx" },
 	-- Music (looping)
 	music_menu     = { group = "music", loop = true },
+	-- The fallback for any level with no theme of its own. screens.script
+	-- checks exists() before asking for music_level_N, so adding an
+	-- eleventh level cannot silently produce a silent level.
 	music_gameplay = { group = "music", loop = true },
 	music_win      = { group = "music" },
 	music_gameover = { group = "music" },
+	-- One theme per level. Listed individually rather than generated in a
+	-- loop so this table stays what it claims to be: a flat catalogue that
+	-- can be read against PRD section 8 without running anything.
+	music_level_1  = { group = "music", loop = true },
+	music_level_2  = { group = "music", loop = true },
+	music_level_3  = { group = "music", loop = true },
+	music_level_4  = { group = "music", loop = true },
+	music_level_5  = { group = "music", loop = true },
+	music_level_6  = { group = "music", loop = true },
+	music_level_7  = { group = "music", loop = true },
+	music_level_8  = { group = "music", loop = true },
+	music_level_9  = { group = "music", loop = true },
+	music_level_10 = { group = "music", loop = true },
 }
 
 function M.exists(cue)

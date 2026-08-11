@@ -13,6 +13,7 @@
 local flow = require "main.core.screen_flow"
 local save = require "main.core.save"
 local input_bindings = require "main.core.input_bindings"
+local audio_cues = require "main.core.audio_cues"
 
 -- Same reverse map as player.script's: Defold delivers a hashed action_id
 -- and input_bindings speaks plain strings. Needed here so the Controls
@@ -193,7 +194,11 @@ local function load_level(self, level)
 		msg.post(proxy_for(self, level), "async_load")
 	end
 	self.state = flow.set_screen(self.state, flow.PLAYING)
-	cue("music_gameplay")
+	-- Each level has its own theme. Falling back rather than assuming one
+	-- exists: an eleventh level added without a track would otherwise load
+	-- in silence, and silence is the one bug nobody notices until playtest.
+	local theme = "music_level_" .. level
+	cue(audio_cues.exists(theme) and theme or "music_gameplay")
 	render(self)
 end
 
