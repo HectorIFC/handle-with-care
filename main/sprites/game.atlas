@@ -19,6 +19,10 @@ images {
   sprite_trim_mode: SPRITE_TRIM_MODE_OFF
 }
 images {
+  image: "/main/sprites/fx_burst.png"
+  sprite_trim_mode: SPRITE_TRIM_MODE_OFF
+}
+images {
   image: "/main/sprites/package_heavy.png"
   sprite_trim_mode: SPRITE_TRIM_MODE_OFF
 }

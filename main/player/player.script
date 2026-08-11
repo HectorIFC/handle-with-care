@@ -178,6 +178,25 @@ end
 -- than each source posting its own, because the player is the one object
 -- that already holds the camera's URL and already sees every impact worth
 -- feeling — hazards and the package report to it, not to the camera.
+-- Spawns a burst at a world position. The factory lives on the player's own
+-- .go rather than on a per-level FX object: the player is already the one
+-- thing that sees every impact (hazards and the package report to it), so
+-- this needs no new property and no change to any collection.
+local BURST_TINTS = {
+	land = vmath.vector4(1, 0.95, 0.75, 0.85),
+	death = vmath.vector4(1, 0.4, 0.35, 1),
+	explode = vmath.vector4(1, 0.65, 0.2, 1),
+	win = vmath.vector4(0.6, 1, 0.75, 1),
+}
+
+local function burst(self, kind, scale)
+	local pos = go.get_position()
+	factory.create("#burst_factory", pos, nil, {
+		tint = BURST_TINTS[kind] or BURST_TINTS.land,
+		end_scale = scale or 1.8,
+	})
+end
+
 local function shake(self, amount)
 	if self.has_camera then
 		msg.post(self.camera, "shake", { amount = amount })
@@ -219,6 +238,7 @@ local function die(self)
 	msg.post(self.package, "player_died")
 	cue(self, "player_death")
 	shake(self, 0.55)
+	burst(self, "death", 2.2)
 end
 
 -- Restores the whole attempt to its starting state (PRD 3.5: "quase
@@ -379,6 +399,7 @@ function update(self, dt)
 		-- should not hit as hard as a fall from the top of level 8.
 		shake(self, 0.2 + 0.3 * math.min(1,
 			(math.abs(velocity_y_before_landing) - self.heavy_landing_velocity) / self.heavy_landing_velocity))
+		burst(self, "land", 1.4)
 	end
 	if self.facing ~= self.previous_facing then
 		msg.post(self.package, "player_changed_direction")
@@ -491,6 +512,7 @@ function on_message(self, message_id, message, sender)
 		-- and hits harder than any other death. Composing rather than
 		-- replacing is the reason screen_shake is trauma-based.
 		shake(self, 0.45)
+		burst(self, "explode", 3.0)
 		-- PRD 4.7: the package exploding is one of the attempt's fail
 		-- conditions — the player never drops the package, so its death
 		-- kills the player too (see die()'s unified-flag comment).

@@ -428,6 +428,24 @@ outline(d)
 emit_single(d, "delivery")
 
 
+# --- FX ----------------------------------------------------------------
+# A single burst shape, scaled and faded by main/fx/burst.script. Tinted at
+# spawn, so one image serves every impact colour.
+fx = img(16, 16)
+cx = cy = 7.5
+for y in range(16):
+    for x in range(16):
+        dx, dy = x + 0.5 - cx, y + 0.5 - cy
+        dist = math.hypot(dx, dy)
+        ang = math.atan2(dy, dx)
+        # Star-ish: radius pulses with angle so it reads as a burst rather
+        # than a circle, which would look like a bubble.
+        limit = 4.2 + 2.6 * abs(math.sin(ang * 3))
+        if dist <= limit:
+            px(fx, x, y, WHITE if dist < limit * 0.45 else SPARK)
+emit_single(fx, "fx_burst")
+
+
 # --- Parallax background layers (PRD section 7) -------------------------
 # Each layer must TILE SEAMLESSLY: background.script repeats one image to
 # cover a level that can be 1200 wide. Everything here is therefore drawn
@@ -508,7 +526,7 @@ def verify_contract():
     required |= {"package_" + s for s in PACKAGE_STATES}
     # Referenced as default_animation by the .sprite components.
     required |= {"tile_ground", "tile_platform", "spike", "saw", "delivery"}
-    required |= {"bg_sky", "bg_hills", "bg_ridge", "bg_trees"}
+    required |= {"bg_sky", "bg_hills", "bg_ridge", "bg_trees", "fx_burst"}
 
     emitted = set(SINGLES) | {a["id"] for a in ANIMS}
     missing = sorted(required - emitted)

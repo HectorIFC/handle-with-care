@@ -15,3 +15,7 @@ components {
     z: 0.1
   }
 }
+components {
+  id: "burst_factory"
+  component: "/main/fx/burst.factory"
+}

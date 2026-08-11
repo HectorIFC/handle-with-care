@@ -1,0 +1,46 @@
+-- One spawned impact burst. Thin adapter (rule 1): core/fx_burst.lua owns
+-- the curve, this scales and fades a sprite along it and then deletes
+-- itself.
+--
+-- Self-deleting rather than pooled: a burst lives 0.35s and impacts are
+-- rare (a hard landing, a death, a detonation, a delivery), so a pool would
+-- be machinery guarding against a cost this game does not have.
+
+local fx_burst = require "main.core.fx_burst"
+
+-- Set by the spawner through factory.create's property table.
+go.property("duration", 0.35)
+go.property("start_scale", 0.4)
+go.property("end_scale", 1.8)
+go.property("tint", vmath.vector4(1, 1, 1, 1))
+
+-- Declared above every use on purpose: a local referenced before its
+-- declaration resolves as a nil global, and Defold reports that as a bare
+-- "attempt to call global" at runtime — see CLAUDE.md, which records three
+-- separate phases losing time to exactly this.
+local function config(self)
+	return { start_scale = self.start_scale, end_scale = self.end_scale }
+end
+
+function init(self)
+	-- Accumulated dt, never a clock read (rule 3).
+	self.elapsed = 0
+	self.base_tint = self.tint
+	go.set("#visual", "tint", self.base_tint)
+	go.set_scale(vmath.vector3(fx_burst.scale_at(0, config(self))))
+end
+
+function update(self, dt)
+	self.elapsed = self.elapsed + dt
+	local t = fx_burst.progress(self.elapsed, self.duration)
+
+	go.set_scale(vmath.vector3(fx_burst.scale_at(t, config(self))))
+	local alpha = fx_burst.alpha_at(t)
+	go.set("#visual", "tint", vmath.vector4(
+		self.base_tint.x, self.base_tint.y, self.base_tint.z,
+		self.base_tint.w * alpha))
+
+	if fx_burst.is_done(self.elapsed, self.duration) then
+		go.delete()
+	end
+end

@@ -132,6 +132,11 @@ a human has to look at the screen.
   glance while playing (PRD 7.1).
 - [ ] A spinning saw kills at the **same distance** as a still one — the
   hitbox must not appear to change with the blade's angle.
+- [ ] **A burst appears on impact** — hard landing, death, detonation — in a
+  colour that suits the event, growing and fading in about a third of a
+  second rather than lingering.
+- [ ] Bursts **clean themselves up**: die repeatedly in one attempt and
+  confirm nothing accumulates on screen or slows the game down.
 
 ## Performance (PRD 9.5) — real build only
 
