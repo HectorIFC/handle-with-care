@@ -132,10 +132,11 @@ echo "Running tests..."
 # died without answering" from "the tests answered".
 # Backstop only: caps an attempt that wedges (or fails to boot) BEFORE
 # test_runner.script ever writes a heartbeat, which the idle check below
-# cannot see. ~1.5x a healthy ~102s run, and it must grow as the suite grows
+# cannot see. ~1.5x a healthy ~120s run (433 tests), and it must grow as the
+# suite grows
 # — export STALL_TIMEOUT rather than editing this default when running on a
 # slower machine or a loaded CI runner.
-STALL_TIMEOUT="${STALL_TIMEOUT:-150}"
+STALL_TIMEOUT="${STALL_TIMEOUT:-180}"
 MAX_ATTEMPTS="${MAX_ATTEMPTS:-5}"
 # The primary detector: how long test_runner.script's file heartbeat may stop
 # advancing before the run is treated as wedged. This is what keeps a wedge

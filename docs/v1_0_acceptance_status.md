@@ -2,7 +2,7 @@
 
 Where the project actually stands against **PRD section 10** (the v1.0 scope)
 and **PRD section 11** (the per-level acceptance criteria), as of
-`v0.27.0` (`ae139f8`).
+`v0.29.0`.
 
 This document is deliberately conservative. An item is only **Done** when
 something checkable proves it — a passing test, a file that exists, a
@@ -14,9 +14,9 @@ Companion document: [`playtest_checklist.md`](playtest_checklist.md) is the
 manual pass itself (the boxes to tick). This file is the map of what is
 left and who can do it.
 
-**Automated suite at this commit: 401 tests, 401 passing, 718 assertions,
-0 failed, 0 errors.** Reproduced across two independent runs (one clean, one
-that hit the known engine wedge and was absorbed by `run_tests.sh`'s retry).
+**Automated suite: 433 tests, 433 passing, 854 assertions, 0 failed,
+0 errors.** Reproduced across independent runs, including ones that hit the
+known engine wedge and were absorbed by `run_tests.sh`'s retry.
 
 ---
 
@@ -86,7 +86,7 @@ section 10 scope.
    floor was drawn 128 wide in all ten levels while the real walkable range
    is 112 to 140 — `main/player/ground.script` now derives the picture from
    the player's own bounds. **Still needs a human to look at it**: headless
-   proves only that nothing broke (401/401) and that every collection
+   proves only that nothing broke (433/433) and that every collection
    compiles.
 2. ~~**Controls remapping**~~ **Done (phase 25, v0.29.0)** — Options →
    Controls rebinds Move Left / Move Right / Jump, persisted in the settings

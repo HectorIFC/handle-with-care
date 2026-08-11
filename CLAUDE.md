@@ -260,7 +260,8 @@ Ruled out, each with evidence, so nobody repeats the search:
   nothing is wrong.)
 - **Spotlight indexing** — reproduces with the project excluded from it.
 - **A slow suite / too many waited frames** — the suite is ~4,400 waited
-  frames ≈ 73s at 60Hz and completes in ~102s; a wedge is not slowness.
+  frames ≈ 73s at 60Hz and completed in ~102s when this was written (~120s
+  as of phase 25); a wedge is not slowness.
 - **A swallowed coroutine error** — `wait.tick()` now reports those (see
   above) and stays silent through a wedge.
 - **`engine.run_while_iconified`** — the engine does gate updates on window
@@ -270,7 +271,10 @@ Ruled out, each with evidence, so nobody repeats the search:
   and keeping it on removes one variable from any future investigation.
 
 **Mitigation:** `run_tests.sh` caps each engine run at `STALL_TIMEOUT` (150s,
-~1.5x a healthy run) and retries up to `MAX_ATTEMPTS` (3). This cannot mask
+~1.5x a healthy run) and retries up to `MAX_ATTEMPTS` (5). In practice the
+backstop is rarely what fires: `HEARTBEAT_IDLE` (15s without the heartbeat
+file advancing) catches a wedge far sooner — a phase-25 run was caught and
+retried at **37s**, and the retry passed. This cannot mask
 a real failure — a genuine pass (exit 0) or genuine test failure (exit 1) is
 returned immediately and never retried, so architecture rule 8 still holds;
 only a run that produced **no result at all** is retried. Both values are
@@ -633,7 +637,10 @@ new `wait`-heavy integration tests, not just at the very end.
   spot-checks wrapped in an external `timeout` — budget generously (150s+)
   rather than reusing whatever worked last phase. As of phase 9a the whole
   suite is ~4,400 waited frames and lands at **~102-104s**, measured across
-  several consecutive runs.
+  several consecutive runs. **As of phase 25 (433 tests) a healthy engine run
+  is ~115-120s**, so budget 200s+ for an ad hoc spot-check. Re-measure after
+  any phase that adds `wait`-heavy integration tests; the number only ever
+  grows, and `STALL_TIMEOUT` is sized as a multiple of it.
 - **A run that looks frozen is usually just buffered — check before
   concluding anything.** `run_tests.sh` ends in `exec "$DMENGINE"`, so when
   its stdout is redirected to a file (not a terminal) the engine's libc uses
@@ -770,11 +777,15 @@ looking at it.
   manual checklist. Adding a second booted collection to the suite is the
   obvious fix but not a free one — rule 7 keeps engine boot time bounded on
   purpose, and the headless wedge makes every extra second of runtime worse.
-- **`main/main.collection` is no longer the bootstrap** (phase 10 pointed
-  `game.project` at `level_01`) and nothing loads it. It is kept as a dev
-  sandbox, but it is now exactly the kind of unmaintained second production
-  scene that caused the phase 1 bug — delete it, or wire it into something
-  that checks it, rather than letting it drift.
+- **`main/main.collection` IS the bootstrap** — phase 10 pointed
+  `game.project` at `level_01`, but phase 11 pointed it back at
+  `main.collection`, now a menu shell rather than a dev sandbox. Nothing
+  automated boots it either, so it carries the same risk as the level
+  collections above: it holds the screens object, both adapters, the audio
+  object and the ten level proxies, and a mis-wired property there is only
+  caught by playing. `bob build` at least proves it compiles — worth running
+  after editing it, since the test build boots `test/testing.settings`
+  instead and would not.
 
 ## Git workflow — read this before touching git
 
