@@ -1,0 +1,13 @@
+font: "/main/ui/pixel.fnt"
+material: "/builtins/fonts/font-fnt.material"
+size: 0
+antialias: 0
+alpha: 1.0
+outline_alpha: 0.0
+outline_width: 0.0
+shadow_alpha: 0.0
+shadow_blur: 0
+shadow_x: 0.0
+shadow_y: 0.0
+output_format: TYPE_BITMAP
+render_mode: MODE_SINGLE_LAYER

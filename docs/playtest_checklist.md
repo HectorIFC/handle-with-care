@@ -135,6 +135,13 @@ a human has to look at the screen.
 - [ ] **A burst appears on impact** — hard landing, death, detonation — in a
   colour that suits the event, growing and fading in about a third of a
   second rather than lingering.
+- [ ] **The UI renders in the pixel font**, not Defold's default — title,
+  menu, hint, result screen, and the package's debug number. THIS IS THE
+  HIGHEST-PRIORITY ITEM in this section: the font could not be verified in
+  the engine at all (see Known gaps), only that it compiles.
+- [ ] Every glyph is legible and correctly spaced: check a quip with
+  punctuation, a time like "40.2s", and the volume bar's # and . characters.
+- [ ] No faint fringes around letters (a padding-bleed symptom).
 - [ ] Bursts **clean themselves up**: die repeatedly in one attempt and
   confirm nothing accumulates on screen or slows the game down.
 
@@ -162,6 +169,13 @@ a human has to look at the screen.
   (`debug_hud` on `package.script`, on by default). It is there to make this
   pass judgeable; turn it off before shipping.
 - **Controls remapping** (PRD 6.1's "Controles") is unimplemented.
+- **The pixel font is UNVERIFIED beyond compiling.** It was added while the
+  headless engine could not complete a run on the development machine, so
+  nothing has ever rendered it. If the UI comes up blank, garbled or in the
+  wrong glyphs, the font is where to look first — `scripts/generate_font.py`
+  regenerates it, and reverting the `font:`/`material:` lines in
+  `main/ui/*.label` back to `/builtins/fonts/default.font` +
+  `label.material` restores the previous UI immediately.
 - **`dmengine_headless` intermittent wedge**: affects the automated suite
   only (mitigated by retry), not the real windowed build. If a real build
   ever wedges the same way, that is new information worth capturing.

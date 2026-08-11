@@ -5,5 +5,5 @@ size {
   w: 0.0
 }
 text: ""
-font: "/builtins/fonts/default.font"
-material: "/builtins/fonts/label.material"
+font: "/main/ui/pixel.font"
+material: "/builtins/fonts/label-fnt.material"
