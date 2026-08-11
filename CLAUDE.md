@@ -845,8 +845,70 @@ and drafted commit (Conventional Commits + the version shown) — see
 | 22 | Polish, playtest, performance | 60 FPS tuning, atlas optimization, Chrome/Firefox checklist (manual only) |
 | 23 | Final build | **in progress.** Steam save routing is done in code: `core/save_location.lua` (pure — app id, filenames, sys-vs-Steam backend decision, all unit-tested) plus `main/ui/storage.lua` (the single read/write seam both adapters share). A Steam build sets each adapter's `steam` property and writes route through Steam Cloud, falling back to a local file if the extension is absent or the cloud write fails; every other target uses sys.save unchanged. **Still needs a human/native environment:** adding the Steam Defold extension (the `steam` module storage.lua guards for), the actual Web (Poki) and Steam builds, and the section 10/11 acceptance playtest → `v1.0.0`. |
 
+| 24 | Sprite wiring | done — the game renders sprites instead of `[label]` text. Every visual `.go` carries a `.sprite` fed by `main/sprites/game.atlas`; the player plays one image per animation state and flips with `facing`, the package one per state plus a tint. Variable-width surfaces are **scaled, not tiled** — see the note below on why, and on the pre-existing ground bug this fixed. |
+| 25 | Controls remapping | done — PRD 6.1's last unbuilt option. `core/input_bindings.lua` + a Controls screen. Only movement is remappable; see the note below for why restart and menu navigation are deliberately fixed. |
+
 Full rationale and formula-level detail for each slice lives in
 [`Handle_With_Care_PRD_v2.1.md`](Handle_With_Care_PRD_v2.1.md).
+
+### Sprites are scaled from the same properties the AABB uses (phase 24)
+
+Levels author platform size as `half_width`/`half_height` (24 to 80 across
+the ten levels), and the adapters derive `go.set_scale` from those same
+properties. A tilemap was the obvious alternative and was rejected: it would
+store the level's geometry a second time, next to the `go.property` values
+the gameplay AABB actually reads — the phase-1 bug (a production scene whose
+ground didn't match the script's properties) multiplied by ten levels.
+
+That constraint is why `tile_ground.png` and `tile_platform.png` are drawn
+with **horizontal bands only**. A tile with vertical detail smears when
+stretched along X; a band-only tile stretches losslessly.
+`scripts/generate_sprites.py` documents this — do not add vertical texture
+to those two tiles.
+
+Doing this surfaced a bug that had been shipping since phase 10: the base
+floor was drawn 128 wide in all ten levels, while the walkable range it
+represents (the *player's* `ground_x_min`/`ground_x_max`) is 112 in level 1
+and 140 in levels 3-10. `main/player/ground.script` now derives the picture
+from the player's own bounds, sizing on the first `update()` rather than in
+`init()` — every other cross-object read in this project happens in
+`update()`, and doing it there avoids depending on instance init order.
+
+Draw order is a **z offset on the sprite component inside the `.go`**, not
+something a script sets: player and package rewrite their position every
+frame, so a script-set z would be overwritten.
+
+### Remapping happens where the action is consumed, never where it is bound (phase 25)
+
+Defold compiles `input/game.input_binding` into the build and offers **no
+runtime API to change it**. So the binding file names actions after physical
+keys (`key_a`, `key_left`), and `core/input_bindings.lua` translates a key
+into a gameplay intent using whatever the player configured. `player.script`
+resolves that at the top of `on_input`.
+
+Keep these three things straight, all of which are easy to get wrong:
+
+- **Only movement is remappable.** `restart` is broadcast through Defold's
+  input dispatch to every restorable object — nine scripts handle
+  `hash("restart")` — so remapping it would mean teaching all nine about
+  settings for one key. Menu navigation stays fixed because a player who
+  binds confirm to a key they cannot press is locked out of the screen that
+  would let them fix it. Both keep semantic action names in the binding file.
+- **One physical key can raise two actions.** `KEY_DOWN` produces both
+  `key_down` (remappable) and `menu_down` (fixed). The Controls screen's
+  capture mode therefore stays active until the settings adapter *answers*,
+  swallowing everything in between — ending capture on the first action
+  would let the second through to scroll the cursor. `capture_pending`
+  stops a second key from posting a second rebind.
+- **Resolving a key and inverting a direction are different layers.** Level
+  7's control inversion still applies where `move_x` is consumed, not in
+  `on_input`. Folding them together would reintroduce the phase-17 bug where
+  a mid-hold flip kept the old direction.
+
+Bindings live in the settings file (so "New Game" cannot wipe them) and
+travel to the player by message, because `go.property` has no list type.
+`settings_adapter` mirrors only the *first* key per action as a hash, for
+synchronous reads and debugging.
 
 ## Definition of Done (every slice)
 

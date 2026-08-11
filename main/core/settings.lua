@@ -10,6 +10,8 @@
 -- same "absent, truncated, hand-edited, older build" problem, and must
 -- never be able to crash the game on boot.
 
+local input_bindings = require "main.core.input_bindings"
+
 local M = {}
 
 M.VERSION = 1
@@ -28,6 +30,7 @@ function M.new()
 		music = DEFAULT_VOLUME,
 		sfx = DEFAULT_VOLUME,
 		fullscreen = false,
+		bindings = input_bindings.new(),
 	}
 end
 
@@ -38,6 +41,11 @@ local function copy(state)
 		music = state.music,
 		sfx = state.sfx,
 		fullscreen = state.fullscreen,
+		-- Shared by reference on purpose: input_bindings is itself a
+		-- state-in/new-state-out module (rule 2), so a rebind produces a
+		-- fresh table rather than mutating this one. Deep-copying here
+		-- would just make every volume nudge allocate the bindings again.
+		bindings = state.bindings,
 	}
 end
 
@@ -67,6 +75,21 @@ function M.toggle_fullscreen(state)
 	return new_state
 end
 
+-- Rebinds a gameplay action, delegating every rule about what is legal to
+-- input_bindings — this module only owns that bindings live in the settings
+-- file alongside the volumes. Returns new_state, nil on success or
+-- state, message on rejection, passing the module's own wording through so
+-- the Controls screen and the rule that rejected it cannot disagree.
+function M.rebind(state, action, key_action)
+	local new_bindings, err = input_bindings.rebind(state.bindings, action, key_action)
+	if err then
+		return state, err
+	end
+	local new_state = copy(state)
+	new_state.bindings = new_bindings
+	return new_state, nil
+end
+
 -- The gain a given channel should actually play at. Music and SFX are
 -- scaled BY master rather than being independent of it, which is what makes
 -- a master slider mean anything — otherwise pulling master to zero would
@@ -94,6 +117,10 @@ function M.sanitize(raw)
 	if type(raw.fullscreen) == "boolean" then
 		state.fullscreen = raw.fullscreen
 	end
+	-- input_bindings.sanitize never errors and always returns a playable
+	-- set, so an absent or corrupt `bindings` degrades to the defaults the
+	-- same way an absent volume does.
+	state.bindings = input_bindings.sanitize(raw.bindings)
 	return state
 end
 

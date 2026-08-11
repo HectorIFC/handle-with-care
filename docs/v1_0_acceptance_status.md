@@ -30,7 +30,7 @@ that hit the known engine wedge and was absorbed by `run_tests.sh`'s retry).
 | Complete audio | **Placeholders wired; real assets pending** | `core/audio_cues.lua` catalogs all 22 PRD section 8 cues; `scripts/generate_audio.py` synthesizes deterministic 8-bit `.ogg` placeholders; `main/audio/audio.script` plays the cue named by a `play_cue` message, with group gains from the settings adapter. Tests prove the wiring reaches the audio object and never throws — **not** that anything is audible (the null sound device cannot). Real chiptune is asset work; because filenames match the cue catalogue, the swap is drop-in with no trigger-site changes. |
 | Web build (Poki + site) | **Not started — needs a native environment** | No build has been produced or run in a browser. Performance (PRD 9.5) is only checkable there. |
 | Steam build (Windows) | **Save routing done; build not started** | `core/save_location.lua` (pure: app id, filenames, sys-vs-Steam backend decision, unit-tested) + `main/ui/storage.lua` (the single read/write seam). Setting an adapter's `steam` property routes writes through Steam Cloud with a local-file fallback. **The Steam Defold extension that provides the `steam` module `storage.lua` guards for is not added**, and no Windows build exists. |
-| Keyboard support | **Done** | `input/game.input_binding`; move/jump/restart/menu navigation all bound and exercised by integration tests. Controls **remapping** (PRD 6.1) is unimplemented — see below. |
+| Keyboard support | **Done** | `input/game.input_binding`; move/jump/restart/menu navigation all bound and exercised by integration tests. Controls **remapping** (PRD 6.1) shipped in phase 25 — see below. |
 
 Out of scope for v1.0 per the PRD and correctly absent: multiplayer, level
 editor, native mobile, cosmetics, leaderboards, levels beyond 10.
@@ -71,6 +71,10 @@ Everything else is [`playtest_checklist.md`](playtest_checklist.md).
 
 ### Code-side (doable in this repository, no special environment)
 
+**Both items in this section are now done.** What remains for v1.0 is the
+human/native work below — there is no known code-side gap left in the PRD
+section 10 scope.
+
 1. ~~**Sprite visual wiring.**~~ **Done in code (phase 24, v0.28.0)** — the
    game renders sprites, not `[label]` text. Every visual `.go` now carries a
    `.sprite` component fed by `main/sprites/game.atlas`; the player plays one
@@ -84,9 +88,15 @@ Everything else is [`playtest_checklist.md`](playtest_checklist.md).
    the player's own bounds. **Still needs a human to look at it**: headless
    proves only that nothing broke (401/401) and that every collection
    compiles.
-2. **Controls remapping** (PRD 6.1's "Controles" options entry). Unimplemented.
-   The Options screen and `core/settings.lua`'s sanitize-on-load pattern are
-   the natural home for it.
+2. ~~**Controls remapping**~~ **Done (phase 25, v0.29.0)** — Options →
+   Controls rebinds Move Left / Move Right / Jump, persisted in the settings
+   file next to the volumes. Defold cannot change an input binding at
+   runtime, so the binding file names actions after physical keys and
+   `core/input_bindings.lua` decides what a key currently means at the point
+   the action is consumed. Restart, pause and menu navigation stay on fixed
+   keys on purpose: restart is broadcast to nine scripts, and a player who
+   remaps menu confirm to a key they cannot press would be locked out of the
+   screen that would let them fix it.
 
 ### Human / native environment only
 

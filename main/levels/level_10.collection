@@ -103,6 +103,16 @@ instances {
       value: "main:/audio#script"
       type: PROPERTY_TYPE_URL
     }
+    properties {
+      id: "has_settings"
+      value: "true"
+      type: PROPERTY_TYPE_BOOLEAN
+    }
+    properties {
+      id: "settings"
+      value: "main:/settings_adapter#script"
+      type: PROPERTY_TYPE_URL
+    }
   }
 }
 instances {

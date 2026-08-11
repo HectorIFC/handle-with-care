@@ -3,6 +3,16 @@ local knockback = require "main.core.knockback"
 local hazards = require "main.core.hazards"
 local offscreen_timer = require "main.core.offscreen_timer"
 local camera = require "main.core.camera"
+local input_bindings = require "main.core.input_bindings"
+
+-- Defold hands on_input a hashed action_id, and input_bindings works in
+-- plain strings (it is pure Lua and never sees an engine type, rule 1).
+-- Built once here rather than hashing every candidate key on every input
+-- event, and keyed by hash so the lookup is a single index.
+local ACTION_NAMES = {}
+for _, key in ipairs(input_bindings.KEYS) do
+	ACTION_NAMES[hash(key)] = key
+end
 
 go.property("move_speed", 90)
 go.property("gravity", -900)
@@ -61,6 +71,13 @@ go.property("audio", msg.url())
 
 go.property("has_camera", false)
 go.property("camera", msg.url())
+
+-- The settings object that owns the player's key bindings (PRD 6.1's
+-- "Controles"). Gated like every other optional wiring: without it the
+-- player runs on input_bindings' defaults, which is exactly what
+-- test.collection and any level that predates remapping want.
+go.property("has_settings", false)
+go.property("settings", msg.url())
 
 -- A landing faster than this counts as a hard/heavy landing for the stress
 -- system (PRD 4.5's "aterrissagem forte" / "queda de altura média/alta").
@@ -251,6 +268,11 @@ function init(self)
 	-- nil rather than 1 so the first apply_animation always publishes the
 	-- flip, instead of assuming the sprite starts unflipped.
 	self.current_flip = nil
+	-- Defaults until (and unless) the settings object answers with the
+	-- player's own bindings. A level with no settings wired keeps these
+	-- forever, which is the intended behavior, not a fallback: WASD and the
+	-- arrows both work out of the box.
+	self.bindings = input_bindings.new()
 	self.grounded = self.state.grounded
 	self.previous_facing = self.state.facing
 	self.knockback = knockback.new()
@@ -262,6 +284,14 @@ function init(self)
 	self.screen_width = sys.get_config_int("display.width", 384)
 	self.screen_height = sys.get_config_int("display.height", 216)
 	msg.post(".", "acquire_input_focus")
+	-- Pull, rather than have the settings object push at us: only the
+	-- player knows when it exists, and a level is proxy-loaded long after
+	-- the settings object booted. The reply lands a frame or two later, and
+	-- until then the defaults above are in force — harmless at level start,
+	-- where the player is standing still by definition.
+	if self.has_settings then
+		msg.post(self.settings, "request_bindings")
+	end
 	apply_animation(self)
 end
 
@@ -372,15 +402,22 @@ local function recompute_move_x(self)
 end
 
 function on_input(self, action_id, action)
-	if action_id == hash("move_left") then
+	-- The binding file names actions after physical keys, because Defold
+	-- cannot rebind at runtime — so the first thing this does is ask what
+	-- the pressed key currently MEANS. Note this is only about which key;
+	-- level 7's control inversion still happens where move_x is consumed,
+	-- not here, so "which key did they press" and "which direction does it
+	-- produce right now" stay separate questions.
+	local intent = input_bindings.resolve(self.bindings, ACTION_NAMES[action_id])
+	if intent == "move_left" then
 		self.move_left_held = not action.released
 		recompute_move_x(self)
 		return true
-	elseif action_id == hash("move_right") then
+	elseif intent == "move_right" then
 		self.move_right_held = not action.released
 		recompute_move_x(self)
 		return true
-	elseif action_id == hash("jump") and action.pressed then
+	elseif intent == "jump" and action.pressed then
 		self.input.jump_pressed = true
 		return true
 	elseif action_id == hash("restart") and action.pressed then
@@ -407,6 +444,11 @@ function on_message(self, message_id, message, sender)
 		-- is_falling (permanently false for a static one); update() reads
 		-- all three each frame.
 		table.insert(self.platforms, sender)
+	elseif message_id == hash("set_bindings") then
+		-- Sent by settings_adapter in reply to request_bindings, and again
+		-- whenever the player changes a binding in the Options screen, so a
+		-- remap applies to a level that is already running.
+		self.bindings = message.bindings
 	elseif message_id == hash("test_set_input") then
 		self.input.move_x = message.move_x or 0
 		self.input.jump_pressed = message.jump_pressed or false

@@ -60,6 +60,61 @@ return function()
 			local entries = flow.options_entries()
 			assert(entries[#entries].action == flow.ACTION_TO_MENU)
 		end)
+
+		test("offers Controls, since PRD 6.1 lists it among the options", function()
+			local found = false
+			for _, entry in ipairs(flow.options_entries()) do
+				if entry.action == flow.ACTION_CONTROLS then found = true end
+			end
+			assert(found)
+		end)
+	end)
+
+	describe("screen_flow.controls_entries", function()
+		test("one rebindable row per action, in the order given", function()
+			local entries = flow.controls_entries({ "move_left", "jump" })
+			assert(#entries == 3) -- two actions plus Back
+			assert(entries[1].bind == "move_left")
+			assert(entries[1].action == flow.ACTION_REBIND)
+			assert(entries[2].bind == "jump")
+		end)
+
+		test("Back returns to Options, not all the way to the menu", function()
+			local entries = flow.controls_entries({ "jump" })
+			assert(entries[#entries].action == flow.ACTION_OPTIONS)
+		end)
+	end)
+
+	describe("screen_flow capture", function()
+		test("begin_capture records which action is waiting for a key", function()
+			local state = flow.set_screen(flow.new(), flow.CONTROLS)
+			assert(state.capturing == nil)
+			state = flow.begin_capture(state, "jump")
+			assert(state.capturing == "jump")
+		end)
+
+		test("cancel_capture clears it without moving the cursor", function()
+			local state = flow.begin_capture(flow.set_screen(flow.new(), flow.CONTROLS), "jump")
+			state = flow.move_cursor(state, 1, 4)
+			local cursor = state.cursor
+			state = flow.cancel_capture(state)
+			assert(state.capturing == nil)
+			assert(state.cursor == cursor)
+		end)
+
+		test("moving the cursor does not silently drop a pending capture", function()
+			-- move_cursor builds a new state by naming its fields, so a field
+			-- it forgets disappears without any error — worth pinning.
+			local state = flow.begin_capture(flow.set_screen(flow.new(), flow.CONTROLS), "jump")
+			state = flow.move_cursor(state, 1, 4)
+			assert(state.capturing == "jump")
+		end)
+
+		test("changing screen always ends a pending capture", function()
+			local state = flow.begin_capture(flow.set_screen(flow.new(), flow.CONTROLS), "jump")
+			state = flow.set_screen(state, flow.OPTIONS)
+			assert(state.capturing == nil)
+		end)
 	end)
 
 	describe("screen_flow.volume_bar", function()

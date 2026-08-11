@@ -84,6 +84,19 @@ For **each** of the 10 levels, confirm:
 - [ ] Each slider **audibly** changes its channel; master scales the others.
   (Now checkable — placeholder audio is wired. Judge routing and relative
   levels, not sound quality.)
+- [ ] **Controls** opens from Options and shows the current key for Move
+  Left, Move Right and Jump.
+- [ ] Selecting a row waits for a key; the key you press becomes the binding
+  and the row updates.
+- [ ] Pressing a key **another action already uses** is refused with a
+  readable reason, and nothing changes.
+- [ ] Binding an action to **Down or Up does not also scroll the menu** —
+  one physical key raises both a remappable and a menu action, so this is
+  the case most likely to break.
+- [ ] Esc during capture cancels; Esc on the screen returns to Options.
+- [ ] The new binding **works in a level**, including after restarting the
+  game (it lives in the settings file, not the save file).
+- [ ] "New Game" wipes progress but **keeps the remapped keys**.
 
 ## Visuals (placeholder sprites, phase 24)
 

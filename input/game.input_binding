@@ -1,30 +1,132 @@
+# Gameplay movement is remapped at CONSUMPTION time, not here:
+# Defold compiles this file into the build and has no runtime API to
+# change it, so each physical key gets its own raw action name and
+# main/core/input_bindings.lua decides what that key currently means.
+# See that module's header for why only movement works this way.
+#
+# R, ESC and ENTER keep semantic action names at the bottom of this
+# file: restart is broadcast to every restorable object in a level, and
+# menu keys must stay fixed so a bad remap can never lock a player out
+# of the screen that would let them fix it.
 key_trigger {
   input: KEY_A
-  action: "move_left"
+  action: "key_a"
 }
 key_trigger {
-  input: KEY_LEFT
-  action: "move_left"
+  input: KEY_B
+  action: "key_b"
+}
+key_trigger {
+  input: KEY_C
+  action: "key_c"
 }
 key_trigger {
   input: KEY_D
-  action: "move_right"
+  action: "key_d"
 }
 key_trigger {
-  input: KEY_RIGHT
-  action: "move_right"
+  input: KEY_E
+  action: "key_e"
+}
+key_trigger {
+  input: KEY_F
+  action: "key_f"
+}
+key_trigger {
+  input: KEY_G
+  action: "key_g"
+}
+key_trigger {
+  input: KEY_H
+  action: "key_h"
+}
+key_trigger {
+  input: KEY_I
+  action: "key_i"
+}
+key_trigger {
+  input: KEY_J
+  action: "key_j"
+}
+key_trigger {
+  input: KEY_K
+  action: "key_k"
+}
+key_trigger {
+  input: KEY_L
+  action: "key_l"
+}
+key_trigger {
+  input: KEY_M
+  action: "key_m"
+}
+key_trigger {
+  input: KEY_N
+  action: "key_n"
+}
+key_trigger {
+  input: KEY_O
+  action: "key_o"
+}
+key_trigger {
+  input: KEY_P
+  action: "key_p"
+}
+key_trigger {
+  input: KEY_Q
+  action: "key_q"
+}
+key_trigger {
+  input: KEY_S
+  action: "key_s"
+}
+key_trigger {
+  input: KEY_T
+  action: "key_t"
+}
+key_trigger {
+  input: KEY_U
+  action: "key_u"
+}
+key_trigger {
+  input: KEY_V
+  action: "key_v"
 }
 key_trigger {
   input: KEY_W
-  action: "jump"
+  action: "key_w"
+}
+key_trigger {
+  input: KEY_X
+  action: "key_x"
+}
+key_trigger {
+  input: KEY_Y
+  action: "key_y"
+}
+key_trigger {
+  input: KEY_Z
+  action: "key_z"
+}
+key_trigger {
+  input: KEY_LEFT
+  action: "key_left"
+}
+key_trigger {
+  input: KEY_RIGHT
+  action: "key_right"
 }
 key_trigger {
   input: KEY_UP
-  action: "jump"
+  action: "key_up"
+}
+key_trigger {
+  input: KEY_DOWN
+  action: "key_down"
 }
 key_trigger {
   input: KEY_SPACE
-  action: "jump"
+  action: "key_space"
 }
 key_trigger {
   input: KEY_R
@@ -57,4 +159,17 @@ key_trigger {
 key_trigger {
   input: KEY_SPACE
   action: "confirm"
+}
+# Menu-only horizontal navigation (level select, volume sliders). Bound to
+# the arrows alone, never to A/D, so remapping a movement key can never also
+# move a menu cursor. A level is not loaded while any menu is up, and the
+# screens object returns false for everything but pause while one IS, so
+# these never collide with the raw key_left/key_right above.
+key_trigger {
+  input: KEY_LEFT
+  action: "move_left"
+}
+key_trigger {
+  input: KEY_RIGHT
+  action: "move_right"
 }

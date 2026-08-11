@@ -20,6 +20,14 @@ go.property("music", 0.8)
 go.property("sfx", 0.8)
 go.property("fullscreen", false)
 
+-- The FIRST key bound to each gameplay action, mirrored as a hash so it can
+-- be read synchronously (rule 4). Only the first: go.property has no list
+-- type, and the full binding travels by message instead (request_bindings).
+-- Enough to see at a glance which key a remap landed on.
+go.property("bind_move_left", hash("key_a"))
+go.property("bind_move_right", hash("key_d"))
+go.property("bind_jump", hash("key_w"))
+
 -- Applies the gains to Defold's sound groups. Wrapped because the groups
 -- only exist once a sound component references them: with no audio assets
 -- in the project yet (see CLAUDE.md), set_group_gain on an unknown group
@@ -36,6 +44,9 @@ local function apply(self)
 	self.music = self.state.music
 	self.sfx = self.state.sfx
 	self.fullscreen = self.state.fullscreen
+	self.bind_move_left = hash(self.state.bindings.move_left[1])
+	self.bind_move_right = hash(self.state.bindings.move_right[1])
+	self.bind_jump = hash(self.state.bindings.jump[1])
 
 	apply_gain("master", settings.effective_gain(self.state, "master"))
 	apply_gain("music", settings.effective_gain(self.state, "music"))
@@ -60,8 +71,27 @@ function init(self)
 	apply(self)
 end
 
-function on_message(self, message_id, message)
-	if message_id == hash("adjust_volume") then
+function on_message(self, message_id, message, sender)
+	if message_id == hash("request_bindings") then
+		-- Bindings are a table, so unlike the volumes they cannot be a
+		-- go.property mirror for a synchronous read (Defold only allows
+		-- scalars/hash/url/bool there). Answering the asker is the whole
+		-- protocol: the player asks once at init, the Controls screen asks
+		-- each time it opens.
+		msg.post(sender, "set_bindings", { bindings = self.state.bindings })
+	elseif message_id == hash("rebind") then
+		local new_state, err = settings.rebind(self.state, message.action, message.key)
+		if err then
+			-- The wording comes from input_bindings, so what the screen
+			-- shows and the rule that rejected it cannot drift apart.
+			msg.post(sender, "rebind_rejected", { reason = err })
+		else
+			self.state = new_state
+			apply(self) -- refreshes the bind_* mirrors alongside the gains
+			persist(self)
+			msg.post(sender, "set_bindings", { bindings = self.state.bindings })
+		end
+	elseif message_id == hash("adjust_volume") then
 		self.state = settings.adjust_volume(self.state, message.kind, message.delta)
 		apply(self)
 		persist(self)

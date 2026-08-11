@@ -16,6 +16,7 @@ M.PAUSED = "paused"
 M.RESULT = "result"
 M.OPTIONS = "options"
 M.CREDITS = "credits"
+M.CONTROLS = "controls"
 
 -- Menu actions, returned by select() so the adapter knows what to do
 -- without having to match on label text (which is display copy and will be
@@ -35,10 +36,12 @@ M.ACTION_VOLUME_MASTER = "volume_master"
 M.ACTION_VOLUME_MUSIC = "volume_music"
 M.ACTION_VOLUME_SFX = "volume_sfx"
 M.ACTION_FULLSCREEN = "fullscreen"
+M.ACTION_CONTROLS = "controls"
+M.ACTION_REBIND = "rebind"
 M.ACTION_NONE = "none"
 
 function M.new()
-	return { screen = M.MENU, cursor = 1, selected_level = 1 }
+	return { screen = M.MENU, cursor = 1, selected_level = 1, capturing = nil }
 end
 
 -- PRD 6.1's main menu. "Continuar" is present only when a save exists, so
@@ -69,7 +72,42 @@ function M.options_entries()
 		{ label = "Music Volume", action = M.ACTION_VOLUME_MUSIC, kind = "music", slider = true },
 		{ label = "SFX Volume", action = M.ACTION_VOLUME_SFX, kind = "sfx", slider = true },
 		{ label = "Fullscreen", action = M.ACTION_FULLSCREEN, toggle = true },
+		{ label = "Controls", action = M.ACTION_CONTROLS },
 		{ label = "Back", action = M.ACTION_TO_MENU },
+	}
+end
+
+-- PRD 6.1's "Controles". One row per remappable action plus Back. The rows
+-- are derived from input_bindings.ACTIONS rather than listed here, so adding
+-- a remappable action is a change in one place.
+function M.controls_entries(actions)
+	local entries = {}
+	for _, action in ipairs(actions) do
+		table.insert(entries, { label = action, action = M.ACTION_REBIND, bind = action })
+	end
+	table.insert(entries, { label = "Back", action = M.ACTION_OPTIONS })
+	return entries
+end
+
+-- While capturing, the screen is waiting for the player to press the key
+-- they want. The cursor must not move and Back must not be selectable, so
+-- the adapter routes every key into the rebind instead of into navigation —
+-- otherwise binding "Move Left" to Down would also scroll the menu.
+function M.begin_capture(state, action)
+	return {
+		screen = state.screen,
+		cursor = state.cursor,
+		selected_level = state.selected_level,
+		capturing = action,
+	}
+end
+
+function M.cancel_capture(state)
+	return {
+		screen = state.screen,
+		cursor = state.cursor,
+		selected_level = state.selected_level,
+		capturing = nil,
 	}
 end
 
@@ -109,7 +147,14 @@ function M.move_cursor(state, delta, entry_count)
 	if entry_count <= 0 then
 		return state
 	end
-	local new_state = { screen = state.screen, cursor = state.cursor, selected_level = state.selected_level }
+	-- `capturing` is carried through explicitly: this constructor lists its
+	-- fields, so anything not named here would be silently dropped.
+	local new_state = {
+		screen = state.screen,
+		cursor = state.cursor,
+		selected_level = state.selected_level,
+		capturing = state.capturing,
+	}
 	local zero_based = (state.cursor - 1 + delta) % entry_count
 	new_state.cursor = zero_based + 1
 	return new_state
@@ -119,7 +164,12 @@ end
 -- landed on — PRD 6.1 says the screen shows "fases desbloqueadas".
 function M.move_level_cursor(state, delta, save_state)
 	local total = save_state.total_levels
-	local new_state = { screen = state.screen, cursor = state.cursor, selected_level = state.selected_level }
+	local new_state = {
+		screen = state.screen,
+		cursor = state.cursor,
+		selected_level = state.selected_level,
+		capturing = state.capturing,
+	}
 	local candidate = state.selected_level + delta
 	if candidate < 1 then
 		candidate = save_state.unlocked
@@ -130,8 +180,10 @@ function M.move_level_cursor(state, delta, save_state)
 	return new_state
 end
 
+-- Changing screen always drops any pending capture: leaving the Controls
+-- screen mid-rebind and coming back should not still be waiting for a key.
 function M.set_screen(state, screen)
-	return { screen = screen, cursor = 1, selected_level = state.selected_level }
+	return { screen = screen, cursor = 1, selected_level = state.selected_level, capturing = nil }
 end
 
 -- Formats an attempt duration for the result screen. Seconds with one

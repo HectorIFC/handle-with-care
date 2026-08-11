@@ -1,4 +1,5 @@
 local settings = require "main.core.settings"
+local input_bindings = require "main.core.input_bindings"
 
 return function()
 	describe("settings defaults", function()
@@ -93,6 +94,39 @@ return function()
 			local restored = settings.sanitize(original)
 			assert(math.abs(restored.sfx - original.sfx) < 1e-9)
 			assert(restored.fullscreen == true)
+		end)
+
+		test("bindings are present by default and survive sanitize", function()
+			local s = settings.new()
+			assert(input_bindings.resolve(s.bindings, "key_a") == "move_left")
+			-- A settings file written before remapping existed has no
+			-- bindings field at all; it must come back playable, not nil.
+			local restored = settings.sanitize({ master = 0.5 })
+			assert(input_bindings.resolve(restored.bindings, "key_a") == "move_left")
+		end)
+	end)
+
+	describe("Settings rebind", function()
+		test("a valid rebind is applied without touching the volumes", function()
+			local s = settings.adjust_volume(settings.new(), "music", -0.2)
+			local rebound, err = settings.rebind(s, "jump", "key_j")
+			assert(err == nil)
+			assert(input_bindings.resolve(rebound.bindings, "key_j") == "jump")
+			assert(math.abs(rebound.music - s.music) < 1e-9)
+		end)
+
+		test("a rejected rebind returns the state unchanged, with the reason", function()
+			local s = settings.new()
+			local result, err = settings.rebind(s, "jump", "key_a")
+			assert(err ~= nil)
+			assert(result == s)
+			assert(input_bindings.resolve(s.bindings, "key_a") == "move_left")
+		end)
+
+		test("a rebind survives a sanitize round trip", function()
+			local rebound = select(1, settings.rebind(settings.new(), "jump", "key_j"))
+			local restored = settings.sanitize(rebound)
+			assert(input_bindings.resolve(restored.bindings, "key_j") == "jump")
 		end)
 	end)
 end

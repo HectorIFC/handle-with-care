@@ -12,6 +12,15 @@
 
 local flow = require "main.core.screen_flow"
 local save = require "main.core.save"
+local input_bindings = require "main.core.input_bindings"
+
+-- Same reverse map as player.script's: Defold delivers a hashed action_id
+-- and input_bindings speaks plain strings. Needed here so the Controls
+-- screen can tell WHICH key the player just pressed while capturing.
+local KEY_NAMES = {}
+for _, key in ipairs(input_bindings.KEYS) do
+	KEY_NAMES[hash(key)] = key
+end
 
 -- Must be overridden per collection (component_properties) — see rule 5.
 go.property("save_adapter", msg.url())
@@ -63,6 +72,8 @@ local function entries_for(self)
 		return flow.pause_entries()
 	elseif self.state.screen == flow.OPTIONS then
 		return flow.options_entries()
+	elseif self.state.screen == flow.CONTROLS then
+		return flow.controls_entries(input_bindings.ACTIONS)
 	elseif self.state.screen == flow.CREDITS then
 		return { { label = "Back", action = flow.ACTION_TO_MENU } }
 	elseif self.state.screen == flow.RESULT then
@@ -89,6 +100,18 @@ local function render(self)
 			.. "   attempts " .. tostring(self.result_attempts))
 	elseif self.state.screen == flow.OPTIONS then
 		title = "OPTIONS"
+	elseif self.state.screen == flow.CONTROLS then
+		title = "CONTROLS"
+		if self.state.capturing then
+			table.insert(lines, "press a key for "
+				.. input_bindings.describe_action(self.state.capturing))
+			table.insert(lines, "esc to cancel")
+		elseif self.rebind_error then
+			table.insert(lines, self.rebind_error)
+		else
+			table.insert(lines, "enter to rebind")
+		end
+		table.insert(lines, "")
 	elseif self.state.screen == flow.CREDITS then
 		title = "CREDITS"
 		table.insert(lines, "Handle With Care")
@@ -122,6 +145,16 @@ local function render(self)
 			text = text .. "  " .. flow.volume_bar(go.get(self.settings_adapter, entry.kind), 10)
 		elseif entry.action == flow.ACTION_FULLSCREEN then
 			text = text .. "  " .. (go.get(self.settings_adapter, "fullscreen") and "[on]" or "[off]")
+		elseif entry.bind then
+			-- A controls row: the entry's label is the raw action name, so
+			-- both halves of the line come from input_bindings and cannot
+			-- disagree with the rejection messages it produces.
+			text = input_bindings.describe_action(entry.bind) .. "  "
+			if self.state.capturing == entry.bind then
+				text = text .. "..."
+			else
+				text = text .. input_bindings.describe_keys(self.bindings, entry.bind)
+			end
 		end
 		table.insert(lines, marker .. text)
 	end
@@ -207,6 +240,19 @@ local function perform(self, action)
 		self.state = flow.set_screen(self.state, flow.OPTIONS)
 	elseif action == flow.ACTION_CREDITS then
 		self.state = flow.set_screen(self.state, flow.CREDITS)
+	elseif action == flow.ACTION_CONTROLS then
+		self.rebind_error = nil
+		self.state = flow.set_screen(self.state, flow.CONTROLS)
+		-- Refresh rather than trust the cached copy: the settings file is
+		-- the authority, and this screen is the only place it changes.
+		msg.post(self.settings_adapter, "request_bindings")
+	elseif action == flow.ACTION_REBIND then
+		local entry = entries_for(self)[self.state.cursor]
+		if entry and entry.bind then
+			self.rebind_error = nil
+			self.capture_pending = false
+			self.state = flow.begin_capture(self.state, entry.bind)
+		end
 	elseif action == flow.ACTION_FULLSCREEN then
 		msg.post(self.settings_adapter, "toggle_fullscreen")
 	elseif action == flow.ACTION_PLAY_LEVEL then
@@ -245,6 +291,12 @@ function init(self)
 	self.result_time = 0
 	self.result_attempts = 1
 	self.result_quip = ""
+	-- Defaults until the settings adapter answers. The Controls screen asks
+	-- again every time it opens, so this only ever shows on a first frame.
+	self.bindings = input_bindings.new()
+	self.rebind_error = nil
+	self.capture_pending = false
+	msg.post(self.settings_adapter, "request_bindings")
 	render(self)
 end
 
@@ -258,6 +310,33 @@ end
 local function handle_action(self, action_id)
 	local screen = self.state.screen
 
+	-- Capture mode swallows EVERYTHING before navigation gets a look in.
+	-- Without this, binding Move Left to Down would also scroll the cursor,
+	-- and binding it to Enter would confirm the next row on the way past.
+	if self.state.capturing then
+		if action_id == hash("pause") and not self.capture_pending then
+			self.state = flow.cancel_capture(self.state)
+			self.rebind_error = nil
+			render(self)
+			return true
+		end
+		local key = KEY_NAMES[action_id]
+		if key and not self.capture_pending then
+			msg.post(self.settings_adapter, "rebind",
+				{ action = self.state.capturing, key = key })
+			-- Capture is NOT ended here — it ends when the adapter answers
+			-- (set_bindings or rebind_rejected). One physical key can raise
+			-- two actions: Down produces both "key_down" (remappable) and
+			-- "menu_down" (fixed menu navigation). Ending capture on the
+			-- first would let the second through to scroll the cursor,
+			-- which is precisely what capture exists to prevent. Staying in
+			-- capture until the reply keeps swallowing them; the pending
+			-- flag stops a second key from posting a second rebind.
+			self.capture_pending = true
+		end
+		return true -- everything else is swallowed, not an escape hatch
+	end
+
 	if action_id == hash("pause") then
 		if screen == flow.PLAYING then
 			-- Freezing the loaded collection's time step is what actually
@@ -270,6 +349,14 @@ local function handle_action(self, action_id)
 			return true
 		elseif screen == flow.PAUSED then
 			perform(self, flow.ACTION_RESUME)
+			return true
+		elseif screen == flow.CONTROLS then
+			-- Back to Options, not to the menu: Controls is reached from
+			-- there, and jumping two levels out would lose the player's
+			-- place.
+			self.rebind_error = nil
+			self.state = flow.set_screen(self.state, flow.OPTIONS)
+			render(self)
 			return true
 		elseif screen == flow.LEVEL_SELECT or screen == flow.OPTIONS
 			or screen == flow.CREDITS then
@@ -352,6 +439,20 @@ function on_message(self, message_id, message, sender)
 		self.pending_time = message.time
 		self.pending_attempts = message.attempts
 		show_result(self, message.won)
+	elseif message_id == hash("set_bindings") then
+		-- The settings adapter's answer to request_bindings, and also what
+		-- it sends after a successful rebind — so the screen only ever
+		-- draws bindings that were actually accepted and written.
+		self.bindings = message.bindings
+		self.rebind_error = nil
+		self.capture_pending = false
+		self.state = flow.cancel_capture(self.state)
+		render(self)
+	elseif message_id == hash("rebind_rejected") then
+		self.rebind_error = message.reason
+		self.capture_pending = false
+		self.state = flow.cancel_capture(self.state)
+		render(self)
 	elseif message_id == hash("test_input") then
 		-- Test-only: headless has no way to inject a real key press, so this
 		-- routes an action into the SAME handle_action() the keyboard reaches

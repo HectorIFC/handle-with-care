@@ -1,5 +1,6 @@
 local wait = require "test.support.wait"
 local flow = require "main.core.screen_flow"
+local input_bindings = require "main.core.input_bindings"
 
 -- Menu, level select, pause and result screens (PRD 6.1/6.2).
 --
@@ -24,8 +25,24 @@ end
 
 local function reset_all()
 	msg.post("/save_adapter#script", "new_game")
+	msg.post("/settings_adapter#script", "test_reset")
 	msg.post("/screens#script", "test_set_screen", { screen = flow.MENU })
 	wait.frames(3)
+end
+
+-- Walks the Controls cursor onto a named action's row. The rows come from
+-- input_bindings.ACTIONS, so this finds the index rather than hardcoding one
+-- that would drift the moment another remappable action is added.
+local function focus_binding_row(action)
+	for index, name in ipairs(input_bindings.ACTIONS) do
+		if name == action then
+			for _ = 2, index do
+				press("menu_down")
+			end
+			return
+		end
+	end
+	assert(false, "no controls row for " .. action)
 end
 
 return function()
@@ -182,6 +199,61 @@ return function()
 			assert(go.get("/screens#script", "screen") == hash(flow.CREDITS))
 			press("confirm") -- the only entry is Back
 			assert(go.get("/screens#script", "screen") == hash(flow.MENU))
+		end)
+
+		test("Options opens Controls, and Esc goes back to Options", function()
+			goto_screen(flow.OPTIONS)
+			-- Master, Music, SFX, Fullscreen, then Controls.
+			press("menu_down"); press("menu_down"); press("menu_down"); press("menu_down")
+			press("confirm")
+			assert(go.get("/screens#script", "screen") == hash(flow.CONTROLS))
+			press("pause")
+			assert(go.get("/screens#script", "screen") == hash(flow.OPTIONS))
+		end)
+
+		test("a key pressed while capturing becomes the new binding", function()
+			goto_screen(flow.CONTROLS)
+			focus_binding_row("jump")
+			press("confirm") -- enters capture mode
+			press("key_j")
+			wait.frames(4) -- the adapter answers by message
+			assert(go.get("/settings_adapter#script", "bind_jump") == hash("key_j"))
+			-- Still on the Controls screen: rebinding is not a way out of it.
+			assert(go.get("/screens#script", "screen") == hash(flow.CONTROLS))
+		end)
+
+		test("a key already used by another action is refused", function()
+			goto_screen(flow.CONTROLS)
+			focus_binding_row("jump")
+			press("confirm")
+			press("key_a") -- move_left owns this
+			wait.frames(4)
+			assert(go.get("/settings_adapter#script", "bind_jump") == hash("key_w"))
+			assert(go.get("/settings_adapter#script", "bind_move_left") == hash("key_a"))
+		end)
+
+		test("Esc during capture cancels without rebinding", function()
+			goto_screen(flow.CONTROLS)
+			focus_binding_row("jump")
+			press("confirm")
+			press("pause")
+			press("key_j") -- no longer capturing, so this must not bind
+			wait.frames(4)
+			assert(go.get("/settings_adapter#script", "bind_jump") == hash("key_w"))
+			assert(go.get("/screens#script", "screen") == hash(flow.CONTROLS))
+		end)
+
+		test("capture swallows navigation keys instead of moving the cursor", function()
+			-- Binding an action to Down must not also scroll the menu; this
+			-- is the whole reason capture is checked before navigation.
+			goto_screen(flow.CONTROLS)
+			focus_binding_row("move_right")
+			press("confirm")
+			local cursor = go.get("/screens#script", "cursor")
+			press("key_down")
+			wait.frames(4)
+			assert(go.get("/screens#script", "cursor") == cursor)
+			assert(go.get("/settings_adapter#script", "bind_move_right") == hash("key_down"))
 		end)
 
 		test("New Game does not reset the player's volume settings", function()
