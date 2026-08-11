@@ -1,9 +1,0 @@
-size {
-  x: 16.0
-  y: 16.0
-  z: 0.0
-  w: 0.0
-}
-text: "[hazard]"
-font: "/builtins/fonts/default.font"
-material: "/builtins/fonts/label.material"

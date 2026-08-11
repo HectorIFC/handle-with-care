@@ -85,6 +85,28 @@ For **each** of the 10 levels, confirm:
   (Now checkable — placeholder audio is wired. Judge routing and relative
   levels, not sound quality.)
 
+## Visuals (placeholder sprites, phase 24)
+
+Nothing here is checkable headless — the whole point of this section is that
+a human has to look at the screen.
+
+- [ ] Every object renders as a **sprite**, not text: player, package,
+  ground, platforms, falling platforms, spikes, delivery zone.
+- [ ] **Platform widths match what you can stand on** — walk to each edge and
+  confirm the sprite ends exactly where the footing does.
+- [ ] **The base floor matches its walkable range** in every level. This was
+  wrong before phase 24 (the floor was drawn 128 wide in all ten levels while
+  the real range is 112 in level 1 and 140 in levels 3-10), so it is worth
+  checking per level rather than spot-checking one.
+- [ ] The player **flips horizontally** when changing direction.
+- [ ] The player's animation changes across idle / run / jump / fall / land.
+- [ ] The package **changes image across all 8 states** (force them with the
+  levels that cycle each, or the debug messages).
+- [ ] **No z-fighting / flicker** where objects overlap. Intended draw order,
+  back to front: ground, platforms, delivery zone, hazards, player, package.
+- [ ] The ground and platform tiles do **not look smeared** when stretched
+  wide — they are drawn as horizontal bands specifically to survive this.
+
 ## Performance (PRD 9.5) — real build only
 
 - [ ] **60 FPS stable** in Chrome and Firefox (DevTools performance panel),
@@ -101,9 +123,13 @@ For **each** of the 10 levels, confirm:
   at the right moment**, not whether it sounds good. Real chiptune is a
   drop-in swap (filenames match the cue catalogue) and changes no trigger
   site.
-- **Visuals are still `[label]` text placeholders.** The sprite atlas
-  (`main/sprites/game.atlas`) builds but is not wired in, so nothing below
-  judges final art.
+- **Visuals are generated placeholder sprites, not final art.** The atlas is
+  wired in (`scripts/generate_sprites.py` → `main/sprites/game.atlas`), so
+  the game renders shapes rather than `[label]` text — but judge **layout,
+  size and readability**, not art quality. Real pixel art is a drop-in swap.
+- **The package still shows a debug stress number** next to it
+  (`debug_hud` on `package.script`, on by default). It is there to make this
+  pass judgeable; turn it off before shipping.
 - **Controls remapping** (PRD 6.1's "Controles") is unimplemented.
 - **`dmengine_headless` intermittent wedge**: affects the automated suite
   only (mitigated by retry), not the real windowed build. If a real build

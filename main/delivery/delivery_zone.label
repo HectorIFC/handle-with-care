@@ -1,9 +1,0 @@
-size {
-  x: 40.0
-  y: 40.0
-  z: 0.0
-  w: 0.0
-}
-text: "[GOAL]"
-font: "/builtins/fonts/default.font"
-material: "/builtins/fonts/label.material"

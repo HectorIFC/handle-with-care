@@ -34,6 +34,9 @@ local function rect_for(url, half_width, half_height)
 	return { x = pos.x, y = pos.y, half_width = half_width, half_height = half_height }
 end
 
+-- spike.png's native size.
+local SPRITE_SIZE = 16
+
 function init(self)
 	self.initial_position = go.get_position()
 	-- PRD 3.5: restart is broadcast through Defold's input dispatch rather
@@ -41,6 +44,14 @@ function init(self)
 	-- This is what lets a level hold any number of hazards and still have
 	-- all of them restored by one key press.
 	msg.post(".", "acquire_input_focus")
+
+	-- spike.png is authored at the hazard's default half-extents, so this
+	-- resolves to scale 1 unless a level overrides them — deriving it
+	-- anyway keeps the picture honest if one ever does.
+	go.set_scale(vmath.vector3(
+		self.half_width * 2 / SPRITE_SIZE,
+		self.half_height * 2 / SPRITE_SIZE,
+		1))
 end
 
 function on_input(self, action_id, action)

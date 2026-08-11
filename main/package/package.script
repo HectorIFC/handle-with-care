@@ -37,6 +37,12 @@ go.property("mirror", msg.url())
 go.property("half_width", 6)
 go.property("half_height", 6)
 
+-- Draws the raw stress number next to the package. On by default because
+-- the PRD section 11 playtest is still pending and several of its criteria
+-- are far easier to judge with the number visible; a level can turn it off
+-- per instance, and it should go off for real once the game ships.
+go.property("debug_hud", true)
+
 -- PRD 4.4/4.8's Magnetized field, describing the package's own attraction
 -- (not each hazard's) — a single source of truth every hazard adapter
 -- reads via go.get("/package#script", ...) instead of guessing its own
@@ -229,13 +235,32 @@ end
 
 local function apply_hud(self)
 	local state_name = self.machine.current_state
-	local stress_rounded = math.floor(self.stress.value + 0.5)
-	local text = "[" .. state_name .. " " .. stress_rounded .. "]"
-	if self.detonated then
-		text = text .. " BOOM"
+	-- One atlas image per state, named "package_<state>" (see
+	-- scripts/generate_sprites.py). Only played on change: play_flipbook
+	-- restarts the animation, so calling it every frame would be wasted
+	-- work today and would visibly reset a multi-frame animation once real
+	-- art replaces these one-frame placeholders.
+	if state_name ~= self.current_animation then
+		self.current_animation = state_name
+		sprite.play_flipbook("#visual", "package_" .. state_name)
 	end
-	label.set_text("#visual", text)
-	go.set("#visual", "color", STATE_COLORS[state_name] or DEFAULT_COLOR)
+	-- Sprites tint, labels color — same idea, different property name.
+	-- Kept on top of the per-state image because it reads at a glance from
+	-- across the screen, which a 16x16 shape does not.
+	go.set("#visual", "tint", STATE_COLORS[state_name] or DEFAULT_COLOR)
+
+	-- Debug readout. The label used to BE the package; now it carries only
+	-- the stress number, which no sprite can convey and which the PRD
+	-- section 11 playtest is judged against ("deaths legible in < 2s" is
+	-- much harder to assess without seeing the number climb). Off by
+	-- default once the playtest is done.
+	if self.debug_hud then
+		local text = tostring(math.floor(self.stress.value + 0.5))
+		if self.detonated then
+			text = text .. " BOOM"
+		end
+		label.set_text("#debug", text)
+	end
 	self.current_state = hash(state_name)
 	self.current_stress = self.stress.value
 	self.mass = package_state_machine.mass(self.machine, state_machine_config(self))
@@ -252,6 +277,10 @@ function init(self)
 	self.explosive = explosive.new()
 	self.offscreen = offscreen_timer.new()
 	self.near_hazard = false
+	-- nil so apply_hud always publishes the sprite on its first call,
+	-- rather than trusting the .sprite's authored default_animation to
+	-- match whatever state the machine actually starts in.
+	self.current_animation = nil
 	-- Seeded so the state-change cue in update() doesn't fire on the very
 	-- first frame for the starting state (and never mistakes a level that
 	-- opens Sleeping for a wake).

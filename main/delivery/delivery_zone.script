@@ -25,12 +25,22 @@ go.property("delivered", false)
 go.property("has_audio", false)
 go.property("audio", msg.url())
 
+-- delivery.png's native size.
+local SPRITE_SIZE = 40
+
 function init(self)
 	self.initial_position = go.get_position()
 	-- PRD 3.5: restart is broadcast through Defold's input dispatch rather
 	-- than a registry of objects to notify — see player.script's on_input
 	-- for why. Every restorable object acquires focus and resets itself.
 	msg.post(".", "acquire_input_focus")
+
+	-- delivery.png is authored at the zone's default half-extents (40x40
+	-- for half 20), so this is scale 1 unless a level overrides them.
+	go.set_scale(vmath.vector3(
+		self.half_width * 2 / SPRITE_SIZE,
+		self.half_height * 2 / SPRITE_SIZE,
+		1))
 end
 
 function update(self, dt)

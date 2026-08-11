@@ -1,0 +1,68 @@
+-- The level's base floor, drawn to match the floor the player actually
+-- stands on.
+--
+-- Why this script exists at all: the walkable floor is defined by the
+-- PLAYER's ground_x_min/ground_x_max/ground_y_top properties (that is what
+-- player_movement integrates against), while the floor's picture used to be
+-- a fixed 128-wide label baked into a prototype shared by all ten levels.
+-- They never matched — level 1's floor is 112 wide, levels 3-10 are 140 —
+-- so the drawn ground was wrong everywhere. Deriving the picture from the
+-- same properties that define the gameplay bound is rule 5 applied
+-- literally: the number is authored once, on the player, and read here.
+--
+-- Sizing happens on the first update() rather than in init(): every other
+-- cross-object read in this project (hazards reading the player's position)
+-- happens in update(), and doing it there means this never depends on the
+-- order Defold happens to init two instances in.
+
+go.property("has_player", false)
+go.property("player", msg.url())
+
+-- Visual depth only — how far below the walkable surface the floor is
+-- drawn. Nothing reads this for gameplay; the floor is bottomless as far as
+-- player_movement is concerned.
+go.property("thickness", 32)
+
+-- tile_ground.png's native size. The tile is drawn as horizontal bands
+-- precisely so this can be stretched along X without smearing — see
+-- scripts/generate_sprites.py.
+local TILE = 16
+
+function init(self)
+	self.sized = false
+end
+
+function update(self, dt)
+	if self.sized then
+		return
+	end
+	self.sized = true
+
+	-- No player wired up: keep whatever the collection authored. Same safe
+	-- failure as camera.script's level_width — a level that forgets this
+	-- looks like it always did rather than collapsing to nothing.
+	if not self.has_player then
+		return
+	end
+
+	local x_min = go.get(self.player, "ground_x_min")
+	local x_max = go.get(self.player, "ground_x_max")
+	local y_top = go.get(self.player, "ground_y_top")
+
+	local width = x_max - x_min
+	if width <= 0 then
+		return
+	end
+
+	-- Draw order is a z offset on the sprite component in ground.go, not
+	-- part of this position: the object's own z is left alone so nothing
+	-- here has to agree with a number stored somewhere else.
+	go.set_position(vmath.vector3(
+		x_min + width * 0.5,
+		y_top - self.thickness * 0.5,
+		0))
+	-- Scales this object's collisionobject too, which is harmless: gameplay
+	-- overlap is plain Lua AABB everywhere in this project (rule 9), so the
+	-- shape is only ever the Editor's visual aid.
+	go.set_scale(vmath.vector3(width / TILE, self.thickness / TILE, 1))
+end

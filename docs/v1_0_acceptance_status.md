@@ -71,15 +71,19 @@ Everything else is [`playtest_checklist.md`](playtest_checklist.md).
 
 ### Code-side (doable in this repository, no special environment)
 
-1. **Sprite visual wiring.** `scripts/generate_sprites.py` produces 12
-   placeholder PNGs and `main/sprites/game.atlas` builds — but the game still
-   renders `[label]` text placeholders. Wiring means replacing the `visual`
-   label components with sprite components across every `.go` and every
-   collection, and mapping package state → image in `apply_hud`. Variable-width
-   ground and platforms probably want tilemaps rather than one stretched
-   sprite. This changes rendered output everywhere and **cannot be verified
-   headless** — it needs a human looking at the screen, so it is code work
-   that still ends in a manual check.
+1. ~~**Sprite visual wiring.**~~ **Done in code (phase 24, v0.28.0)** — the
+   game renders sprites, not `[label]` text. Every visual `.go` now carries a
+   `.sprite` component fed by `main/sprites/game.atlas`; the player plays one
+   image per animation state and flips with `facing`; the package plays one
+   image per state and tints it. Variable-width ground and platforms are
+   handled by scaling a band-drawn tile from the `half_width`/`half_height`
+   the collections already author, rather than by a tilemap that would
+   duplicate the geometry. Fixed a pre-existing bug on the way: the base
+   floor was drawn 128 wide in all ten levels while the real walkable range
+   is 112 to 140 — `main/player/ground.script` now derives the picture from
+   the player's own bounds. **Still needs a human to look at it**: headless
+   proves only that nothing broke (401/401) and that every collection
+   compiles.
 2. **Controls remapping** (PRD 6.1's "Controles" options entry). Unimplemented.
    The Options screen and `core/settings.lua`'s sanitize-on-load pattern are
    the natural home for it.

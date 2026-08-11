@@ -218,7 +218,19 @@ local function apply_animation(self)
 	local anim = self.just_landed and "land" or player_movement.animation_state(self.state)
 	if anim ~= self.current_animation then
 		self.current_animation = anim
-		label.set_text("#visual", "[" .. anim .. "]")
+		-- One atlas image per state, named "player_<state>" — Defold turns a
+		-- single-image atlas entry into a one-frame flipbook named after the
+		-- file, so the state names in player_movement.animation_state are
+		-- literally the animation names (see scripts/generate_sprites.py).
+		sprite.play_flipbook("#visual", "player_" .. anim)
+	end
+	-- Flipping is checked every frame rather than inside the block above:
+	-- facing changes while the animation name does not (running left and
+	-- running right are both "run"), so gating it on an animation change
+	-- would leave the sprite facing the wrong way for the whole run.
+	if self.facing ~= self.current_flip then
+		self.current_flip = self.facing
+		sprite.set_hflip("#visual", self.facing < 0)
 	end
 end
 
@@ -236,6 +248,9 @@ function init(self)
 	self.move_right_held = false
 	self.just_landed = false
 	self.current_animation = nil
+	-- nil rather than 1 so the first apply_animation always publishes the
+	-- flip, instead of assuming the sprite starts unflipped.
+	self.current_flip = nil
 	self.grounded = self.state.grounded
 	self.previous_facing = self.state.facing
 	self.knockback = knockback.new()

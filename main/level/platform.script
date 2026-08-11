@@ -22,6 +22,20 @@ go.property("player", msg.url())
 -- which kind of platform it is looking at.
 go.property("is_falling", false)
 
+-- tile_platform.png's native size. The tile is drawn as horizontal bands
+-- only (see scripts/generate_sprites.py) so stretching it along X to any
+-- half_width is lossless rather than smeared.
+local TILE = 16
+
 function init(self)
 	msg.post(self.player, "register_platform")
+
+	-- The picture is derived from the same half_width/half_height the AABB
+	-- ground check uses, so a platform can never be drawn a different size
+	-- from the one the player can actually stand on (rule 5 — the number is
+	-- authored once, in the collection's component_properties).
+	go.set_scale(vmath.vector3(
+		self.half_width * 2 / TILE,
+		self.half_height * 2 / TILE,
+		1))
 end

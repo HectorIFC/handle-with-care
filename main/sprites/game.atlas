@@ -35,7 +35,23 @@ images {
   sprite_trim_mode: SPRITE_TRIM_MODE_OFF
 }
 images {
-  image: "/main/sprites/player.png"
+  image: "/main/sprites/player_fall.png"
+  sprite_trim_mode: SPRITE_TRIM_MODE_OFF
+}
+images {
+  image: "/main/sprites/player_idle.png"
+  sprite_trim_mode: SPRITE_TRIM_MODE_OFF
+}
+images {
+  image: "/main/sprites/player_jump.png"
+  sprite_trim_mode: SPRITE_TRIM_MODE_OFF
+}
+images {
+  image: "/main/sprites/player_land.png"
+  sprite_trim_mode: SPRITE_TRIM_MODE_OFF
+}
+images {
+  image: "/main/sprites/player_run.png"
   sprite_trim_mode: SPRITE_TRIM_MODE_OFF
 }
 images {
@@ -44,6 +60,10 @@ images {
 }
 images {
   image: "/main/sprites/tile_ground.png"
+  sprite_trim_mode: SPRITE_TRIM_MODE_OFF
+}
+images {
+  image: "/main/sprites/tile_platform.png"
   sprite_trim_mode: SPRITE_TRIM_MODE_OFF
 }
 margin: 0
