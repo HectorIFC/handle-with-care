@@ -227,8 +227,27 @@ error plus `debug.traceback(co)`, and exits non-zero (matching deftest's own
 
 ### `dmengine_headless` intermittently stops updating game objects
 
-**Status: open, ~1 run in 3 on arm64-macos, engine-level. Mitigated by a
-retry in `run_tests.sh`, not fixed. Not caused by this project's code.**
+**Status: open, engine-level. Mitigated by a retry in `run_tests.sh`, not
+fixed. Not caused by this project's code.**
+
+**The rate is not stable, and it can get much worse within a single working
+session.** It was ~1 run in 3 when first characterized. During phase 27 it
+degraded to roughly 4 attempts in 5 — two consecutive runs exhausted five
+attempts and returned no result at all, and a third then passed on its fifth
+attempt. `MAX_ATTEMPTS` was raised from 5 to 10 for that reason: at a 0.8
+per-attempt wedge rate, five attempts fail outright about a third of the
+time.
+
+That episode is also the cleanest proof yet that the project's code is not
+involved. It began right after a font was added, so the font was the obvious
+suspect — but reverting it left `git diff HEAD` EMPTY, i.e. a tree
+byte-identical to a commit that had just gone green at 467 passing, and it
+wedged exactly the same way. A relaxed watchdog (`HEARTBEAT_IDLE=90`,
+`STALL_TIMEOUT=600`) wedged too, printing no heartbeat lines at all, so the
+engine's `update()` had genuinely stopped rather than the watchdog firing
+early. Load average was 2.6 with 73% idle and there were no orphaned engine
+processes. **If this happens again, do not spend the session bisecting your
+own changes: check `git diff HEAD` against a known-green commit first.**
 
 The engine sometimes stops running its update phase entirely, part-way
 through the integration suites. When it happens the process stays alive and
@@ -270,8 +289,8 @@ Ruled out, each with evidence, so nobody repeats the search:
   `test/testing.settings` anyway: it is harmless for a run with no window,
   and keeping it on removes one variable from any future investigation.
 
-**Mitigation:** `run_tests.sh` caps each engine run at `STALL_TIMEOUT` (150s,
-~1.5x a healthy run) and retries up to `MAX_ATTEMPTS` (5). In practice the
+**Mitigation:** `run_tests.sh` caps each engine run at `STALL_TIMEOUT` (180s,
+~1.5x a healthy run) and retries up to `MAX_ATTEMPTS` (10). In practice the
 backstop is rarely what fires: `HEARTBEAT_IDLE` (15s without the heartbeat
 file advancing) catches a wedge far sooner — a phase-25 run was caught and
 retried at **37s**, and the retry passed. This cannot mask

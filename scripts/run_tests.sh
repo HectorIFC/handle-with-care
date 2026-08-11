@@ -115,7 +115,9 @@ echo "Running tests..."
 # error, so dmengine_headless's own exit code IS the test result, and this
 # script propagates it unchanged.
 #
-# dmengine_headless wedges intermittently (~1 run in 3 on arm64-macos): the
+# dmengine_headless wedges intermittently — ~1 run in 3 when first measured,
+# but observed at ~4 attempts in 5 during phase 27, which is why
+# MAX_ATTEMPTS is 10 rather than a handful. The
 # process stays alive and its main loop keeps sleeping in the normal frame
 # limiter, but the engine stops running the update phase entirely — no game
 # object updates, and test_runner.script's own unconditional heartbeat stops
@@ -137,7 +139,7 @@ echo "Running tests..."
 # — export STALL_TIMEOUT rather than editing this default when running on a
 # slower machine or a loaded CI runner.
 STALL_TIMEOUT="${STALL_TIMEOUT:-180}"
-MAX_ATTEMPTS="${MAX_ATTEMPTS:-5}"
+MAX_ATTEMPTS="${MAX_ATTEMPTS:-10}"
 # The primary detector: how long test_runner.script's file heartbeat may stop
 # advancing before the run is treated as wedged. This is what keeps a wedge
 # cheap — caught in ~15s instead of burning the whole STALL_TIMEOUT, which
