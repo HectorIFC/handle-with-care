@@ -59,6 +59,10 @@ images {
   sprite_trim_mode: SPRITE_TRIM_MODE_OFF
 }
 images {
+  image: "/main/sprites/saw.png"
+  sprite_trim_mode: SPRITE_TRIM_MODE_OFF
+}
+images {
   image: "/main/sprites/spike.png"
   sprite_trim_mode: SPRITE_TRIM_MODE_OFF
 }

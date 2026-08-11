@@ -128,6 +128,10 @@ a human has to look at the screen.
   rattling on.
 - [ ] Shake **never scrolls the background or kills you** — it is visual
   only. Blow up next to a screen edge and confirm nothing dies from it.
+- [ ] **Saws spin and spikes do not**, and the two are tellable apart at a
+  glance while playing (PRD 7.1).
+- [ ] A spinning saw kills at the **same distance** as a still one — the
+  hitbox must not appear to change with the blade's angle.
 
 ## Performance (PRD 9.5) — real build only
 

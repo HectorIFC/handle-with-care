@@ -631,6 +631,11 @@ instances {
       value: "/package#script"
       type: PROPERTY_TYPE_URL
     }
+    properties {
+      id: "variant"
+      value: "saw"
+      type: PROPERTY_TYPE_HASH
+    }
   }
 }
 instances {
@@ -687,6 +692,11 @@ instances {
       value: "/package#script"
       type: PROPERTY_TYPE_URL
     }
+    properties {
+      id: "variant"
+      value: "saw"
+      type: PROPERTY_TYPE_HASH
+    }
   }
 }
 instances {
@@ -742,6 +752,11 @@ instances {
       id: "package"
       value: "/package#script"
       type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "variant"
+      value: "saw"
+      type: PROPERTY_TYPE_HASH
     }
   }
 }

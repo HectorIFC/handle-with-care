@@ -31,6 +31,7 @@ THREE CONSTRAINTS, all of which will silently produce bad output if broken:
 Run: python3 scripts/generate_sprites.py   (needs Pillow)
 """
 from PIL import Image
+import math
 import os
 
 OUT = os.path.join(os.path.dirname(__file__), "..", "main", "sprites")
@@ -389,6 +390,32 @@ rect(s, 0, 14, 16, 16, METAL_DARK)      # mounting base
 outline(s)
 emit_single(s, "spike")
 
+# Saw blade, 16x16. PRD 7.1 lists "Serras (rotação)" as visually distinct
+# from spikes; lethal_hazard.script spins this one. Drawn radially
+# symmetric-ish about the CENTER, because anything off-center wobbles
+# instead of spinning once the adapter rotates it.
+saw = img(16, 16)
+cx = cy = 7.5
+TEETH = 6
+# Body radius vs tooth tip. Both must stay under 7.5 (the half-width), or
+# the disc fills the whole square and reads as a blob rather than a blade —
+# which is exactly what the first attempt did at a 7.8 tip.
+BODY_R, TIP_R = 4.6, 7.0
+for y in range(16):
+    for x in range(16):
+        dx, dy = x + 0.5 - cx, y + 0.5 - cy
+        dist = math.hypot(dx, dy)
+        # Sawtooth in angle: radius ramps from body to tip across each
+        # sector, so every tooth has a leading edge and a flat back.
+        phase = ((math.atan2(dy, dx) + math.pi) / (2 * math.pi) * TEETH) % 1.0
+        limit = BODY_R + (TIP_R - BODY_R) * phase
+        if dist <= limit:
+            px(saw, x, y, METAL_LIT if dist < BODY_R * 0.75 else METAL)
+        if dist <= 1.8:
+            px(saw, x, y, METAL_DARK)   # hub
+outline(saw)
+emit_single(saw, "saw")
+
 # Delivery zone: a pad with a flag. Reads as "here", which is the only job.
 d = img(40, 40)
 rect(d, 3, 29, 37, 37, PAD)
@@ -409,7 +436,6 @@ emit_single(d, "delivery")
 #
 # They are also full screen height (216) and drawn bottom-anchored, since the
 # camera only pans horizontally.
-import math
 
 SKY_TOP    = (58, 62, 108, 255)
 SKY_MID    = (92, 88, 140, 255)
@@ -481,7 +507,7 @@ def verify_contract():
     required = {"player_" + s for s in ("idle", "run", "jump", "fall", "land")}
     required |= {"package_" + s for s in PACKAGE_STATES}
     # Referenced as default_animation by the .sprite components.
-    required |= {"tile_ground", "tile_platform", "spike", "delivery"}
+    required |= {"tile_ground", "tile_platform", "spike", "saw", "delivery"}
     required |= {"bg_sky", "bg_hills", "bg_ridge", "bg_trees"}
 
     emitted = set(SINGLES) | {a["id"] for a in ANIMS}
