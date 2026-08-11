@@ -1,5 +1,157 @@
 name: "level_09"
 instances {
+  id: "bg_sky"
+  prototype: "/main/level/bg_sky.go"
+  position {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "has_camera"
+      value: "true"
+      type: PROPERTY_TYPE_BOOLEAN
+    }
+    properties {
+      id: "camera"
+      value: "/camera#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "factor"
+      value: "0.1"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "tile_width"
+      value: "384"
+      type: PROPERTY_TYPE_NUMBER
+    }
+  }
+}
+instances {
+  id: "bg_hills"
+  prototype: "/main/level/bg_hills.go"
+  position {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "has_camera"
+      value: "true"
+      type: PROPERTY_TYPE_BOOLEAN
+    }
+    properties {
+      id: "camera"
+      value: "/camera#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "factor"
+      value: "0.3"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "tile_width"
+      value: "192"
+      type: PROPERTY_TYPE_NUMBER
+    }
+  }
+}
+instances {
+  id: "bg_ridge"
+  prototype: "/main/level/bg_ridge.go"
+  position {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "has_camera"
+      value: "true"
+      type: PROPERTY_TYPE_BOOLEAN
+    }
+    properties {
+      id: "camera"
+      value: "/camera#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "factor"
+      value: "0.5"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "tile_width"
+      value: "128"
+      type: PROPERTY_TYPE_NUMBER
+    }
+  }
+}
+instances {
+  id: "bg_trees"
+  prototype: "/main/level/bg_trees.go"
+  position {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "has_camera"
+      value: "true"
+      type: PROPERTY_TYPE_BOOLEAN
+    }
+    properties {
+      id: "camera"
+      value: "/camera#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "factor"
+      value: "0.7"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "tile_width"
+      value: "128"
+      type: PROPERTY_TYPE_NUMBER
+    }
+  }
+}
+instances {
   id: "ground"
   prototype: "/main/player/ground.go"
   position {

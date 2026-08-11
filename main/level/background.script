@@ -1,0 +1,49 @@
+-- One parallax background layer (PRD section 7's "backgrounds com parallax
+-- simples (2-3 camadas)").
+--
+-- Thin adapter (rule 1): core/parallax.lua decides where the layer belongs,
+-- this only reads the camera and applies the result.
+--
+-- The camera's x is read SYNCHRONOUSLY every frame via go.get, the same way
+-- the package reads the player's position and for the same reason (rule 4):
+-- a background that lagged the camera by one message would visibly slide
+-- against the world whenever the camera changed speed.
+--
+-- Tiling is done by placing several copies of the image as sprite components
+-- inside this object's .go at fixed x offsets, and moving the whole object.
+-- Defold cannot move a component independently at runtime, so "N copies in
+-- one object" is what makes a single script able to cover a 1200-wide level.
+-- The copy count in each .go must be at least parallax.copies_needed(screen,
+-- tile_width) — bg_sky.go and friends are built that way.
+
+local parallax = require "main.core.parallax"
+
+-- Must be overridden per collection (component_properties), see rule 5.
+go.property("has_camera", false)
+go.property("camera", msg.url())
+
+-- How much of the world's motion this layer keeps: 1 is world-locked, 0 is
+-- pinned to the view. See core/parallax.lua.
+go.property("factor", 0.5)
+
+-- The layer image's width. Must match the .go's sprite offsets, which is why
+-- both live in the per-layer .go rather than being guessed here.
+go.property("tile_width", 192)
+
+function init(self)
+	self.base_y = go.get_position().y
+end
+
+function update(self, dt)
+	-- No camera in this level: sit still. Same safe failure as the rest of
+	-- the has_X/X wiring — a level that forgets it looks static rather than
+	-- drifting off into nothing.
+	if not self.has_camera then
+		return
+	end
+	local camera_x = go.get(self.camera, "x")
+	go.set_position(vmath.vector3(
+		parallax.wrapped_x(camera_x, self.factor, self.tile_width),
+		self.base_y,
+		go.get_position().z))
+end

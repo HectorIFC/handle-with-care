@@ -119,6 +119,10 @@ a human has to look at the screen.
   back to front: ground, platforms, delivery zone, hazards, player, package.
 - [ ] The ground and platform tiles do **not look smeared** when stretched
   wide — they are drawn as horizontal bands specifically to survive this.
+- [ ] **Parallax reads as depth**: walking right, the sky barely moves, the
+  hills drift, the tree line moves most. Nothing slides against the world.
+- [ ] **No seam** appears in any background layer as the level scrolls, and
+  no gap at either end of a long level.
 
 ## Performance (PRD 9.5) — real build only
 

@@ -26,6 +26,7 @@ local suites = {
 	require "test.unit.test_mirror",
 	require "test.unit.test_settings",
 	require "test.unit.test_input_bindings",
+	require "test.unit.test_parallax",
 	require "test.unit.test_audio_cues",
 	require "test.unit.test_save_location",
 	-- RE-ENABLED (phase 22). These two were commented out in phase 9a to try

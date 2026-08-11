@@ -401,6 +401,70 @@ outline(d)
 emit_single(d, "delivery")
 
 
+# --- Parallax background layers (PRD section 7) -------------------------
+# Each layer must TILE SEAMLESSLY: background.script repeats one image to
+# cover a level that can be 1200 wide. Everything here is therefore drawn
+# from functions whose period is exactly the image width, so the last column
+# meets the first with no seam. Do not hand-place a feature near an edge.
+#
+# They are also full screen height (216) and drawn bottom-anchored, since the
+# camera only pans horizontally.
+import math
+
+SKY_TOP    = (58, 62, 108, 255)
+SKY_MID    = (92, 88, 140, 255)
+SKY_LOW    = (146, 112, 148, 255)
+HILL_FAR   = (74, 78, 122, 255)
+HILL_NEAR  = (56, 60, 98, 255)
+TREE_DARK  = (38, 42, 70, 255)
+
+BG_H = 216
+
+
+def sky_layer(w=384):
+    im = img(w, BG_H)
+    # Bands only — the sky has no horizontal features, so it tiles trivially
+    # and would survive any stretch too.
+    band(im, 0, 70, SKY_TOP)
+    band(im, 70, 120, SKY_MID)
+    band(im, 120, 150, SKY_LOW)
+    band(im, 150, BG_H, SKY_LOW)
+    return im
+
+
+def hill_layer(w=192, amp=22, base=118, color=HILL_FAR, harmonics=(1, 2)):
+    """Rolling silhouette. The wave's periods divide the width exactly, which
+    is what guarantees the tile is seamless."""
+    im = img(w, BG_H)
+    for x in range(w):
+        height = 0.0
+        for k in harmonics:
+            height += math.sin(2 * math.pi * k * x / w) * (amp / k)
+        top = int(base - height)
+        rect(im, x, top, x + 1, BG_H, color)
+    return im
+
+
+def tree_layer(w=128):
+    """Blocky treetops, placed on a grid that divides the width so the
+    pattern repeats cleanly across the seam."""
+    im = img(w, BG_H)
+    rect(im, 0, 150, w, BG_H, TREE_DARK)
+    step = 16                      # 128 / 16 = 8 trees, exact
+    for i in range(w // step):
+        cx = i * step + step // 2
+        top = 128 if i % 2 == 0 else 136
+        rect(im, cx - 5, top, cx + 5, 152, TREE_DARK)
+        rect(im, cx - 3, top - 4, cx + 3, top, TREE_DARK)
+    return im
+
+
+emit_single(sky_layer(), "bg_sky")
+emit_single(hill_layer(192, 22, 116, HILL_FAR, (1, 2)), "bg_hills")
+emit_single(hill_layer(128, 14, 140, HILL_NEAR, (1, 3)), "bg_ridge")
+emit_single(tree_layer(), "bg_trees")
+
+
 # --- Atlas -------------------------------------------------------------
 def verify_contract():
     """Fail loudly if an animation the scripts play is missing.
@@ -418,6 +482,7 @@ def verify_contract():
     required |= {"package_" + s for s in PACKAGE_STATES}
     # Referenced as default_animation by the .sprite components.
     required |= {"tile_ground", "tile_platform", "spike", "delivery"}
+    required |= {"bg_sky", "bg_hills", "bg_ridge", "bg_trees"}
 
     emitted = set(SINGLES) | {a["id"] for a in ANIMS}
     missing = sorted(required - emitted)
