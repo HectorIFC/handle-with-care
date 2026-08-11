@@ -8,6 +8,7 @@
 -- frame behind the view they are being judged against.
 
 local camera_core = require "main.core.camera"
+local screen_shake = require "main.core.screen_shake"
 
 -- Must be overridden per collection (component_properties) — see rule 5.
 go.property("player", msg.url())
@@ -20,6 +21,12 @@ go.property("level_width", 384)
 
 go.property("dead_zone", 48)
 go.property("follow_lerp", 0.12)
+
+-- Screen shake (core/screen_shake.lua). Tunables live here so a level can
+-- dial the whole effect down, or off, without touching the core defaults.
+go.property("shake_decay", 1.8)
+go.property("shake_max_offset", 6)
+go.property("shake_frequency", 28)
 
 -- Mirrors the camera's left edge in world space for synchronous reads.
 go.property("x", 0)
@@ -45,6 +52,10 @@ function init(self)
 	local player_pos = go.get_position(self.player)
 	local centered = player_pos.x - self.screen_width * 0.5
 	self.state = camera_core.new(camera_core.clamp(centered, self.level_width, self.screen_width))
+	self.shake = screen_shake.new()
+	-- Accumulated dt, not a clock read (rule 3). Only ever feeds the shake's
+	-- sine phase, so it never has to agree with anyone else's notion of time.
+	self.time = 0
 	self.x = self.state.x
 	go.set_position(vmath.vector3(self.state.x, 0, 0))
 end
@@ -52,15 +63,34 @@ end
 function update(self, dt)
 	local player_pos = go.get_position(self.player)
 	self.state = camera_core.update(self.state, player_pos.x, dt, config(self))
+
+	self.time = self.time + dt
+	self.shake = screen_shake.update(self.shake, dt, { decay = self.shake_decay })
+	local shake_x, shake_y = screen_shake.offset(self.shake, self.time, {
+		max_offset = self.shake_max_offset,
+		frequency = self.shake_frequency,
+	})
+
+	-- `x` publishes the camera's LOGICAL position, deliberately without the
+	-- shake in it. Everything that reads it is making a gameplay judgement —
+	-- the player's and package's off-screen death checks, and every parallax
+	-- layer — and folding shake into those would make an explosion able to
+	-- kill you, and would jitter the whole background.
 	self.x = self.state.x
+
 	-- Moving this game object is what scrolls the view: the render script
-	-- draws relative to it. Y stays 0 — the camera only pans horizontally
-	-- (see core/camera.lua).
-	go.set_position(vmath.vector3(self.state.x, 0, 0))
+	-- draws relative to it. Y is only ever non-zero from shake — the camera
+	-- itself pans horizontally only (see core/camera.lua).
+	go.set_position(vmath.vector3(self.state.x + shake_x, shake_y, 0))
 end
 
 function on_message(self, message_id, message)
-	if message_id == hash("reset") or message_id == hash("test_reset") then
+	if message_id == hash("shake") then
+		-- Posted by player.script for every impact worth feeling. Trauma
+		-- accumulates, so two hits in the same frame compose instead of one
+		-- replacing the other.
+		self.shake = screen_shake.add(self.shake, message.amount)
+	elseif message_id == hash("reset") or message_id == hash("test_reset") then
 		init(self)
 	end
 end

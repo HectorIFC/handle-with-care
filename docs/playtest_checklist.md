@@ -123,6 +123,11 @@ a human has to look at the screen.
   hills drift, the tree line moves most. Nothing slides against the world.
 - [ ] **No seam** appears in any background layer as the level scrolls, and
   no gap at either end of a long level.
+- [ ] **Screen shake fires on impact**: a hard landing nudges, a death hits
+  harder, a detonation is the biggest. It settles quickly rather than
+  rattling on.
+- [ ] Shake **never scrolls the background or kills you** — it is visual
+  only. Blow up next to a screen edge and confirm nothing dies from it.
 
 ## Performance (PRD 9.5) — real build only
 
