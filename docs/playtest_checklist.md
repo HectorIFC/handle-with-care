@@ -111,6 +111,11 @@ a human has to look at the screen.
   checking per level rather than spot-checking one.
 - [ ] The player **flips horizontally** when changing direction.
 - [ ] The player's animation changes across idle / run / jump / fall / land.
+- [ ] **Idle breathes** (4 frames) rather than flickering between two, and
+  the **run cycle** (6 frames) reads as a stride rather than a shuffle.
+- [ ] **Death plays its own animation** — recoil, buckle, topple — and then
+  **holds on the last frame**. If the corpse twitches or restarts, the
+  atlas playback is looping when it should be once-forward.
 - [ ] The package **changes image across all 8 states** (force them with the
   levels that cycle each, or the debug messages).
 - [ ] **No z-fighting / flicker** where objects overlap. Intended draw order,

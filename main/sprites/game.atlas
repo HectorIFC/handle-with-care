@@ -94,6 +94,33 @@ animations {
   flip_vertical: 0
 }
 animations {
+  id: "player_death"
+  images {
+    image: "/main/sprites/player_death_0.png"
+    sprite_trim_mode: SPRITE_TRIM_MODE_OFF
+  }
+  images {
+    image: "/main/sprites/player_death_1.png"
+    sprite_trim_mode: SPRITE_TRIM_MODE_OFF
+  }
+  images {
+    image: "/main/sprites/player_death_2.png"
+    sprite_trim_mode: SPRITE_TRIM_MODE_OFF
+  }
+  images {
+    image: "/main/sprites/player_death_3.png"
+    sprite_trim_mode: SPRITE_TRIM_MODE_OFF
+  }
+  images {
+    image: "/main/sprites/player_death_4.png"
+    sprite_trim_mode: SPRITE_TRIM_MODE_OFF
+  }
+  playback: PLAYBACK_ONCE_FORWARD
+  fps: 9
+  flip_horizontal: 0
+  flip_vertical: 0
+}
+animations {
   id: "player_idle"
   images {
     image: "/main/sprites/player_idle_0.png"
@@ -103,8 +130,16 @@ animations {
     image: "/main/sprites/player_idle_1.png"
     sprite_trim_mode: SPRITE_TRIM_MODE_OFF
   }
+  images {
+    image: "/main/sprites/player_idle_2.png"
+    sprite_trim_mode: SPRITE_TRIM_MODE_OFF
+  }
+  images {
+    image: "/main/sprites/player_idle_3.png"
+    sprite_trim_mode: SPRITE_TRIM_MODE_OFF
+  }
   playback: PLAYBACK_LOOP_FORWARD
-  fps: 3
+  fps: 5
   flip_horizontal: 0
   flip_vertical: 0
 }
@@ -126,8 +161,16 @@ animations {
     image: "/main/sprites/player_run_3.png"
     sprite_trim_mode: SPRITE_TRIM_MODE_OFF
   }
+  images {
+    image: "/main/sprites/player_run_4.png"
+    sprite_trim_mode: SPRITE_TRIM_MODE_OFF
+  }
+  images {
+    image: "/main/sprites/player_run_5.png"
+    sprite_trim_mode: SPRITE_TRIM_MODE_OFF
+  }
   playback: PLAYBACK_LOOP_FORWARD
-  fps: 10
+  fps: 12
   flip_horizontal: 0
   flip_vertical: 0
 }

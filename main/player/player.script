@@ -239,6 +239,12 @@ local function die(self)
 	cue(self, "player_death")
 	shake(self, 0.55)
 	burst(self, "death", 2.2)
+	-- Played here rather than through apply_animation: update() early-returns
+	-- once `dead` is set, so the normal per-frame animation path never runs
+	-- again. The atlas plays this one ONCE and holds the last frame, which is
+	-- what a frozen player needs — a looping death would twitch until restart.
+	sprite.play_flipbook("#visual", "player_death")
+	self.current_animation = "death"
 end
 
 -- Restores the whole attempt to its starting state (PRD 3.5: "quase

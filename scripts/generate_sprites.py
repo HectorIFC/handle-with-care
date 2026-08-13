@@ -183,23 +183,30 @@ def legs(p, left, right):
         rect(p, x, top + height - 2, x + 4, top + height, INK_SOFT)  # boot
 
 
-# Idle: a two-frame breath. Barely moves — enough to look alive, not enough
-# to distract while the player is reading the level.
+# Idle: four frames (PRD 7.1 asks 4-6). A breath in and out rather than a
+# two-frame flicker — the pause at each extreme is what makes it read as
+# breathing instead of vibrating, so the sequence goes 0,1,1,0 in effect via
+# the lift values below.
 idle_frames = []
-for lift in (0, 1):
+for lift in (0, 1, 1, 0):
     p = courier(body_top=5 + lift)
     legs(p, (7, 20, 4), (13, 20, 4))
     outline(p)
     idle_frames.append(p)
-emit_anim(idle_frames, "player_idle", 3)
+emit_anim(idle_frames, "player_idle", 5)
 
-# Run: four frames, contact / pass / contact / pass, with a one-pixel body
-# bob. Arms swing opposite the legs.
+# Run: six frames (PRD 7.1 asks 6-8) — contact, down, pass, contact, down,
+# pass, one full stride per three frames. Arms swing opposite the legs, and
+# the body bobs a pixel on the passing frames, which is where the weight
+# reads at this size.
 run_poses = [
+    # (left leg, right leg, left arm y, right arm y, body bob)
     ((5, 20, 4), (15, 20, 4), 12, 15, 0),
-    ((8, 20, 4), (13, 19, 5), 13, 14, 1),
+    ((7, 21, 3), (14, 20, 4), 13, 14, 1),
+    ((8, 20, 4), (13, 19, 5), 14, 13, 1),
     ((6, 20, 4), (14, 20, 4), 15, 12, 0),
-    ((9, 19, 5), (12, 20, 4), 14, 13, 1),
+    ((9, 21, 3), (12, 20, 4), 14, 13, 1),
+    ((9, 19, 5), (12, 20, 4), 13, 14, 1),
 ]
 run_frames = []
 for left, right, arm_a, arm_b, bob in run_poses:
@@ -207,7 +214,7 @@ for left, right, arm_a, arm_b, bob in run_poses:
     legs(p, left, right)
     outline(p)
     run_frames.append(p)
-emit_anim(run_frames, "player_run", 10)
+emit_anim(run_frames, "player_run", 12)
 
 # Jump: arms up, legs tucked.
 p = courier(body_top=4, arm_left=9, arm_right=9)
@@ -226,6 +233,48 @@ p = courier(body_top=9, squash=2, arm_left=16, arm_right=16)
 legs(p, (7, 21, 3), (13, 21, 3))
 outline(p)
 emit_single(p, "player_land")
+
+# Death: five frames (PRD 7.1 asks 4-6), played ONCE and held on the last —
+# the player freezes on death (player.script's sticky `dead`), so a looping
+# death would have the corpse twitching until restart.
+death_frames = []
+# 1: recoil, arms flung up.
+p = courier(body_top=4, arm_left=7, arm_right=7)
+legs(p, (7, 20, 4), (13, 20, 4))
+outline(p)
+death_frames.append(p)
+# 2: knees buckle.
+p = courier(body_top=7, arm_left=11, arm_right=11)
+legs(p, (7, 21, 3), (13, 21, 3))
+outline(p)
+death_frames.append(p)
+# 3-5: toppled. Drawn directly rather than via courier(), since the body is
+# on its side and shares none of the standing layout.
+#
+# Every part is placed relative to `shift` INCLUDING its right edge. The
+# first version pinned the head's right edge at a constant x while the body
+# slid right, so the head shrank a pixel per frame and ended up as a small
+# detached box. Keep widths fixed; move origins.
+TORSO_W, HEAD_W = 12, 6
+for step, (top, shift) in enumerate(((13, 0), (16, 1), (17, 2))):
+    p = img(24, 24)
+    x0 = 2 + shift
+    rect(p, x0, top, x0 + TORSO_W, top + 6, CLOTH)               # torso, lying
+    rect(p, x0, top, x0 + TORSO_W, top + 3, CLOTH_LIT)
+    rect(p, x0 - 1, top + 4, x0 + 5, top + 7, INK_SOFT)          # legs, splayed
+    head_x = x0 + TORSO_W
+    rect(p, head_x, top - 1, head_x + HEAD_W, top + 6, SKIN)     # head, fallen
+    rect(p, x0, top + 1, head_x, top + 3, STRAP)                 # strap
+    if step == 2:
+        # X eyes only on the last frame: the beat before still reads as
+        # "falling", which is what makes the landing register.
+        for dx, dy in ((1, 1), (3, 1), (2, 2), (1, 3), (3, 3)):
+            px(p, head_x + dx, top + dy, INK)
+    else:
+        rect(p, head_x + 1, top + 1, head_x + 3, top + 3, INK)
+    outline(p)
+    death_frames.append(p)
+emit_anim(death_frames, "player_death", 9, playback="PLAYBACK_ONCE_FORWARD")
 
 
 # --- Package -----------------------------------------------------------
@@ -522,7 +571,8 @@ def verify_contract():
     Keep these two lists in sync with main/core/player_movement.lua's
     animation_state and main/core/package_state_machine.lua's states.
     """
-    required = {"player_" + s for s in ("idle", "run", "jump", "fall", "land")}
+    required = {"player_" + s for s in ("idle", "run", "jump", "fall", "land",
+                                        "death")}
     required |= {"package_" + s for s in PACKAGE_STATES}
     # Referenced as default_animation by the .sprite components.
     required |= {"tile_ground", "tile_platform", "spike", "saw", "delivery"}
