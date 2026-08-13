@@ -26,8 +26,12 @@ version-controlled alongside the rules that reference it.
   `describe`/`test`/`before`/`after`), added as a game.project dependency
 - **Headless build/run**: `bob.jar` + `dmengine_headless`, downloaded on
   demand by `scripts/run_tests.sh` (see `.defold/`, gitignored). `bob.jar`
-  requires **OpenJDK 25+** to run (older JDKs fail with
-  `UnsupportedClassVersionError`) — matches `java-version` in `ci.yml`.
+  requires **OpenJDK 25+** to run: its classes are compiled to class-file
+  major version 69, and an older JDK dies with `UnsupportedClassVersionError`
+  before running a single build task. `ci.yml` pinned 21 from phase 0 until
+  phase 28, so CI had been failing on every push; `make doctor` and every
+  bob-invoking make target now check this explicitly so the failure is a
+  sentence rather than a stack trace.
 - **CI**: GitHub Actions (`.github/workflows/ci.yml`), runs the same script
 - **License**: proprietary, all rights reserved (see `LICENSE`) — this is
   **not** open source. Never suggest adding an OSS license, a
@@ -619,7 +623,11 @@ new `wait`-heavy integration tests, not just at the very end.
 
 ### Running tests
 
-- **Locally / CI (headless, no Editor needed)**:
+- **Start with `make`.** The `Makefile` is the entry point for everything
+  below — `make test`, `make build`, `make assets`, `make doctor`, and
+  `make play` to actually launch the game for the playtest checklist (which
+  nothing in the repo could do before phase 28). `make help` lists them.
+- **Locally / CI (headless, no Editor needed)** — what `make test` wraps:
   ```bash
   ./scripts/run_tests.sh
   ```
