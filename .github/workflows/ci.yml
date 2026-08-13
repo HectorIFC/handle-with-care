@@ -18,7 +18,11 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "21"
+          # bob.jar's classes are major version 69, i.e. Java 25. On 21 it
+          # dies with UnsupportedClassVersionError before running a single
+          # task — this workflow had been failing on every push because of
+          # it. Verify with: unzip -p .defold/bob.jar com/dynamo/bob/Bob.class
+          java-version: "25"
 
       - name: Cache Defold headless tools
         uses: actions/cache@v4

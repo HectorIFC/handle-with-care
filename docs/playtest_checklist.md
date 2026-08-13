@@ -5,6 +5,11 @@ automated loads a level collection or runs a real graphics context** (see
 CLAUDE.md). Everything below is manual, done in the Defold Editor or a real
 `dmengine` build — not headless. Check each box by actually playing.
 
+**To launch the game: `make play`.** It compiles the production bootstrap
+first, which matters because the automated suite boots `test/test.collection`
+and never compiles the ten level collections — playing a stale build means
+debugging bugs you already fixed. `make checklist` prints this file.
+
 This is the acceptance pass for PRD sections 10 and 11. For what is already
 proven, what is still missing, and who can do each remaining piece, see
 [`v1_0_acceptance_status.md`](v1_0_acceptance_status.md).

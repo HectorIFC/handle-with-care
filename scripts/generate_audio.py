@@ -305,8 +305,17 @@ def render(samples, name, gain=0.85):
         w.setsampwidth(2)
         w.setframerate(SR)
         w.writeframes(np.clip(data, -1, 1).__mul__(32767).astype("<i2").tobytes())
+    # -fflags +bitexact is what makes the output REPRODUCIBLE, and it has to
+    # sit AFTER -i so it applies to the OUTPUT muxer — placed on the input
+    # side it silently does nothing here. Without it
+    # ffmpeg stamps every Ogg stream with a randomly generated serial number
+    # (bytes 14-17 of each page header), so regenerating identical audio
+    # produced 32 byte-different files and every asset diff was noise.
+    # Verified: two encodes of the same input are byte-identical with it and
+    # differ without it.
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", path_wav,
-                    "-c:a", "libvorbis", "-q:a", "1", path_ogg], check=True)
+                    "-c:a", "libvorbis", "-q:a", "1",
+                    "-fflags", "+bitexact", path_ogg], check=True)
     os.remove(path_wav)
 
 
