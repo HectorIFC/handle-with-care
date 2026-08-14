@@ -623,6 +623,12 @@ new `wait`-heavy integration tests, not just at the very end.
 
 ### Running tests
 
+- **`make smoke` boots the real bootstrap collection headless** and fails if
+  the engine asserts or exits. It is the only automated thing that loads
+  `main/main.collection`, and it exists because two boot-breaking bugs sat
+  undetected behind a fully green suite (see the note above). It asserts
+  "the game initializes", not "the game works" — loading a level is still
+  only exercised by playing.
 - **Start with `make`.** The `Makefile` is the entry point for everything
   below — `make test`, `make build`, `make assets`, `make doctor`, and
   `make play` to actually launch the game for the playtest checklist (which
@@ -804,15 +810,21 @@ looking at it.
   manual checklist. Adding a second booted collection to the suite is the
   obvious fix but not a free one — rule 7 keeps engine boot time bounded on
   purpose, and the headless wedge makes every extra second of runtime worse.
-- **`main/main.collection` IS the bootstrap** — phase 10 pointed
-  `game.project` at `level_01`, but phase 11 pointed it back at
-  `main.collection`, now a menu shell rather than a dev sandbox. Nothing
-  automated boots it either, so it carries the same risk as the level
-  collections above: it holds the screens object, both adapters, the audio
-  object and the ten level proxies, and a mis-wired property there is only
-  caught by playing. `bob build` at least proves it compiles — worth running
-  after editing it, since the test build boots `test/testing.settings`
-  instead and would not.
+- **`main/main.collection` IS the bootstrap**, and the risk of nothing
+  loading it **came true in phase 29**. The first time `make play` existed
+  and was run, the game aborted inside `dmEngine::Init`: the ten level
+  proxies were declared as `component: "/main/levels/level_01.collection"`,
+  but a collection is not a component type — the type is `collectionproxy`,
+  a separate resource that references a collection. `bob build` compiled it
+  without complaint (the path IS a valid resource) and the suite boots
+  `test/test.collection`, so the game had never started, in 28 phases.
+  Fixing that exposed a second one immediately: `collection_proxy.max_count`
+  defaults to 8 and there are ten proxies, which fails the WHOLE bootstrap
+  with a `FORMAT_ERROR` naming `main.collectionc` rather than the proxy that
+  did not fit. Both are now covered by `make smoke` (below). Two lessons
+  worth keeping: **a green suite says nothing about the game booting**, and
+  `game.project` **does not accept comments** — adding an explanatory `#`
+  line above a key makes bob fail with "Could not parse".
 
 ## Git workflow — read this before touching git
 

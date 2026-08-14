@@ -35,3 +35,12 @@ jobs:
 
       - name: Run unit + integration tests
         run: ./scripts/run_tests.sh x86_64-linux
+
+      # The suite boots test/test.collection and never touches
+      # main.collection, so for 28 phases nothing verified that the game
+      # itself starts. It did not: the level proxies were malformed and the
+      # engine asserted during init the first time anyone ran it. This step
+      # is the cheap guard against that whole class — it only proves the
+      # bootstrap collection loads, which is exactly what was missing.
+      - name: Boot smoke test
+        run: make smoke

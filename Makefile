@@ -33,7 +33,7 @@ JAVA     := $(if $(JAVA_HOME),$(JAVA_HOME)/bin/java,java)
 JAVA_QUIET := --enable-native-access=ALL-UNNAMED \
               -Dcom.google.protobuf.use_unsafe_pre22_gencode=true
 
-.PHONY: help test test-ci build clean verify play play-headless checklist \
+.PHONY: help test test-ci build clean verify play play-headless smoke checklist \
         bundle-web serve assets sprites audio font doctor require-java \
         require-tools
 
@@ -78,7 +78,7 @@ test-ci: ## Run the suite exactly as CI does (x86_64-linux)
 	@./scripts/run_tests.sh x86_64-linux
 
 build: require-java require-tools ## Compile the production bootstrap
-	@$(JAVA) $(JAVA_QUIET) -jar $(BOB) --variant=headless build
+	@$(JAVA) $(JAVA_QUIET) -jar $(BOB) build
 
 clean: ## Delete build output
 	@rm -rf build
@@ -87,10 +87,41 @@ clean: ## Delete build output
 verify: assets build test ## Assets + production build + suite: the pre-commit gate
 
 # --- playtest ----------------------------------------------------------
+# Boot smoke test. This exists because `make play` crashed the first time it
+# was ever run: main.collection declared its ten level proxies as
+# `component: ".../level_01.collection"`, and a collection is not a
+# component type, so the engine asserted inside dmEngine::Init. bob compiled
+# it happily (the path IS a valid resource) and the suite boots
+# test/test.collection, so nothing anywhere loaded main.collection.
+#
+# The crash happened before any graphics, which is why the HEADLESS engine
+# catches it. Surviving the timeout is a pass: this asserts "the game
+# initializes", not "the game works".
+SMOKE_SECONDS ?= 8
+
+smoke: build ## Boot the production build headless and fail if it crashes
+	@log=$$(mktemp); \
+	( $(DMENGINE_HL) > "$$log" 2>&1 & echo $$! > "$$log.pid" ); \
+	sleep $(SMOKE_SECONDS); \
+	pid=$$(cat "$$log.pid"); \
+	if kill -0 "$$pid" 2>/dev/null; then kill "$$pid" 2>/dev/null; alive=1; else alive=0; fi; \
+	wait "$$pid" 2>/dev/null || true; \
+	if grep -qE "Assertion failed|ERROR:CRASH|Failed to find component type" "$$log"; then \
+		echo "SMOKE FAILED — the game does not boot:"; \
+		grep -E "ERROR|Assertion failed" "$$log" | head -5; \
+		rm -f "$$log" "$$log.pid"; exit 1; \
+	fi; \
+	if [ "$$alive" = "0" ]; then \
+		echo "SMOKE FAILED — the engine exited within $(SMOKE_SECONDS)s:"; \
+		tail -5 "$$log"; rm -f "$$log" "$$log.pid"; exit 1; \
+	fi; \
+	rm -f "$$log" "$$log.pid"; \
+	echo "smoke ok — booted and stayed up for $(SMOKE_SECONDS)s"
+
 # `build` first, every time: the suite boots test/test.collection, so
 # nothing automated ever compiles the ten level collections. Playing a stale
 # build is how you end up debugging a bug you already fixed.
-play: build ## Build and launch the game in a window (start here for playtest)
+play: smoke ## Build and launch the game in a window (start here for playtest)
 	@test -f $(DMENGINE) || { \
 		echo "ERROR: $(DMENGINE) is missing — run 'make test' to fetch the tooling."; \
 		exit 1; }
