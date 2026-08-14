@@ -605,6 +605,23 @@ def treeline(w, color, step=16, tall=128, short=136, ground=150):
     return im
 
 
+def peaks(w, color, teeth=6, low=150, high=96):
+    """Jagged sawtooth ridge. `teeth` must divide the width so the last
+    column meets the first — the same seam rule every tiled layer follows.
+
+    Sharp where level 1's hills are round: the silhouette itself should say
+    the ground here is hostile, before any spike does."""
+    assert w % teeth == 0, "peaks: teeth must divide the width"
+    im = img(w, BG_H)
+    span = w // teeth
+    for x in range(w):
+        t = (x % span) / span
+        # Rise steeply, drop steeply: a triangle, not a sine.
+        top = int(low + (high - low) * (2 * t if t < 0.5 else 2 * (1 - t)))
+        rect(im, x, top, x + 1, BG_H, color)
+    return im
+
+
 # Level 1 — Tutorial Soft: dusk over rolling hills. Warm, open, unthreatening;
 # it is the first thing anyone sees.
 L1_SKY_TOP  = (48, 52, 96, 255)
@@ -621,6 +638,22 @@ emit_single(sky([(48, L1_SKY_TOP), (86, L1_SKY_HIGH), (116, L1_SKY_MID),
 emit_single(hill_layer(FAR_W, 24, 118, L1_FAR, (1, 2)), "bg1_far")
 emit_single(hill_layer(MID_W, 14, 142, L1_MID, (1, 3)), "bg1_mid")
 emit_single(treeline(NEAR_W, L1_NEAR), "bg1_near")
+
+# Level 2 — Jump Scare: an anxious sky over jagged peaks. Colder and
+# higher-contrast than level 1, and every silhouette is sharp.
+L2_SKY_TOP  = (30, 34, 62, 255)
+L2_SKY_HIGH = (56, 52, 96, 255)
+L2_SKY_MID  = (96, 70, 116, 255)
+L2_SKY_LOW  = (156, 92, 104, 255)
+L2_FAR      = (62, 60, 104, 255)
+L2_MID      = (44, 44, 80, 255)
+L2_NEAR     = (26, 28, 52, 255)
+
+emit_single(sky([(56, L2_SKY_TOP), (100, L2_SKY_HIGH), (134, L2_SKY_MID),
+                 (BG_H, L2_SKY_LOW)]), "bg2_sky")
+emit_single(peaks(FAR_W, L2_FAR, teeth=4, low=148, high=88), "bg2_far")
+emit_single(peaks(MID_W, L2_MID, teeth=4, low=156, high=112), "bg2_mid")
+emit_single(peaks(NEAR_W, L2_NEAR, teeth=8, low=168, high=138), "bg2_near")
 
 
 # --- Atlas -------------------------------------------------------------
@@ -643,7 +676,7 @@ def verify_contract():
     required |= {"tile_ground", "tile_platform", "spike", "saw", "delivery"}
     required |= {"bg_sky", "bg_hills", "bg_ridge", "bg_trees", "fx_burst"}
     # Per-level themes, added one slice at a time.
-    for level in (1,):
+    for level in (1, 2):
         required |= {"bg%d_%s" % (level, role)
                      for role in ("sky", "far", "mid", "near")}
 
