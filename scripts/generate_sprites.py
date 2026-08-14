@@ -647,6 +647,21 @@ def chimneys(w, color, count=4, ground=150, tall=70, short=104, stack_w=9,
     return im
 
 
+def dunes(w, color, crests=3, base=132, amp=18, ground=None):
+    """Soft wind-blown ridges: asymmetric, with a long windward slope and a
+    short lee face. Rounded like level 1's hills but lopsided, so the two do
+    not read as the same silhouette in different colours."""
+    im = img(w, BG_H)
+    for x in range(w):
+        t = (x % (w // crests)) / (w // crests)
+        # Ease up slowly, drop fast — that asymmetry is what says "dune"
+        # rather than "hill".
+        rise = t ** 0.65 if t < 0.78 else (1 - t) / 0.22
+        top = int(base - amp * rise)
+        rect(im, x, top, x + 1, BG_H, color)
+    return im
+
+
 # Level 1 — Tutorial Soft: dusk over rolling hills. Warm, open, unthreatening;
 # it is the first thing anyone sees.
 L1_SKY_TOP  = (48, 52, 96, 255)
@@ -701,6 +716,22 @@ emit_single(chimneys(MID_W, L3_MID, count=4, tall=88, short=112,
 emit_single(chimneys(NEAR_W, L3_NEAR, count=4, tall=118, short=132,
                      stack_w=7, ground=158, shed=16), "bg3_near")
 
+# Level 4 — Hot Potato: heat. The only warm-dominant sky in the set, because
+# the level is a sprint against a burning fuse.
+L4_SKY_TOP  = (108, 62, 88, 255)
+L4_SKY_HIGH = (168, 84, 78, 255)
+L4_SKY_MID  = (216, 122, 70, 255)
+L4_SKY_LOW  = (240, 172, 92, 255)
+L4_FAR      = (176, 108, 82, 255)
+L4_MID      = (132, 76, 68, 255)
+L4_NEAR     = (78, 44, 48, 255)
+
+emit_single(sky([(52, L4_SKY_TOP), (94, L4_SKY_HIGH), (130, L4_SKY_MID),
+                 (BG_H, L4_SKY_LOW)]), "bg4_sky")
+emit_single(dunes(FAR_W, L4_FAR, crests=3, base=126, amp=22), "bg4_far")
+emit_single(dunes(MID_W, L4_MID, crests=2, base=146, amp=18), "bg4_mid")
+emit_single(dunes(NEAR_W, L4_NEAR, crests=2, base=168, amp=14), "bg4_near")
+
 
 # --- Atlas -------------------------------------------------------------
 def verify_contract():
@@ -722,7 +753,7 @@ def verify_contract():
     required |= {"tile_ground", "tile_platform", "spike", "saw", "delivery"}
     required |= {"bg_sky", "bg_hills", "bg_ridge", "bg_trees", "fx_burst"}
     # Per-level themes, added one slice at a time.
-    for level in (1, 2, 3):
+    for level in (1, 2, 3, 4):
         required |= {"bg%d_%s" % (level, role)
                      for role in ("sky", "far", "mid", "near")}
 
