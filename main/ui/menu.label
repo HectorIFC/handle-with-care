@@ -7,3 +7,4 @@ size {
 text: "menu"
 font: "/main/ui/pixel.font"
 material: "/builtins/fonts/label-fnt.material"
+leading: 2.5

@@ -210,7 +210,7 @@ BASS = Instrument("tri", gain=0.42, attack=0.002, decay=0.02, sustain=0.9,
 
 def build_track(seed, bpm, root, mode, progression, bars=16, drums="full",
                 lead_octave=2, density=0.75, arp_rate=0.5, retrograde_b=False,
-                shift_b=0, chord_bars=1):
+                shift_b=0, chord_bars=1, bass_drive=False):
     """Assemble one looping track.
 
     `progression` is a list of scale degrees. The bass takes roots, pulse2
@@ -231,10 +231,22 @@ def build_track(seed, bpm, root, mode, progression, bars=16, drums="full",
         in_b = bar >= bars // 2
         transpose = shift_b if in_b else 0
 
-        # Bass: root on the downbeat, fifth mid-bar.
         base = root + transpose
-        song.play(bar * beats, 1.0, base + chord[0] - 12, BASS, rng)
-        song.play(bar * beats + 2, 1.0, base + chord[2] - 12, BASS, rng)
+        if bass_drive:
+            # A relentless eighth-note bass that jumps an octave on the
+            # off-beats. This is the engine of a driving chiptune track —
+            # roots on the downbeat and a fifth mid-bar (the else branch)
+            # reads as calm no matter how fast the tempo is, which is why
+            # the menu theme sounded slow even before the BPM was raised.
+            for eighth in range(beats * 2):
+                tone = chord[0] if eighth % 4 != 3 else chord[2]
+                octave = -12 if eighth % 2 == 0 else 0
+                song.play(bar * beats + eighth * 0.5, 0.5,
+                          base + tone + octave, BASS, rng)
+        else:
+            # Bass: root on the downbeat, fifth mid-bar.
+            song.play(bar * beats, 1.0, base + chord[0] - 12, BASS, rng)
+            song.play(bar * beats + 2, 1.0, base + chord[2] - 12, BASS, rng)
 
         # Harmony: a steady arpeggio through the chord.
         step = arp_rate
@@ -416,9 +428,13 @@ LEVEL_THEMES = {
 for level, spec in LEVEL_THEMES.items():
     CUES["music_level_%d" % level] = build_track(bars=16, **spec)
 
-CUES["music_menu"] = build_track(seed=1, bpm=96, root=0, mode=MAJOR,
-                                 progression=I_V_vi_IV, bars=16, drums="light",
-                                 density=0.5, arp_rate=1.0)
+# The theme. Driving, not ambient: a fast minor progression, an eighth-note
+# bass, full drums and a busy lead. The first version was 96 BPM with a
+# sparse arpeggio and half-note bass, which read as a lullaby.
+CUES["music_menu"] = build_track(seed=1, bpm=165, root=2, mode=MINOR,
+                                 progression=i_VI_III_VII, bars=24,
+                                 drums="full", density=0.9, arp_rate=0.25,
+                                 bass_drive=True, shift_b=5)
 # Kept as the fallback any level without its own theme falls back to.
 CUES["music_gameplay"] = build_track(seed=2, bpm=124, root=2, mode=MINOR,
                                      progression=i_VI_III_VII, bars=16,

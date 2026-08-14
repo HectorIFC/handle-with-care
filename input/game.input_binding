@@ -1,13 +1,22 @@
-# Gameplay movement is remapped at CONSUMPTION time, not here:
-# Defold compiles this file into the build and has no runtime API to
-# change it, so each physical key gets its own raw action name and
-# main/core/input_bindings.lua decides what that key currently means.
-# See that module's header for why only movement works this way.
+# ONE ACTION PER KEY. Do not bind a key twice.
 #
-# R, ESC and ENTER keep semantic action names at the bottom of this
-# file: restart is broadcast to every restorable object in a level, and
-# menu keys must stay fixed so a bad remap can never lock a player out
-# of the screen that would let them fix it.
+# Seven keys used to carry two actions each — KEY_LEFT raised both
+# "key_left" (gameplay) and "move_left" (menu), KEY_UP raised both
+# "key_up" and "menu_up", and so on. That made which one the engine
+# actually delivers an implementation detail, and the player could not
+# be moved with the arrow keys at all. Menus now translate the raw key
+# actions themselves (see input_bindings.MENU), so nothing here has to
+# be ambiguous.
+#
+# Gameplay movement is remapped at CONSUMPTION time, not here: Defold
+# compiles this file into the build and has no runtime API to change
+# it, so each physical key gets its own raw action name and
+# main/core/input_bindings.lua decides what that key currently means.
+#
+# R, ESC and ENTER keep semantic names because they are never
+# remappable: restart is broadcast to every restorable object in a
+# level, and the menu must stay reachable no matter what the player
+# rebinds.
 key_trigger {
   input: KEY_A
   action: "key_a"
@@ -137,39 +146,6 @@ key_trigger {
   action: "pause"
 }
 key_trigger {
-  input: KEY_UP
-  action: "menu_up"
-}
-key_trigger {
-  input: KEY_DOWN
-  action: "menu_down"
-}
-key_trigger {
-  input: KEY_W
-  action: "menu_up"
-}
-key_trigger {
-  input: KEY_S
-  action: "menu_down"
-}
-key_trigger {
   input: KEY_ENTER
   action: "confirm"
-}
-key_trigger {
-  input: KEY_SPACE
-  action: "confirm"
-}
-# Menu-only horizontal navigation (level select, volume sliders). Bound to
-# the arrows alone, never to A/D, so remapping a movement key can never also
-# move a menu cursor. A level is not loaded while any menu is up, and the
-# screens object returns false for everything but pause while one IS, so
-# these never collide with the raw key_left/key_right above.
-key_trigger {
-  input: KEY_LEFT
-  action: "move_left"
-}
-key_trigger {
-  input: KEY_RIGHT
-  action: "move_right"
 }

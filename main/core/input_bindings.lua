@@ -11,12 +11,16 @@
 -- gameplay intent using whatever the player configured.
 --
 -- Only gameplay movement is remappable. Restart, pause and menu navigation
--- stay on fixed keys and keep their semantic action names in the binding
--- file, for two reasons: restart is broadcast to every restorable object in
--- a level (nine scripts handle it), so remapping it would mean teaching all
--- nine about settings for one key; and a player who remaps menu confirm to a
--- key they cannot press is locked out of the screen that would let them fix
--- it.
+-- are fixed, for two reasons: restart is broadcast to every restorable
+-- object in a level (nine scripts handle it), so remapping it would mean
+-- teaching all nine about settings for one key; and a player who remaps menu
+-- confirm to a key they cannot press is locked out of the screen that would
+-- let them fix it.
+--
+-- Only R, Escape and Enter keep semantic action names in the binding file.
+-- Everything else is a raw key with exactly ONE action, and the menus
+-- translate through M.MENU below — see the comment there for the bug that
+-- forced this.
 
 local M = {}
 
@@ -51,6 +55,29 @@ M.KEYS = {
 	"key_i", "key_j", "key_k", "key_l", "key_m", "key_n", "key_o", "key_p",
 	"key_q", "key_s", "key_t", "key_u", "key_v", "key_w", "key_x", "key_y",
 	"key_z", "key_left", "key_right", "key_up", "key_down", "key_space",
+}
+
+-- How the MENUS read the raw key actions. Fixed, never remappable, and
+-- deliberately mapped onto the logical names the screen adapter already
+-- handles ("menu_up", "move_left", "confirm") so translating a key changes
+-- nothing downstream — including the test seam, which posts those logical
+-- names directly.
+--
+-- This exists because the binding file used to give seven keys two actions
+-- each (KEY_LEFT raised both "key_left" and "move_left"). Which one the
+-- engine delivered was then an implementation detail, and the arrow keys
+-- moved the menu cursor but not the player. One action per key, translated
+-- here, removes the ambiguity.
+M.MENU = {
+	key_up = "menu_up",
+	key_w = "menu_up",
+	key_down = "menu_down",
+	key_s = "menu_down",
+	key_left = "move_left",
+	key_a = "move_left",
+	key_right = "move_right",
+	key_d = "move_right",
+	key_space = "confirm",
 }
 
 M.DEFAULTS = {

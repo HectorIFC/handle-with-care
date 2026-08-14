@@ -112,6 +112,9 @@ sheet.save(os.path.join(OUT, "pixel.png"))
 lines = [
     'info face="pixel" size=%d bold=0 italic=0 charset="" unicode=1 '
     'stretchH=100 smooth=0 aa=1 padding=0,0,0,0 spacing=0,0' % H,
+    # NOTE: raising this does NOT space the menus out — Defold does not lay
+    # out label lines from the .fnt's lineHeight. Line spacing is the
+    # `leading` multiplier on each .label component; see main/ui/*.label.
     'common lineHeight=%d base=%d scaleW=%d scaleH=%d pages=1 packed=0'
     % (H + 2, H, sheet.width, sheet.height),
     'page id=0 file="pixel.png"',

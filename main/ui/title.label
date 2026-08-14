@@ -7,3 +7,4 @@ size {
 text: "HANDLE WITH CARE"
 font: "/main/ui/pixel.font"
 material: "/builtins/fonts/label-fnt.material"
+leading: 1.0

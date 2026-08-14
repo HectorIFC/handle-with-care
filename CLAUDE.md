@@ -705,6 +705,65 @@ new `wait`-heavy integration tests, not just at the very end.
   `shasum -a 256` it), and update the cache key in `ci.yml` to match — all as
   one reviewable commit, never resolved automatically at run time.
 
+### The camera's view must not move Z, and headless cannot see a black screen
+
+`main/level/camera.go` has no camera *component*; scrolling works by
+`camera.script` posting `set_view_projection` to `@render:` every frame. Two
+things about that are load-bearing:
+
+- **The view is an X/Y translation only.** Sprites in this game sit at z from
+  −0.9 (sky) to 0.4 (an fx burst), and the projection's near/far is −1/1. A
+  `matrix4_look_at` view with the eye at z=1 subtracts 1 from every z, which
+  pushed everything at z ≤ 0 past the near plane — the entire level vanished
+  and only the player and package (0.1, 0.2) still drew. Use
+  `vmath.matrix4_translation` and leave z alone.
+- **The message needs `id` AND `projection`.** Both are required by the
+  struct even though the stock render script routes every
+  `set_view_projection` to its main camera and immediately overwrites the
+  projection with `use_fixed_fit_projection`'s own. Omitting either is a
+  runtime error.
+
+**`make smoke-level` cannot catch a rendering bug.** It proves the game boots
+and logs no error; on a null graphics device a black screen and a correct
+screen are identical. It caught the two missing message fields (those throw)
+and was blind to the vanished level (that does not). Any visual change still
+needs `make play` and a human — do not report a rendering fix as verified
+because smoke passed.
+
+### Input into a proxy-loaded level, and one action per key
+
+Two input bugs shipped together and both presented as "the player will not
+move", with the menu working fine. Neither is visible to the test suite,
+which drives `handle_action` directly through a message seam.
+
+1. **A collectionproxy only forwards input into the collection it loaded if
+   the game object HOLDING the proxy has input focus.** `main.collection`'s
+   `loader` object has no script, so nobody ever called
+   `acquire_input_focus` on it, and no key ever reached a level. The level
+   still rendered and still ran `update()` — only `on_input` was dead.
+   `screens.script` now acquires focus for the loader as well as itself.
+2. **A key bound to two actions is ambiguous.** Phase 25's binding file gave
+   seven keys two actions each (`KEY_LEFT` raised both `key_left` for
+   gameplay and `move_left` for menus), with a comment claiming they could
+   never collide. Which one the engine delivers is not something to rely on.
+   The rule now: **one action per key.** Only R, Escape and Enter keep
+   semantic names, because they are never remappable; everything else is a
+   raw `key_*` and the menus translate through `input_bindings.MENU`.
+
+Debugging note that cost real time here: the first heartbeats added to
+`player.script` printed NOTHING, which looked like "update is not running".
+They were running — the log was block-buffered because stdout was redirected
+(this file already documents that trap under the engine wedge). Read the
+whole log, or run the engine without redirecting, before concluding an
+update loop is dead.
+
+### Menu line spacing is `leading` on the label, not the font
+
+Raising `lineHeight` in the generated `.fnt` changes nothing on screen —
+Defold does not lay out label lines from it. Line spacing is the `leading`
+multiplier on each `.label` component (`main/ui/menu.label` uses 2.5). If
+menu rows ever look cramped again, that is the knob.
+
 ### Window size, fullscreen, and why `display.width` must not change
 
 `display.width`/`display.height` in `game.project` are BOTH the design

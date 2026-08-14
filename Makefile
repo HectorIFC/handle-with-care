@@ -33,7 +33,7 @@ JAVA     := $(if $(JAVA_HOME),$(JAVA_HOME)/bin/java,java)
 JAVA_QUIET := --enable-native-access=ALL-UNNAMED \
               -Dcom.google.protobuf.use_unsafe_pre22_gencode=true
 
-.PHONY: help test test-ci build clean verify play play-headless smoke checklist \
+.PHONY: help test test-ci build clean verify play play-headless smoke smoke-level checklist \
         bundle-web serve assets sprites audio font doctor require-java \
         require-tools
 
@@ -98,6 +98,27 @@ verify: assets build test ## Assets + production build + suite: the pre-commit g
 # catches it. Surviving the timeout is a pass: this asserts "the game
 # initializes", not "the game works".
 SMOKE_SECONDS ?= 8
+
+# Same idea one level deeper: boots and drives straight into level 1 via
+# test/boot_level.settings, so the async_load/enable path a proxy takes is
+# actually exercised. Nothing else in the project loads a level collection.
+smoke-level: require-java require-tools ## Boot straight into level 1 headless
+	@$(JAVA) $(JAVA_QUIET) -jar $(BOB) --settings test/boot_level.settings build
+	@log=$$(mktemp); \
+	( $(DMENGINE_HL) > "$$log" 2>&1 & echo $$! > "$$log.pid" ); \
+	sleep $(SMOKE_SECONDS); \
+	pid=$$(cat "$$log.pid"); \
+	if kill -0 "$$pid" 2>/dev/null; then kill "$$pid" 2>/dev/null; alive=1; else alive=0; fi; \
+	wait "$$pid" 2>/dev/null || true; \
+	echo "--- level boot log ---"; grep -aE "AUTOSTART|ERROR|WARNING|Assertion" "$$log" | head -20; \
+	if grep -qaE "Assertion failed|ERROR:CRASH|ERROR:SCRIPT" "$$log"; then \
+		echo "SMOKE-LEVEL FAILED — see errors above"; rm -f "$$log" "$$log.pid"; exit 1; fi; \
+	if [ "$$alive" = "0" ]; then \
+		echo "SMOKE-LEVEL FAILED — engine exited early"; tail -5 "$$log"; \
+		rm -f "$$log" "$$log.pid"; exit 1; fi; \
+	rm -f "$$log" "$$log.pid"; echo "smoke-level ok"
+	@echo "restoring the normal (menu) build..."
+	@$(JAVA) $(JAVA_QUIET) -jar $(BOB) build > /dev/null
 
 smoke: build ## Boot the production build headless and fail if it crashes
 	@log=$$(mktemp); \

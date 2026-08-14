@@ -78,10 +78,38 @@ function update(self, dt)
 	-- kill you, and would jitter the whole background.
 	self.x = self.state.x
 
-	-- Moving this game object is what scrolls the view: the render script
-	-- draws relative to it. Y is only ever non-zero from shake — the camera
-	-- itself pans horizontally only (see core/camera.lua).
-	go.set_position(vmath.vector3(self.state.x + shake_x, shake_y, 0))
+	-- Scrolling happens by handing the render script a VIEW MATRIX. Moving
+	-- this game object does nothing on its own: there is no camera
+	-- *component* here, and the stock render script only knows about a view
+	-- it was given. An earlier comment in this file claimed moving the
+	-- object was enough — it never was, and nobody could see it because
+	-- input into a level was dead until phase 30, so no one ever walked far
+	-- enough for the camera to matter.
+	--
+	-- The eye sits at the view's lower-left corner, which is what makes
+	-- `x` mean "left edge of the view" for everyone who reads it: the
+	-- player's and package's off-screen checks and every parallax layer.
+	local eye_x = self.state.x + shake_x
+	local eye_y = shake_y
+	go.set_position(vmath.vector3(eye_x, eye_y, 0))
+	msg.post("@render:", "set_view_projection", {
+		-- `id` and `projection` are required by the message struct even
+		-- though the stock render script routes every set_view_projection
+		-- to its main camera and immediately overwrites the projection
+		-- from use_fixed_fit_projection's own function. Omitting either is
+		-- a runtime error, not a default.
+		id = hash("camera"),
+		projection = vmath.matrix4(),
+		-- A pure X/Y translation, NOT matrix4_look_at. The sprites in this
+		-- game sit at z from -0.9 (the sky layer) to 0.4 (an fx burst), and
+		-- the projection's near/far is -1/1. A look_at view with the eye at
+		-- z=1 subtracts 1 from every z, which pushed everything at z <= 0
+		-- past the near plane: the whole level vanished and only the player
+		-- and package (z 0.1 and 0.2) still drew. Leaving z untouched keeps
+		-- every layer inside the frustum, and removes the question of which
+		-- axis look_at points where.
+		view = vmath.matrix4_translation(vmath.vector3(-eye_x, -eye_y, 0)),
+	})
 end
 
 function on_message(self, message_id, message)

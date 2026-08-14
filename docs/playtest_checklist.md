@@ -38,6 +38,12 @@ For **each** of the 10 levels, confirm:
 
 ### Level-specific things to watch
 
+- [ ] **THE PLAYER ACTUALLY MOVES** with the arrow keys and with A/D, and
+  jumps with W / Up / Space. Input into a proxy-loaded level was completely
+  dead until phase 30 — nothing automated covers it, because the suite
+  drives the screen adapter through a message seam and never presses a key.
+- [ ] Completing level 1 **unlocks level 2** in Level Select. Progression
+  was writing to a throwaway save adapter inside the level until phase 30.
 - [ ] **L1 Tutorial Soft** — package sticks with no initial jolt; first
   spike death teaches the gap.
 - [ ] **L2 Jump Scare** — stress climbs much faster per jump than L1; the
@@ -66,6 +72,9 @@ For **each** of the 10 levels, confirm:
 
 ## Menu, progression, save (PRD 6)
 
+- [ ] Menu rows are **clearly separated**, not overlapping (line spacing is
+  `leading` on `main/ui/menu.label`, not the font's lineHeight).
+- [ ] The menu theme is **driving, not sleepy**.
 - [ ] Fresh boot opens on the main menu with **no** "Continue" entry.
 - [ ] "New Game" starts level 1.
 - [ ] Completing a level shows the result screen with time, attempts and a

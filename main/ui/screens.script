@@ -213,6 +213,13 @@ local function load_level(self, level)
 end
 
 local function unload_level(self)
+	-- The level's camera left a scrolled view behind on the render script,
+	-- and the menu draws in plain screen coordinates. Without this, coming
+	-- back from a level you had walked into would render the menu off to
+	-- the side.
+	msg.post("@render:", "set_view_projection",
+		{ id = hash("camera"), view = vmath.matrix4(),
+		  projection = vmath.matrix4() })
 	if self.current_level then
 		if not self.test_mode then
 			msg.post(proxy_for(self, self.current_level), "unload")
@@ -325,6 +332,14 @@ end
 
 function init(self)
 	msg.post(".", "acquire_input_focus")
+	-- The collectionproxy components live on the `loader` object, and a
+	-- proxy only forwards input into the collection it loaded if the object
+	-- HOLDING it has input focus. The loader has no script of its own, so
+	-- nobody was asking — which is why the level rendered and updated but
+	-- the player's on_input never fired and the arrow keys did nothing.
+	-- Acquired after this object, so a live level sees input first and the
+	-- menu still gets whatever the level does not consume.
+	msg.post(self.loader, "acquire_input_focus")
 
 	-- Read rather than hardcoded, so the one authoritative resolution lives
 	-- in game.project alone (rule 5).
@@ -353,6 +368,17 @@ function init(self)
 	self.capture_pending = false
 	msg.post(self.settings_adapter, "request_bindings")
 	render(self)
+
+	-- Diagnostic/coverage hook, off unless a settings override turns it on
+	-- (see test/boot_level.settings and `make smoke-level`). Nothing
+	-- automated loads a level collection otherwise — the gap that hid two
+	-- boot-breaking bugs behind a fully green suite — so this is what lets
+	-- the headless engine walk the async_load/enable path for real.
+	local autostart = sys.get_config_int("hwc.autostart_level", 0)
+	if autostart > 0 then
+		print("AUTOSTART: loading level " .. autostart)
+		load_level(self, autostart)
+	end
 end
 
 -- The whole input reaction, as a plain local function. Deliberately NOT
@@ -390,6 +416,17 @@ local function handle_action(self, action_id)
 			self.capture_pending = true
 		end
 		return true -- everything else is swallowed, not an escape hatch
+	end
+
+	-- Raw key -> the logical name the rest of this function already speaks.
+	-- Done AFTER the capture block above, which needs the raw key so a
+	-- player can rebind an action to an arrow or to Space. The test seam
+	-- posts logical names, which are not in KEY_NAMES and so pass straight
+	-- through untouched.
+	local key = KEY_NAMES[action_id]
+	local mapped = key and input_bindings.MENU[key]
+	if mapped then
+		action_id = hash(mapped)
 	end
 
 	if action_id == hash("pause") then
