@@ -1,5 +1,0 @@
-[hwc]
-autostart_level = 1
-
-[engine]
-run_while_iconified = 1

@@ -23,6 +23,9 @@ go.property("player", msg.url())
 -- player_movement is concerned.
 go.property("thickness", 32)
 
+-- Per-level palette, matching platform.script's.
+go.property("tint", vmath.vector4(1, 1, 1, 1))
+
 -- tile_ground.png's native size. The tile is drawn as horizontal bands
 -- precisely so this can be stretched along X without smearing — see
 -- scripts/generate_sprites.py.
@@ -53,6 +56,7 @@ function update(self, dt)
 	if width <= 0 then
 		return
 	end
+	go.set("#visual", "tint", self.tint)
 
 	-- Draw order is a z offset on the sprite component in ground.go, not
 	-- part of this position: the object's own z is left alone so nothing

@@ -705,6 +705,33 @@ new `wait`-heavy integration tests, not just at the very end.
   `shasum -a 256` it), and update the cache key in `ci.yml` to match — all as
   one reviewable commit, never resolved automatically at run time.
 
+### Level geometry is checked by a script, not by hand
+
+`scripts/check_levels.py` (`make check-levels`, and a CI step) reads the ten
+collections as data and fails if any surface cannot be reached — every gap
+against the player's real horizontal reach, every climb against the apex,
+**using the worst mobility modifier that level itself declares**. The
+constants are read out of `player.script` and `player_movement.lua` rather
+than repeated, so they cannot drift.
+
+This replaces doing the arithmetic on paper, which had already caught two
+impossible layouts (level 6's 70-unit gap in the heavy mood; level 10
+stacking Heavy on the heavy mood). The first run of the script caught a
+third: **level 8 had a platform whose top sat 64 above the nearest approach,
+with an apex of 56.9** — unreachable, and shipped since phase 18.
+
+Two modelling points that produced false failures before they were fixed,
+worth keeping:
+
+- A gap is clearable up to `reach + 2 * player_half_width`: the player
+  leaves the ledge with its trailing half still over it and lands with its
+  leading half already over the next.
+- Reachability is "from ANY surface", not "from the previous one in x
+  order". Comparing x-sorted neighbours assumes strict left-to-right
+  progress and flags a high platform as unreachable when a lower one beside
+  it is the real approach. Dropping down is always free; only climbing is
+  limited.
+
 ### The camera's view must not move Z, and headless cannot see a black screen
 
 `main/level/camera.go` has no camera *component*; scrolling works by

@@ -16,6 +16,11 @@ proven, what is still missing, and who can do each remaining piece, see
 
 ## Per-level acceptance (PRD section 11)
 
+**Open any level directly with `make play-level LEVEL=N`** — no menu, no
+need to beat the ones before it. This section asks you to judge ten levels
+and until phase 31 gave no way to reach any of them except by playing
+through.
+
 For **each** of the 10 levels, confirm:
 
 - [ ] **Completable fairly** — a first-time player can finish without

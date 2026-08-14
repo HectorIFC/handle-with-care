@@ -30,8 +30,26 @@ go.property("factor", 0.5)
 -- both live in the per-layer .go rather than being guessed here.
 go.property("tile_width", 192)
 
+-- Which image this layer draws. A property rather than the name baked into
+-- a .sprite, because ten level themes across four layer roles would
+-- otherwise mean forty .go prototypes. Same pattern as `variant` on
+-- lethal_hazard.script. The default matches the sprite's own
+-- default_animation, so a collection that says nothing looks exactly as it
+-- did before this existed.
+go.property("image", hash(""))
+
+-- How many copies of the image this object carries, so init can point all
+-- of them at the chosen image. Must match the sprite components authored in
+-- the .go (layer0, layer1, ...).
+go.property("copies", 3)
+
 function init(self)
 	self.base_y = go.get_position().y
+	if self.image ~= hash("") then
+		for i = 0, self.copies - 1 do
+			sprite.play_flipbook("#layer" .. i, self.image)
+		end
+	end
 end
 
 function update(self, dt)

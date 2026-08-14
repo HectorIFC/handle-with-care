@@ -35,6 +35,11 @@ local function start_attempt(self)
 end
 
 function init(self)
+	-- Which collection actually came up. Cheap, and the only thing that can
+	-- tell a level apart from another once they are loaded: `make
+	-- smoke-level LEVEL=N` fails unless this line reports N. Worth having in
+	-- any log on its own terms, too.
+	print("LEVEL-START " .. tostring(self.level_number))
 	-- PRD 3.5: restart is broadcast through Defold's input dispatch, so this
 	-- object acquires focus like every other restorable one — see
 	-- player.script's on_input for why nobody consumes the action.

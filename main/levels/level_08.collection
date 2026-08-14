@@ -498,7 +498,7 @@ instances {
   prototype: "/main/level/platform.go"
   position {
     x: 800.0
-    y: 104.0
+    y: 88.0
     z: 0.0
   }
   rotation {
