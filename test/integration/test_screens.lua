@@ -184,13 +184,24 @@ return function()
 			assert(go.get("/screens#script", "screen") == hash(flow.MENU))
 		end)
 
-		test("fullscreen toggles from the options screen", function()
+		test("the fullscreen row is inert and does not break navigation", function()
+			-- The row informs rather than toggles: this engine exposes no
+			-- window.set_fullscreen, so a switch here could only lie (it used
+			-- to, through a pcall that swallowed the missing function).
+			-- Confirming on it must do nothing AND leave the screen usable.
 			goto_screen(flow.OPTIONS)
 			-- Master / Music / SFX / Fullscreen -> down three times.
 			press("menu_down"); press("menu_down"); press("menu_down")
-			local before = go.get("/settings_adapter#script", "fullscreen")
+			local cursor = go.get("/screens#script", "cursor")
 			press("confirm")
-			assert(go.get("/settings_adapter#script", "fullscreen") ~= before)
+			assert(go.get("/screens#script", "screen") == hash(flow.OPTIONS))
+			assert(go.get("/screens#script", "cursor") == cursor)
+
+			-- And the row below it still works, so an inert entry did not
+			-- break the list.
+			press("menu_down")
+			press("confirm")
+			assert(go.get("/screens#script", "screen") == hash(flow.CONTROLS))
 		end)
 
 		test("Credits opens and Back returns to the menu", function()

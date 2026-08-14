@@ -84,7 +84,13 @@ For **each** of the 10 levels, confirm:
 ## Options (PRD 6.1)
 
 - [ ] Master/Music/SFX sliders move with left/right and show a bar.
-- [ ] Fullscreen toggles and actually changes the window.
+- [ ] The game **starts in fullscreen**.
+- [ ] Leaving fullscreen with the OS shortcut leaves a usable window, and
+  the game still renders correctly at that size.
+- [ ] The window **cannot be dragged smaller than 768x432** — it springs
+  back, and does not judder in a resize loop.
+- [ ] The Fullscreen row shows the OS shortcut and does not pretend to be a
+  toggle (this engine has no API for it).
 - [ ] Settings persist across a restart of the game.
 - [ ] Each slider **audibly** changes its channel; master scales the others.
 - [ ] **Controls** opens from Options and shows the current key for Move

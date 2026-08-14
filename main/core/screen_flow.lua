@@ -35,7 +35,6 @@ M.ACTION_CREDITS = "credits"
 M.ACTION_VOLUME_MASTER = "volume_master"
 M.ACTION_VOLUME_MUSIC = "volume_music"
 M.ACTION_VOLUME_SFX = "volume_sfx"
-M.ACTION_FULLSCREEN = "fullscreen"
 M.ACTION_CONTROLS = "controls"
 M.ACTION_REBIND = "rebind"
 M.ACTION_NONE = "none"
@@ -66,12 +65,22 @@ end
 -- PRD 6.1's Opções. Volume rows are adjusted with left/right rather than
 -- confirmed, so they carry their own action and the adapter knows which
 -- channel a row belongs to without matching on the label text.
-function M.options_entries()
+--
+-- `fullscreen_hint` is the OS shortcut for toggling fullscreen, passed in by
+-- the adapter (which is the only thing allowed to ask what platform this
+-- is). The row is INFORMATIONAL, not a toggle: this engine version exposes
+-- window.set_size/get_size/set_position/set_title but NO set_fullscreen, so
+-- the game cannot toggle it. It used to try, through a pcall that swallowed
+-- the missing-function error, which meant the menu offered a switch that
+-- did nothing at all. Telling the player the real shortcut is worth more
+-- than a control that lies.
+function M.options_entries(fullscreen_hint)
 	return {
 		{ label = "Master Volume", action = M.ACTION_VOLUME_MASTER, kind = "master", slider = true },
 		{ label = "Music Volume", action = M.ACTION_VOLUME_MUSIC, kind = "music", slider = true },
 		{ label = "SFX Volume", action = M.ACTION_VOLUME_SFX, kind = "sfx", slider = true },
-		{ label = "Fullscreen", action = M.ACTION_FULLSCREEN, toggle = true },
+		{ label = "Fullscreen", action = M.ACTION_NONE,
+		  info = fullscreen_hint or "use your OS shortcut" },
 		{ label = "Controls", action = M.ACTION_CONTROLS },
 		{ label = "Back", action = M.ACTION_TO_MENU },
 	}

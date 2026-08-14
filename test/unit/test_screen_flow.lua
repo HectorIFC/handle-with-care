@@ -39,15 +39,35 @@ return function()
 	end)
 
 	describe("screen_flow.options_entries", function()
-		test("carries the three volume channels the PRD names, plus fullscreen", function()
+		test("carries the three volume channels the PRD names", function()
 			local kinds = {}
-			local has_fullscreen = false
 			for _, entry in ipairs(flow.options_entries()) do
 				if entry.kind then kinds[entry.kind] = true end
-				if entry.action == flow.ACTION_FULLSCREEN then has_fullscreen = true end
 			end
 			assert(kinds.master and kinds.music and kinds.sfx)
-			assert(has_fullscreen)
+		end)
+
+		test("the fullscreen row informs rather than pretending to toggle", function()
+			-- This engine exposes no window.set_fullscreen, so the row can
+			-- only tell the player the OS shortcut. It used to be a toggle
+			-- wired to a pcall that swallowed the missing function, i.e. a
+			-- control that did nothing at all.
+			local row
+			for _, entry in ipairs(flow.options_entries("ctrl+cmd+F")) do
+				if entry.label == "Fullscreen" then row = entry end
+			end
+			assert(row, "the Fullscreen row is gone")
+			assert(row.info == "ctrl+cmd+F")
+			assert(row.toggle == nil)
+			assert(row.action == flow.ACTION_NONE)
+		end)
+
+		test("the fullscreen row still says something without a hint", function()
+			for _, entry in ipairs(flow.options_entries()) do
+				if entry.label == "Fullscreen" then
+					assert(type(entry.info) == "string" and #entry.info > 0)
+				end
+			end
 		end)
 
 		test("volume rows are marked as sliders so the adapter uses left/right", function()

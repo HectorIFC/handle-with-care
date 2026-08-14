@@ -4,7 +4,7 @@ instances {
   prototype: "/main/ui/screens.go"
   position {
     x: 192.0
-    y: 130.0
+    y: 108.0
     z: 0.0
   }
   rotation {

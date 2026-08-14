@@ -53,8 +53,16 @@ go.property("test_mode", false)
 -- assert that selecting an entry WOULD have loaded the right level.
 go.property("last_requested_level", 0)
 
--- Real randomness lives only in the adapter (rule 3) — screen_flow.quip
--- takes this as an injected rng and never calls math.random itself.
+-- The OS shortcut that actually toggles fullscreen. Asked here rather than
+-- in screen_flow, which is pure and must never read the platform (rule 1).
+local function fullscreen_hint()
+	local system = sys.get_sys_info().system_name
+	if system == "Darwin" then
+		return "ctrl+cmd+F"
+	end
+	return "F11"
+end
+
 -- Fire-and-forget: the audio object is a sibling in this same collection,
 -- so a bare path resolves. Guarded by the audio script's own pcall, so a
 -- missing device never reaches here.
@@ -62,6 +70,8 @@ local function cue(name)
 	msg.post("/audio#script", "play_cue", { cue = name })
 end
 
+-- Real randomness lives only in the adapter (rule 3) — screen_flow.quip
+-- takes this as an injected rng and never calls math.random itself.
 local function rng(min_value, max_value)
 	return math.random(min_value, max_value)
 end
@@ -72,7 +82,7 @@ local function entries_for(self)
 	elseif self.state.screen == flow.PAUSED then
 		return flow.pause_entries()
 	elseif self.state.screen == flow.OPTIONS then
-		return flow.options_entries()
+		return flow.options_entries(fullscreen_hint())
 	elseif self.state.screen == flow.CONTROLS then
 		return flow.controls_entries(input_bindings.ACTIONS)
 	elseif self.state.screen == flow.CREDITS then
@@ -144,8 +154,8 @@ local function render(self)
 		-- adjusting something invisible.
 		if entry.kind then
 			text = text .. "  " .. flow.volume_bar(go.get(self.settings_adapter, entry.kind), 10)
-		elseif entry.action == flow.ACTION_FULLSCREEN then
-			text = text .. "  " .. (go.get(self.settings_adapter, "fullscreen") and "[on]" or "[off]")
+		elseif entry.info then
+			text = text .. "  " .. entry.info
 		elseif entry.bind then
 			-- A controls row: the entry's label is the raw action name, so
 			-- both halves of the line come from input_bindings and cannot
@@ -258,8 +268,6 @@ local function perform(self, action)
 			self.capture_pending = false
 			self.state = flow.begin_capture(self.state, entry.bind)
 		end
-	elseif action == flow.ACTION_FULLSCREEN then
-		msg.post(self.settings_adapter, "toggle_fullscreen")
 	elseif action == flow.ACTION_PLAY_LEVEL then
 		load_level(self, self.state.selected_level)
 	elseif action == flow.ACTION_RESUME then
@@ -285,8 +293,50 @@ local function perform(self, action)
 	render(self)
 end
 
+-- The window may be any size — the game boots fullscreen (display.fullscreen
+-- in game.project) and the player can leave fullscreen and drag it around —
+-- but the WORLD stays 384x216. `use_fixed_fit_projection` is what makes that
+-- work: the builtin render script takes the design resolution from
+-- render.get_width() and the actual window from render.get_window_width(),
+-- computes zoom = min(window/design) and centres the result.
+--
+-- Scaling the window this way rather than raising display.width/height is
+-- not a preference: player.script, package.script and camera.script all read
+-- sys.get_config_int("display.width") for their off-screen death checks, so
+-- a bigger design resolution would widen the playable area and change
+-- gameplay.
+--
+-- Smallest window the game may be squeezed into, as a multiple of the design
+-- resolution. The UI font is 5x7 pixels; at 1x the menu and the package's
+-- stress readout are unreadable on most monitors.
+local MIN_WINDOW_SCALE = 2
+
+local function enforce_minimum_window(self)
+	local width, height = window.get_size()
+	local min_width = self.design_width * MIN_WINDOW_SCALE
+	local min_height = self.design_height * MIN_WINDOW_SCALE
+	if width < min_width or height < min_height then
+		-- This raises another RESIZED event, but the next pass is already at
+		-- or above the minimum and does nothing, so it settles after one
+		-- extra event rather than looping.
+		window.set_size(math.max(width, min_width), math.max(height, min_height))
+	end
+end
+
 function init(self)
 	msg.post(".", "acquire_input_focus")
+
+	-- Read rather than hardcoded, so the one authoritative resolution lives
+	-- in game.project alone (rule 5).
+	self.design_width = sys.get_config_int("display.width", 384)
+	self.design_height = sys.get_config_int("display.height", 216)
+	msg.post("@render:", "use_fixed_fit_projection", { near = -1, far = 1 })
+	window.set_listener(function(this, event)
+		if event == window.WINDOW_EVENT_RESIZED then
+			enforce_minimum_window(this)
+		end
+	end)
+
 	cue("music_menu")
 	self.state = flow.new()
 	self.total_levels = go.get(self.save_adapter, "total_levels")

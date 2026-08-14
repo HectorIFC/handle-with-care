@@ -95,13 +95,6 @@ function on_message(self, message_id, message, sender)
 		self.state = settings.adjust_volume(self.state, message.kind, message.delta)
 		apply(self)
 		persist(self)
-	elseif message_id == hash("toggle_fullscreen") then
-		self.state = settings.toggle_fullscreen(self.state)
-		apply(self)
-		persist(self)
-		-- Only attempted, never assumed: a windowed platform (and the
-		-- headless test engine) has no fullscreen to set.
-		pcall(window.set_fullscreen, self.state.fullscreen)
 	elseif message_id == hash("test_reset") then
 		self.state = settings.new()
 		apply(self)

@@ -705,6 +705,40 @@ new `wait`-heavy integration tests, not just at the very end.
   `shasum -a 256` it), and update the cache key in `ci.yml` to match — all as
   one reviewable commit, never resolved automatically at run time.
 
+### Window size, fullscreen, and why `display.width` must not change
+
+`display.width`/`display.height` in `game.project` are BOTH the design
+resolution and the initial window size, and three gameplay scripts read the
+design resolution directly — `player.script`, `package.script` and
+`camera.script` all call `sys.get_config_int("display.width")` for their
+camera-relative off-screen death checks. **Raising it to get a bigger window
+would widen the playable area and change gameplay.** The window is scaled
+instead: `screens.script` posts `use_fixed_fit_projection` to `@render:`,
+and the builtin render script then maps the 384x216 world onto whatever the
+window is (it reads the design size from `render.get_width()` and the window
+from `render.get_window_width()`).
+
+The game boots fullscreen via `display.fullscreen = 1`. **`game.project`
+does not accept comments** — a `#` line above a key makes bob fail with
+"Could not parse", so explanations live here instead.
+
+**This engine has no `window.set_fullscreen`.** The `window` module exports
+`set_size`, `get_size`, `set_position`, `set_title`, `set_dim_mode`,
+`get_display_scale`, `set_listener` and the `WINDOW_EVENT_*` constants, and
+nothing else. The Options screen used to offer a Fullscreen toggle wired to
+`pcall(window.set_fullscreen, ...)`, where the pcall swallowed the
+missing-function error — a control that did nothing, silently, for eight
+phases. It is now an informational row showing the OS shortcut. If a future
+Defold version adds the API, `core/settings.lua` still carries the
+`fullscreen` field and `toggle_fullscreen`, ready to be re-wired.
+
+A minimum window size (2x the design resolution) is enforced in
+`screens.script` through `window.set_listener`, because the 5x7 UI font is
+unreadable below that. Note that `window.set_size` inside a resize handler
+raises another resize event; it settles after one extra pass because the
+corrected size no longer trips the check, but do not add logic there that
+would fire unconditionally.
+
 ### Levels can be wider than one screen (phase 11c added the camera)
 
 `main/core/camera.lua` + `main/level/camera.script` scroll horizontally, and
