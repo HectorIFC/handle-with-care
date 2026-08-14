@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Generate PLACEHOLDER 8-bit pixel-art sprites for Handle With Care.
-
 Deterministic — no randomness at all, every pixel is placed explicitly — so
 regenerating produces byte-identical files and a diff means someone actually
 changed the art. Still placeholders for an artist to replace, but they aim at
