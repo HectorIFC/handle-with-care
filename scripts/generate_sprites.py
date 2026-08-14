@@ -558,6 +558,71 @@ emit_single(hill_layer(128, 14, 140, HILL_NEAR, (1, 3)), "bg_ridge")
 emit_single(tree_layer(), "bg_trees")
 
 
+# --- Per-level themes ---------------------------------------------------
+# One theme per level, so the ten stop being interchangeable. They arrive one
+# per slice; the four generic layers above stay until the last level has its
+# own, and then they go.
+#
+# The sky is only horizontal bands, so it is uniform along X and does not
+# need to be screen-wide: 64px tiled seven times costs a sixth of the atlas
+# that a 384px sky would, which is what keeps ten themes affordable.
+SKY_W, FAR_W, MID_W, NEAR_W = 64, 192, 128, 128
+
+
+def sky(stops):
+    """A vertical gradient from (y_end, colour) stops, top to bottom."""
+    im = img(SKY_W, BG_H)
+    y = 0
+    for y_end, colour in stops:
+        band(im, y, y_end, colour)
+        y = y_end
+    if y < BG_H:
+        band(im, y, BG_H, stops[-1][1])
+    return im
+
+
+def treeline(w, color, step=16, tall=128, short=136, ground=150):
+    """Tapered canopies on a grid that divides the width, so the pattern
+    repeats across the seam. `step` must divide `w`.
+
+    Tapered rather than rectangular on purpose: flat-topped blocks read as a
+    fence or a skyline, which is what level 7's city wants and what a forest
+    must not look like."""
+    assert w % step == 0, "treeline step must divide the width"
+    im = img(w, BG_H)
+    rect(im, 0, ground, w, BG_H, color)
+    for i in range(w // step):
+        cx = i * step + step // 2
+        top = tall if i % 2 == 0 else short
+        rect(im, cx - 1, top + 6, cx + 1, ground + 2, color)   # trunk
+        # Canopy: widest at the bottom, narrowing in three steps.
+        for level, (half, y0, y1) in enumerate((
+                (6, top + 10, ground - 2),
+                (5, top + 5, top + 10),
+                (3, top + 1, top + 5),
+                (1, top - 1, top + 1))):
+            rect(im, cx - half, y0, cx + half, y1, color)
+    return im
+
+
+# Level 1 — Tutorial Soft: dusk over rolling hills. Warm, open, unthreatening;
+# it is the first thing anyone sees.
+L1_SKY_TOP  = (48, 52, 96, 255)
+L1_SKY_HIGH = (86, 78, 132, 255)
+L1_SKY_MID  = (138, 100, 148, 255)
+L1_SKY_WARM = (196, 126, 132, 255)
+L1_SKY_LOW  = (232, 164, 122, 255)
+L1_FAR      = (78, 80, 126, 255)
+L1_MID      = (58, 62, 102, 255)
+L1_NEAR     = (36, 40, 68, 255)
+
+emit_single(sky([(48, L1_SKY_TOP), (86, L1_SKY_HIGH), (116, L1_SKY_MID),
+                 (140, L1_SKY_WARM), (BG_H, L1_SKY_LOW)]), "bg1_sky")
+emit_single(hill_layer(FAR_W, 24, 118, L1_FAR, (1, 2)), "bg1_far")
+emit_single(hill_layer(MID_W, 14, 142, L1_MID, (1, 3)), "bg1_mid")
+emit_single(treeline(NEAR_W, L1_NEAR), "bg1_near")
+
+
 # --- Atlas -------------------------------------------------------------
 def verify_contract():
     """Fail loudly if an animation the scripts play is missing.
@@ -577,6 +642,10 @@ def verify_contract():
     # Referenced as default_animation by the .sprite components.
     required |= {"tile_ground", "tile_platform", "spike", "saw", "delivery"}
     required |= {"bg_sky", "bg_hills", "bg_ridge", "bg_trees", "fx_burst"}
+    # Per-level themes, added one slice at a time.
+    for level in (1,):
+        required |= {"bg%d_%s" % (level, role)
+                     for role in ("sky", "far", "mid", "near")}
 
     emitted = set(SINGLES) | {a["id"] for a in ANIMS}
     missing = sorted(required - emitted)

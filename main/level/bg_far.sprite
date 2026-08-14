@@ -1,4 +1,4 @@
-default_animation: "bg1_sky"
+default_animation: "bg1_far"
 material: "/builtins/materials/sprite.material"
 textures {
   sampler: "texture_sampler"

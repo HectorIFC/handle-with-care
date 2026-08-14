@@ -1,4 +1,20 @@
 images {
+  image: "/main/sprites/bg1_far.png"
+  sprite_trim_mode: SPRITE_TRIM_MODE_OFF
+}
+images {
+  image: "/main/sprites/bg1_mid.png"
+  sprite_trim_mode: SPRITE_TRIM_MODE_OFF
+}
+images {
+  image: "/main/sprites/bg1_near.png"
+  sprite_trim_mode: SPRITE_TRIM_MODE_OFF
+}
+images {
+  image: "/main/sprites/bg1_sky.png"
+  sprite_trim_mode: SPRITE_TRIM_MODE_OFF
+}
+images {
   image: "/main/sprites/bg_hills.png"
   sprite_trim_mode: SPRITE_TRIM_MODE_OFF
 }
