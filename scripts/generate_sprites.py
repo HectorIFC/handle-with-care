@@ -662,6 +662,31 @@ def dunes(w, color, crests=3, base=132, amp=18, ground=None):
     return im
 
 
+def pillars(w, color, count=2, ground=150, tall=70, short=100, half=9,
+            cap=5, floor=False):
+    """Standing stones, drawn floating unless `floor` fills the ground line.
+
+    Only the nearest layer should set `floor`: giving every layer a filled
+    base stacks three pale bands on top of each other and the theme turns to
+    mush — the same mistake level 3's sheds made. `count` must divide `w`.
+
+    The flared cap and foot matter: a bare rectangle is a chimney, and level
+    3 already owns that silhouette."""
+    assert w % count == 0, "pillars: count must divide the width"
+    im = img(w, BG_H)
+    if floor:
+        rect(im, 0, ground, w, BG_H, color)
+    span = w // count
+    for i in range(count):
+        cx = i * span + span // 2
+        top = tall if i % 2 == 0 else short
+        bottom = ground if floor else ground - 14
+        rect(im, cx - half, top, cx + half + 1, bottom, color)
+        rect(im, cx - half - cap, top, cx + half + cap + 1, top + 7, color)
+        rect(im, cx - half - cap, bottom - 7, cx + half + cap + 1, bottom, color)
+    return im
+
+
 # Level 1 — Tutorial Soft: dusk over rolling hills. Warm, open, unthreatening;
 # it is the first thing anyone sees.
 L1_SKY_TOP  = (48, 52, 96, 255)
@@ -732,6 +757,28 @@ emit_single(dunes(FAR_W, L4_FAR, crests=3, base=126, amp=22), "bg4_far")
 emit_single(dunes(MID_W, L4_MID, crests=2, base=146, amp=18), "bg4_mid")
 emit_single(dunes(NEAR_W, L4_NEAR, crests=2, base=168, amp=14), "bg4_near")
 
+# Level 5 — Magnet Madness: violet. Standing stones that hover, so the
+# scenery looks subject to the same pull the hazards are.
+L5_SKY_TOP  = (38, 26, 62, 255)
+L5_SKY_HIGH = (72, 40, 104, 255)
+L5_SKY_MID  = (116, 58, 140, 255)
+L5_SKY_LOW  = (156, 92, 168, 255)
+L5_FAR      = (92, 56, 128, 255)
+L5_MID      = (66, 38, 96, 255)
+L5_NEAR     = (40, 22, 60, 255)
+
+# More, closer stops than the other skies: hard bands behind slender
+# verticals read as a grid, and this level already has a lot of them.
+emit_single(sky([(38, L5_SKY_TOP), (70, (52, 32, 80, 255)),
+                 (100, L5_SKY_HIGH), (128, (96, 50, 126, 255)),
+                 (152, L5_SKY_MID), (BG_H, L5_SKY_LOW)]), "bg5_sky")
+emit_single(pillars(FAR_W, L5_FAR, count=2, tall=38, short=66,
+                    half=6, cap=3, ground=150), "bg5_far")
+emit_single(pillars(MID_W, L5_MID, count=2, tall=68, short=94,
+                    half=5, cap=3, ground=162), "bg5_mid")
+emit_single(pillars(NEAR_W, L5_NEAR, count=2, tall=100, short=122,
+                    half=4, cap=2, ground=174, floor=True), "bg5_near")
+
 
 # --- Atlas -------------------------------------------------------------
 def verify_contract():
@@ -753,7 +800,7 @@ def verify_contract():
     required |= {"tile_ground", "tile_platform", "spike", "saw", "delivery"}
     required |= {"bg_sky", "bg_hills", "bg_ridge", "bg_trees", "fx_burst"}
     # Per-level themes, added one slice at a time.
-    for level in (1, 2, 3, 4):
+    for level in (1, 2, 3, 4, 5):
         required |= {"bg%d_%s" % (level, role)
                      for role in ("sky", "far", "mid", "near")}
 
