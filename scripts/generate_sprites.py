@@ -622,6 +622,31 @@ def peaks(w, color, teeth=6, low=150, high=96):
     return im
 
 
+def chimneys(w, color, count=4, ground=150, tall=70, short=104, stack_w=9,
+             shed=0):
+    """Factory stacks on a grid that divides the width. Flat-topped and
+    vertical on purpose — the opposite silhouette to level 1's tapered trees
+    and level 2's peaks, so the three read apart instantly.
+
+    `shed` is the height of a low building between stacks, and it is 0 for
+    the distant layers by design: filling every layer with sheds walls the
+    sky off completely and the whole theme collapses into horizontal bars.
+    Only the nearest layer gets them, as foreground clutter."""
+    assert w % count == 0, "chimneys: count must divide the width"
+    im = img(w, BG_H)
+    rect(im, 0, ground, w, BG_H, color)
+    span = w // count
+    for i in range(count):
+        cx = i * span + span // 2
+        top = tall if i % 2 == 0 else short
+        if shed:
+            rect(im, i * span + 3, ground - shed, i * span + span - 3, ground + 2, color)
+        rect(im, cx - stack_w // 2, top, cx + stack_w // 2 + 1, ground + 2, color)
+        # A wider lip at the mouth: what makes it a chimney and not a post.
+        rect(im, cx - stack_w // 2 - 2, top, cx + stack_w // 2 + 3, top + 5, color)
+    return im
+
+
 # Level 1 — Tutorial Soft: dusk over rolling hills. Warm, open, unthreatening;
 # it is the first thing anyone sees.
 L1_SKY_TOP  = (48, 52, 96, 255)
@@ -655,6 +680,27 @@ emit_single(peaks(FAR_W, L2_FAR, teeth=4, low=148, high=88), "bg2_far")
 emit_single(peaks(MID_W, L2_MID, teeth=4, low=156, high=112), "bg2_mid")
 emit_single(peaks(NEAR_W, L2_NEAR, teeth=8, low=168, high=138), "bg2_near")
 
+# Level 3 — Heavy Duty: iron. A sky the colour of cooling metal over factory
+# stacks, so the level looks as heavy as the package gets.
+L3_SKY_TOP  = (44, 44, 52, 255)
+L3_SKY_HIGH = (74, 70, 78, 255)
+# Dimmer than levels 1 and 2's horizons on purpose: a bright band here shows
+# as a pale slab between the far and mid silhouettes rather than as a glow.
+L3_SKY_MID  = (92, 82, 86, 255)
+L3_SKY_LOW  = (124, 94, 78, 255)
+L3_FAR      = (72, 70, 80, 255)
+L3_MID      = (52, 50, 60, 255)
+L3_NEAR     = (32, 32, 40, 255)
+
+emit_single(sky([(60, L3_SKY_TOP), (104, L3_SKY_HIGH), (140, L3_SKY_MID),
+                 (BG_H, L3_SKY_LOW)]), "bg3_sky")
+emit_single(chimneys(FAR_W, L3_FAR, count=3, tall=58, short=86,
+                     stack_w=11, ground=146), "bg3_far")
+emit_single(chimneys(MID_W, L3_MID, count=4, tall=88, short=112,
+                     stack_w=9, ground=152), "bg3_mid")
+emit_single(chimneys(NEAR_W, L3_NEAR, count=4, tall=118, short=132,
+                     stack_w=7, ground=158, shed=16), "bg3_near")
+
 
 # --- Atlas -------------------------------------------------------------
 def verify_contract():
@@ -676,7 +722,7 @@ def verify_contract():
     required |= {"tile_ground", "tile_platform", "spike", "saw", "delivery"}
     required |= {"bg_sky", "bg_hills", "bg_ridge", "bg_trees", "fx_burst"}
     # Per-level themes, added one slice at a time.
-    for level in (1, 2):
+    for level in (1, 2, 3):
         required |= {"bg%d_%s" % (level, role)
                      for role in ("sky", "far", "mid", "near")}
 
