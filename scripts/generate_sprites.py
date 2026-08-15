@@ -767,6 +767,57 @@ def mesa(w, color, count=2, top=110, floor=None, notch=6):
     return im
 
 
+def reflected(w, color, count=3, horizon=132, peak=48, notch=8):
+    """A ragged ridge standing on a waterline, with its own broken
+    reflection underneath it.
+
+    The only silhouette in the set built around a horizontal axis instead of
+    a ground line, because level 9 is the one where the world is mirrored.
+    Two things make it read as a reflection rather than as a smear, and both
+    were arrived at by looking at the first version, which had neither:
+
+    - The reflection is drawn from the SAME per-column heights as the ridge,
+      never re-derived. A mirrored half that does not correspond is just
+      noise, and the whole point here is "that is the same thing, flipped".
+    - The breaks in the reflection SHIFT along x and get denser with depth.
+      Straight full-width gaps read as scan lines — a printing fault, not
+      water.
+
+    Each crest is deliberately off-centre, so an individual shape is not
+    itself symmetric. A ridge of symmetric bumps would look mirrored no
+    matter which way the level ran, which would cost the level exactly the
+    read it is built on. `count` must divide the width."""
+    assert w % count == 0, "reflected: count must divide the width"
+    im = img(w, BG_H)
+    span = w // count
+    # Per-column ridge top, derived once and reused for both halves. Columns
+    # left at `horizon` are open sky between shapes.
+    tops = [horizon] * w
+    for i in range(count):
+        left = i * span + notch
+        right = i * span + span - notch
+        crest = left + (right - left) * (2 if i % 2 == 0 else 1) // 3
+        for x in range(left, right):
+            if x < crest:
+                t = (x - left) / max(1, crest - left)
+            else:
+                t = (right - x) / max(1, right - crest)
+            h = int(peak * (0.2 + 0.8 * t))
+            tops[x] = horizon - (h // 4) * 4     # 4px steps: a pixel staircase
+    # The waterline itself, full width. Without it the shapes float and the
+    # mirrored halves have nothing to be a reflection IN.
+    rect(im, 0, horizon, w, horizon + 2, color)
+    for x in range(w):
+        rect(im, x, tops[x], x + 1, horizon, color)
+        depth = horizon - tops[x]
+        for row in range(2, depth):
+            period = max(2, 6 - row // 5)
+            if (row + x // 5) % period == 0:
+                continue
+            rect(im, x, horizon + row, x + 1, horizon + row + 1, color)
+    return im
+
+
 # Level 1 — Tutorial Soft: dusk over rolling hills. Warm, open, unthreatening;
 # it is the first thing anyone sees.
 L1_SKY_TOP  = (48, 52, 96, 255)
@@ -917,6 +968,28 @@ emit_single(mesa(FAR_W, L8_FAR, count=2, top=96), "bg8_far")
 emit_single(mesa(MID_W, L8_MID, count=2, top=126), "bg8_mid")
 emit_single(mesa(NEAR_W, L8_NEAR, count=2, top=156, floor=188), "bg8_near")
 
+# Level 9 — Mirror World: a teal-green reflection. The coolest, most even
+# palette in the set on purpose — a reflection is only legible if the two
+# halves are close in value, so nothing here is allowed to dominate.
+L9_SKY_TOP  = (16, 52, 56, 255)
+L9_SKY_HIGH = (24, 82, 84, 255)
+L9_SKY_MID  = (44, 124, 116, 255)
+L9_SKY_LOW  = (96, 172, 154, 255)
+L9_FAR      = (30, 96, 92, 255)
+L9_MID      = (20, 70, 70, 255)
+L9_NEAR     = (12, 44, 48, 255)
+
+emit_single(sky([(54, L9_SKY_TOP), (96, L9_SKY_HIGH), (140, L9_SKY_MID),
+                 (BG_H, L9_SKY_LOW)]), "bg9_sky")
+# Each layer's waterline sits lower than the one behind it, so the three
+# reflections do not line up into one false horizon.
+emit_single(reflected(FAR_W, L9_FAR, count=3, horizon=118, peak=52),
+            "bg9_far")
+emit_single(reflected(MID_W, L9_MID, count=2, horizon=142, peak=40, notch=10),
+            "bg9_mid")
+emit_single(reflected(NEAR_W, L9_NEAR, count=4, horizon=168, peak=26, notch=5),
+            "bg9_near")
+
 
 # --- Atlas -------------------------------------------------------------
 def verify_contract():
@@ -938,7 +1011,7 @@ def verify_contract():
     required |= {"tile_ground", "tile_platform", "spike", "saw", "delivery"}
     required |= {"bg_sky", "bg_hills", "bg_ridge", "bg_trees", "fx_burst"}
     # Per-level themes, added one slice at a time.
-    for level in (1, 2, 3, 4, 5, 6, 7, 8):
+    for level in (1, 2, 3, 4, 5, 6, 7, 8, 9):
         required |= {"bg%d_%s" % (level, role)
                      for role in ("sky", "far", "mid", "near")}
 
