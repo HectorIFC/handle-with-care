@@ -108,7 +108,11 @@ function M.update(state, input, dt, config)
 	local velocity_y = state.velocity_y
 	local grounded = state.grounded
 	if input.jump_pressed and state.grounded then
-		velocity_y = jump_velocity
+		-- A jump opposes gravity, whichever way gravity points. Derived from
+		-- the sign of `gravity` rather than from a separate `inverted` flag,
+		-- so there is exactly one thing to set to turn a room upside down
+		-- and the two can never disagree.
+		velocity_y = gravity > 0 and -jump_velocity or jump_velocity
 		grounded = false
 	elseif not state.grounded then
 		velocity_y = state.velocity_y + gravity * dt
@@ -158,10 +162,25 @@ end
 -- horizontally overlaps the ground AND would cross onto it this frame.
 -- Returns nil otherwise (no horizontal overlap, or still above/already
 -- below the surface).
-function M.resting_y_on_ground(pos_x, half_width, pos_y, target_y, half_height, ground)
+--
+-- `inverted` flips which FACE of the surface is standable. With gravity
+-- pulling up, the player falls upward and comes to rest under a surface, on
+-- `y_bottom`, having crossed it from below. The check is the same one
+-- reflected, not a second implementation: everything about the geometry is
+-- symmetric, and writing it twice is how the two halves drift apart.
+function M.resting_y_on_ground(pos_x, half_width, pos_y, target_y, half_height,
+	ground, inverted)
 	local player_min_x = pos_x - half_width
 	local player_max_x = pos_x + half_width
 	if player_max_x <= ground.x_min or player_min_x >= ground.x_max then
+		return nil
+	end
+
+	if inverted then
+		local resting_y = (ground.y_bottom or ground.y_top) - half_height
+		if pos_y <= resting_y + RESTING_EPSILON and target_y >= resting_y then
+			return resting_y
+		end
 		return nil
 	end
 
@@ -175,9 +194,11 @@ end
 -- Derives the animation to display from the physics state. "land" is a
 -- one-shot adapter-side trigger on the grounded false->true transition, not
 -- modeled here — see player.script.
-function M.animation_state(state)
+function M.animation_state(state, inverted)
 	if not state.grounded then
-		if state.velocity_y > 0 then
+		local rising = inverted and state.velocity_y < 0 or
+			(not inverted and state.velocity_y > 0)
+		if rising then
 			return "jump"
 		else
 			return "fall"

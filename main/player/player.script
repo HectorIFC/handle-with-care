@@ -32,6 +32,15 @@ go.property("half_height", 8)
 go.property("ground_x_min", 128)
 go.property("ground_x_max", 256)
 go.property("ground_y_top", 48)
+-- How thick the base surface is. Only read when a room is upside down, where
+-- the player stands on its UNDERSIDE — a ceiling with no thickness would put
+-- the walkable face in the same place as the walkable face the right way up.
+go.property("ground_thickness", 32)
+
+-- Gravity's sign decides which way is down, and one property decides both:
+-- a positive `gravity` makes the player fall upward, jump downward and stand
+-- on the undersides of surfaces. Kept derived rather than stored as a second
+-- flag so the two can never disagree (see player_movement.update).
 
 -- Mirrors self.state.facing/grounded so other objects (the package) can
 -- read them synchronously via go.get(player_url, ...) — the same
@@ -211,7 +220,12 @@ local function camera_x(self)
 end
 
 local function ground_rect(self)
-	return { x_min = self.ground_x_min, x_max = self.ground_x_max, y_top = self.ground_y_top }
+	-- y_bottom matters only when the room is upside down, where the base
+	-- surface is a ceiling the player walks under. Both faces are published
+	-- so resting_y_on_ground can pick without this caring which way is up.
+	return { x_min = self.ground_x_min, x_max = self.ground_x_max,
+		y_top = self.ground_y_top,
+		y_bottom = self.ground_y_top - self.ground_thickness }
 end
 
 -- A registered platform's rect, converted from its live center position
@@ -222,7 +236,8 @@ local function platform_rect(url)
 	local pos = go.get_position(url)
 	local half_width = go.get(url, "half_width")
 	local half_height = go.get(url, "half_height")
-	return { x_min = pos.x - half_width, x_max = pos.x + half_width, y_top = pos.y + half_height }
+	return { x_min = pos.x - half_width, x_max = pos.x + half_width,
+		y_top = pos.y + half_height, y_bottom = pos.y - half_height }
 end
 
 -- Unifies every PRD 3.3/4.7 fail condition (hazard contact, pit/off-world
@@ -269,7 +284,7 @@ local function reset(self)
 end
 
 local function apply_animation(self)
-	local anim = self.just_landed and "land" or player_movement.animation_state(self.state)
+	local anim = self.just_landed and "land" or player_movement.animation_state(self.state, self.gravity > 0)
 	if anim ~= self.current_animation then
 		self.current_animation = anim
 		-- One atlas image per state, named "player_<state>" — Defold turns a
@@ -357,7 +372,8 @@ function update(self, dt)
 	local target_y = pos.y + delta.dy + self.knockback.velocity_y * dt
 
 	local grounded = false
-	local resting_y = player_movement.resting_y_on_ground(target_x, self.half_width, pos.y, target_y, self.half_height, ground_rect(self))
+	local inverted = self.gravity > 0
+	local resting_y = player_movement.resting_y_on_ground(target_x, self.half_width, pos.y, target_y, self.half_height, ground_rect(self), inverted)
 	-- Every platform that registered itself at init (see on_message's
 	-- "register_platform"), checked in turn. Replaces phase 9a's single
 	-- has_extra_ground/extra_ground slot, which could only ever hold one
@@ -373,7 +389,7 @@ function update(self, dt)
 	if not resting_y then
 		for _, platform in ipairs(self.platforms) do
 			if not go.get(platform, "is_falling") then
-				resting_y = player_movement.resting_y_on_ground(target_x, self.half_width, pos.y, target_y, self.half_height, platform_rect(platform))
+				resting_y = player_movement.resting_y_on_ground(target_x, self.half_width, pos.y, target_y, self.half_height, platform_rect(platform), inverted)
 				if resting_y then
 					break
 				end

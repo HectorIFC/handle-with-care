@@ -399,6 +399,98 @@ M.ROOMS = {
 			retreats = { { x = 356, y = 92 } },
 		},
 	},
+	-- Theme 6, UP IS A SUGGESTION. Gravity points up: the player falls
+	-- upward, jumps downward, walks on the undersides of surfaces and carries
+	-- the package below itself. One property does all of it (the sign of
+	-- `gravity`), and validate checks these rooms by reflecting them upright
+	-- rather than owning a second copy of every rule.
+	{
+		id = "gravity_1",
+		theme = "gravity",
+		name = "WRONG WAY UP",
+		-- Teaches by betraying: it looks like an ordinary room drawn on the
+		-- ceiling, and the first jump goes the way you did not expect.
+		inverted = true,
+		spawn = { x = 30, y = 156 },
+		floor = { x_min = 0, x_max = 120, y_top = 200, thickness = 32 },
+		platforms = {
+			{ x = 200, y = 160, half_width = 40, half_height = 8 },
+			{ x = 330, y = 160, half_width = 54, half_height = 8 },
+		},
+		hazards = { { x = 258, y = 200 } },
+		door = { x = 330, y = 132 },
+	},
+	{
+		id = "gravity_2",
+		theme = "gravity",
+		name = "DOWNSTAIRS",
+		-- Charges for it: a descent, which under this gravity is a climb.
+		inverted = true,
+		spawn = { x = 28, y = 156 },
+		floor = { x_min = 0, x_max = 110, y_top = 200, thickness = 32 },
+		platforms = {
+			{ x = 180, y = 140, half_width = 34, half_height = 8 },
+			{ x = 275, y = 116, half_width = 34, half_height = 8 },
+			{ x = 356, y = 92, half_width = 28, half_height = 8 },
+		},
+		hazards = { { x = 145, y = 200 } },
+		door = { x = 356, y = 64 },
+	},
+	{
+		id = "gravity_3",
+		theme = "gravity",
+		name = "THE CEILING LIES",
+		-- Layers theme 1: a falling platform under inverted gravity falls
+		-- DOWN, away from the player standing under it, which is the same
+		-- betrayal read backwards.
+		inverted = true,
+		spawn = { x = 28, y = 156 },
+		floor = { x_min = 0, x_max = 100, y_top = 200, thickness = 32 },
+		platforms = {
+			{ x = 170, y = 156, half_width = 32, half_height = 8, falling = true },
+			{ x = 290, y = 156, half_width = 32, half_height = 8, falling = true },
+			{ x = 356, y = 156, half_width = 28, half_height = 8 },
+		},
+		hazards = { { x = 230, y = 200 } },
+		door = { x = 356, y = 128 },
+	},
+	{
+		id = "gravity_4",
+		theme = "gravity",
+		name = "MIND THE GAP",
+		-- Wide gaps and a hazard hanging where the arc of an upside-down jump
+		-- naturally passes.
+		inverted = true,
+		spawn = { x = 26, y = 156 },
+		floor = { x_min = 0, x_max = 96, y_top = 200, thickness = 32 },
+		platforms = {
+			{ x = 165, y = 148, half_width = 30, half_height = 8 },
+			{ x = 265, y = 132, half_width = 30, half_height = 8 },
+			{ x = 355, y = 148, half_width = 29, half_height = 8 },
+		},
+		hazards = { { x = 215, y = 200 }, { x = 310, y = 200 } },
+		door = { x = 355, y = 120 },
+	},
+	{
+		id = "gravity_5",
+		theme = "gravity",
+		name = "AND IT RUNS",
+		-- Room 5 combines: upside down AND the door steps away once. The
+		-- retreat stays on the same ceiling, so the lie never asks for a
+		-- second mechanic the player has not met.
+		inverted = true,
+		spawn = { x = 26, y = 156 },
+		floor = { x_min = 0, x_max = 110, y_top = 200, thickness = 32 },
+		platforms = {
+			{ x = 190, y = 152, half_width = 36, half_height = 8 },
+			{ x = 320, y = 152, half_width = 44, half_height = 8 },
+		},
+		hazards = { { x = 150, y = 200 }, { x = 255, y = 200 } },
+		door = {
+			x = 190, y = 124, lie = "flee",
+			retreats = { { x = 320, y = 124 } },
+		},
+	},
 }
 
 -- Modifier -> the jump budget it leaves. Only mobility modifiers appear
@@ -562,8 +654,59 @@ end
 -- than it was: it runs as a unit test, over the data the game actually
 -- loads, using the same constants the game moves by — rather than a second
 -- program re-deriving the geometry out of .collection text.
+-- An upside-down room reflected the right way up. Every rule below then
+-- applies unchanged, because the physics is symmetric: falling up onto the
+-- underside of a platform is falling down onto the top of its reflection,
+-- with the same reach, the same apex and the same containment.
+--
+-- This is why inverted rooms cost one function instead of a second copy of
+-- the validator. A duplicated set of rules is how the two halves drift, and
+-- half of them would only ever run against five rooms.
+local function upright(room)
+	local function flip_y(y) return M.SCREEN_HEIGHT - y end
+	local out = {
+		id = room.id, theme = room.theme, modifier = room.modifier,
+		chase = room.chase,
+		spawn = { x = room.spawn.x, y = flip_y(room.spawn.y) },
+		floor = {
+			x_min = room.floor.x_min, x_max = room.floor.x_max,
+			-- The ceiling's underside is what the player walks on, so the
+			-- reflection's top face is that minus the thickness.
+			y_top = flip_y(room.floor.y_top + (room.floor.thickness or 32)),
+		},
+		platforms = {},
+		hazards = {},
+		door = { lie = room.door.lie, x = room.door.x, y = flip_y(room.door.y) },
+	}
+	for i, p in ipairs(room.platforms or {}) do
+		out.platforms[i] = {
+			x = p.x, y = flip_y(p.y),
+			half_width = p.half_width, half_height = p.half_height,
+			falling = p.falling,
+		}
+	end
+	for i, h in ipairs(room.hazards or {}) do
+		out.hazards[i] = { x = h.x, y = flip_y(h.y),
+			half_width = h.half_width, half_height = h.half_height }
+	end
+	if room.door.retreats then
+		out.door.retreats = {}
+		for i, r in ipairs(room.door.retreats) do
+			out.door.retreats[i] = { x = r.x, y = flip_y(r.y) }
+		end
+	end
+	return out
+end
+
 function M.validate(room, config)
 	config = config or {}
+	if room.inverted then
+		-- Validated as its own reflection. The problems are reported against
+		-- the reflected coordinates, which is a small price for not owning
+		-- two copies of every rule — and the room id in each message still
+		-- names the room the author has to fix.
+		return M.validate(upright(room), config)
+	end
 	local d = M.DEFAULTS
 	local player_half_width = config.player_half_width or d.player_half_width
 	local player_half_height = config.player_half_height or d.player_half_height

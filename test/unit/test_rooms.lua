@@ -242,6 +242,67 @@ return function()
 			assert(#rooms.validate(room) == 0)
 		end)
 
+		test("an upside-down room is validated as its own reflection", function()
+			-- Cheap proof that the reflection is right rather than merely
+			-- symmetric-looking: the same layout, once the right way up and
+			-- once inverted about the screen, must reach the same verdict.
+			local upright_room = {
+				id = "upright", theme = "gravity",
+				spawn = { x = 30, y = 60 },
+				floor = { x_min = 0, x_max = 120, y_top = 48, thickness = 32 },
+				platforms = { { x = 200, y = 56, half_width = 40, half_height = 8 },
+					{ x = 330, y = 56, half_width = 54, half_height = 8 } },
+				hazards = { { x = 258, y = 16 } },
+				door = { x = 330, y = 84 },
+			}
+			local flipped = {
+				id = "flipped", theme = "gravity", inverted = true,
+				spawn = { x = 30, y = 156 },
+				floor = { x_min = 0, x_max = 120, y_top = 200, thickness = 32 },
+				platforms = { { x = 200, y = 160, half_width = 40, half_height = 8 },
+					{ x = 330, y = 160, half_width = 54, half_height = 8 } },
+				hazards = { { x = 258, y = 200 } },
+				door = { x = 330, y = 132 },
+			}
+			assert(#rooms.validate(upright_room) == 0)
+			assert(#rooms.validate(flipped) == 0)
+		end)
+
+		test("an upside-down room with an unreachable ceiling is still reported", function()
+			-- The reflection must not launder a broken room into a valid one.
+			local room = {
+				id = "bad_ceiling", theme = "gravity", inverted = true,
+				spawn = { x = 30, y = 156 },
+				floor = { x_min = 0, x_max = 120, y_top = 200, thickness = 32 },
+				-- 150 below the ceiling the player walks on, against an apex
+				-- of 56.9 in the other direction.
+				platforms = { { x = 250, y = 20, half_width = 30, half_height = 8 } },
+				hazards = {},
+				door = { x = 60, y = 132 },
+			}
+			assert(#rooms.validate(room) > 0)
+		end)
+
+		test("every theme that has rooms has exactly five of them", function()
+			-- Sharper than the earlier "at most five", and it exists because
+			-- a bad edit put a whole theme's five rooms into the WRONG TABLE
+			-- (MODIFIER_MASS, where they were valid Lua and simply did not
+			-- exist as far as the game was concerned). Nothing failed: the
+			-- suite passed, validate_all iterated the rooms that were left,
+			-- and only booting room 16 and getting room 1 gave it away. A
+			-- count assertion over the table the game actually loads is the
+			-- cheapest thing that could have caught it.
+			local counts = {}
+			for _, room in ipairs(rooms.ROOMS) do
+				counts[room.theme] = (counts[room.theme] or 0) + 1
+			end
+			for theme, count in pairs(counts) do
+				assert(count == 5, theme .. " has " .. count .. " rooms, not five")
+			end
+			assert(rooms.count() == #rooms.ROOMS)
+			assert(rooms.count() % 5 == 0)
+		end)
+
 		test("an unknown theme is reported", function()
 			local room = {
 				id = "no_theme", theme = "does_not_exist",

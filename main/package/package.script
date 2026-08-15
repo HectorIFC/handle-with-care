@@ -151,10 +151,19 @@ local function reaction_sign(self)
 	return go.get(self.mirror, "reaction_sign")
 end
 
+-- Which way the package is carried. In an upside-down room the player walks
+-- on ceilings, so "above the player" in player-space is BELOW in world
+-- space; without this the package would be carried through the surface the
+-- player is standing on. Derived from the player's gravity sign, the same
+-- single source player_movement uses, so the two cannot disagree.
+local function carry_sign(self)
+	return go.get(self.player, "gravity") > 0 and -1 or 1
+end
+
 local function movement_config(self)
 	return {
 		offset_x = self.offset_x * reaction_sign(self),
-		offset_y = self.offset_y,
+		offset_y = self.offset_y * carry_sign(self),
 		lerp_factor = self.lerp_factor,
 		velocity_damping = self.velocity_damping,
 	}

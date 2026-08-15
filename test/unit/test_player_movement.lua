@@ -249,5 +249,38 @@ return function()
 			local state = { grounded = false, velocity_x = 0, velocity_y = -50 }
 			assert(player_movement.animation_state(state) == "fall")
 		end)
+
+		test("with gravity pulling up, a jump goes down", function()
+			-- One property decides which way is down. If the jump did not
+			-- follow the sign of gravity, an upside-down room would launch
+			-- the player into the ceiling they are standing on.
+			local state = player_movement.new()
+			local up = player_movement.update(state,
+				{ move_x = 0, jump_pressed = true }, 1 / 60, { gravity = 900 })
+			assert(up.velocity_y < 0)
+			local down = player_movement.update(state,
+				{ move_x = 0, jump_pressed = true }, 1 / 60, { gravity = -900 })
+			assert(down.velocity_y > 0)
+		end)
+
+		test("inverted, the player rests under a surface", function()
+			-- Falling upward onto the underside: the same crossing check
+			-- reflected, which is why there is one implementation and not two.
+			local ground = { x_min = 0, x_max = 100, y_top = 100, y_bottom = 80 }
+			local resting = player_movement.resting_y_on_ground(
+				50, 8, 60, 75, 8, ground, true)
+			assert(resting == 72)          -- y_bottom - half_height
+			-- And the same call the right way up finds nothing there.
+			assert(player_movement.resting_y_on_ground(
+				50, 8, 60, 75, 8, ground, false) == nil)
+		end)
+
+		test("inverted, rising counts as falling", function()
+			-- The animation follows gravity too, or an upside-down player
+			-- plays "jump" the whole way down.
+			local rising = { velocity_x = 0, velocity_y = 100, facing = 1, grounded = false }
+			assert(player_movement.animation_state(rising, false) == "jump")
+			assert(player_movement.animation_state(rising, true) == "fall")
+		end)
 	end)
 end

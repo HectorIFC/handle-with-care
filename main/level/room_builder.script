@@ -79,6 +79,12 @@ local function build(self, index)
 	-- The base floor lives on the PLAYER (ground_x_min/ground_x_max/
 	-- ground_y_top is what player_movement integrates against), so the room
 	-- writes it there rather than keeping a second copy of the same numbers.
+	-- Which way is down, for the whole room. One property: a positive gravity
+	-- makes the player fall upward, jump downward, stand on undersides, and
+	-- carry the package below itself (see player_movement.update and
+	-- package.script's carry_sign). Nothing else has to be told.
+	go.set(self.player, "gravity", room.inverted and 900 or -900)
+
 	go.set(self.player, "ground_x_min", room.floor.x_min)
 	go.set(self.player, "ground_x_max", room.floor.x_max)
 	go.set(self.player, "ground_y_top", room.floor.y_top)
