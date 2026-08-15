@@ -130,6 +130,59 @@ define level_settings
 		> $(LEVEL_SETTINGS)
 endef
 
+# The same two targets for a ROOM. Rooms are one screen and live in one
+# collection (main/levels/room.collection) built at runtime from
+# main/core/rooms.lua, so unlike levels they share a single proxy and the
+# index travels by message — see room_builder.script. ROOM is validated
+# against the room count in rooms.lua rather than a hardcoded ceiling, so
+# adding rooms never means editing this file.
+ROOM ?= 1
+ROOM_COUNT = $(shell grep -c '^\t\tid = "' main/core/rooms.lua)
+
+define room_settings
+	@case "$(ROOM)" in \
+		''|*[!0-9]*) echo "ROOM must be a number 1..$(ROOM_COUNT) (got '$(ROOM)')"; exit 1 ;; \
+	esac; \
+	if [ "$(ROOM)" -lt 1 ] || [ "$(ROOM)" -gt $(ROOM_COUNT) ]; then \
+		echo "ROOM must be 1..$(ROOM_COUNT) (got $(ROOM))"; exit 1; fi
+	@mkdir -p $(dir $(LEVEL_SETTINGS))
+	@printf '[hwc]\nautostart_room = $(ROOM)\n\n[engine]\nrun_while_iconified = 1\n' \
+		> $(LEVEL_SETTINGS)
+endef
+
+play-room: require-java require-tools ## Play one room directly: make play-room ROOM=3
+	$(room_settings)
+	@$(JAVA) $(JAVA_QUIET) -jar $(BOB) --settings $(LEVEL_SETTINGS) build
+	@rm -f $(LEVEL_SETTINGS)
+	@test -f $(DMENGINE) || { echo "ERROR: $(DMENGINE) missing — run 'make test' once."; exit 1; }
+	@echo "Launching room $(ROOM) of $(ROOM_COUNT)."
+	@-$(DMENGINE)
+	@echo "restoring the normal (menu) build..."
+	@$(JAVA) $(JAVA_QUIET) -jar $(BOB) build > /dev/null
+
+smoke-room: require-java require-tools ## Boot one room headless: make smoke-room ROOM=3
+	$(room_settings)
+	@$(JAVA) $(JAVA_QUIET) -jar $(BOB) --settings $(LEVEL_SETTINGS) build
+	@rm -f $(LEVEL_SETTINGS)
+	@log=$$(mktemp); \
+	( $(DMENGINE_HL) > "$$log" 2>&1 & echo $$! > "$$log.pid" ); \
+	sleep $(SMOKE_SECONDS); \
+	pid=$$(cat "$$log.pid"); \
+	if kill -0 "$$pid" 2>/dev/null; then kill "$$pid" 2>/dev/null; alive=1; else alive=0; fi; \
+	wait "$$pid" 2>/dev/null || true; \
+	echo "--- room boot log ---"; grep -aE "AUTOSTART|ROOM-START|ERROR|Assertion" "$$log" | head -20; \
+	if grep -qaE "Assertion failed|ERROR:CRASH|ERROR:SCRIPT" "$$log"; then \
+		echo "SMOKE-ROOM FAILED — see errors above"; rm -f "$$log" "$$log.pid"; exit 1; fi; \
+	if [ "$$alive" = "0" ]; then \
+		echo "SMOKE-ROOM FAILED — engine exited early"; tail -5 "$$log"; \
+		rm -f "$$log" "$$log.pid"; exit 1; fi; \
+	if ! grep -qa "ROOM-START " "$$log"; then \
+		echo "SMOKE-ROOM FAILED — no ROOM-START line at all"; \
+		rm -f "$$log" "$$log.pid"; exit 1; fi; \
+	rm -f "$$log" "$$log.pid"; echo "smoke-room ok — room $(ROOM) built"
+	@echo "restoring the normal (menu) build..."
+	@$(JAVA) $(JAVA_QUIET) -jar $(BOB) build > /dev/null
+
 play-level: require-java require-tools ## Play one level directly: make play-level LEVEL=3
 	$(level_settings)
 	@$(JAVA) $(JAVA_QUIET) -jar $(BOB) --settings $(LEVEL_SETTINGS) build

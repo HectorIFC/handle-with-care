@@ -31,6 +31,7 @@ local suites = {
 	require "test.unit.test_fx_burst",
 	require "test.unit.test_audio_cues",
 	require "test.unit.test_save_location",
+	require "test.unit.test_rooms",
 	-- RE-ENABLED (phase 22). These two were commented out in phase 9a to try
 	-- to isolate the engine wedge, on the theory that it always landed inside
 	-- them. It did not work — a run with both disabled still wedged — and the

@@ -1,0 +1,128 @@
+-- Builds one room out of main/core/rooms.lua's data.
+--
+-- Thin adapter (rule 1): rooms.lua owns every number, this only turns them
+-- into game objects. Nothing about a room's geometry is authored in a
+-- .collection, which is the point — a room is one screen, so its whole
+-- layout is a small table, and forty of them would otherwise be forty
+-- copies of the same wiring.
+--
+-- factory.create() is not a new technique here: player.script already
+-- spawns its fx bursts that way, passing properties through the same fourth
+-- argument. Rule 5 is satisfied the same as ever — half_width and friends
+-- are still the go.property values the AABB reads, still authored exactly
+-- once, just in Lua rather than in protobuf text.
+--
+-- Everything is built in init(), before the first update, so a platform is
+-- registered with the player on the same frame the room comes up. That
+-- ordering is the one thing here that is load-bearing: register_platform is
+-- posted from each spawned platform's own init, and the player reads
+-- self.platforms in update, which always runs after every init.
+
+local rooms = require "main.core.rooms"
+
+-- Which room to build. The screens object sets this before enabling the
+-- proxy; it defaults to the first so opening the collection directly (make
+-- play-room) still shows something.
+go.property("room_index", 1)
+
+-- Must be overridden per collection (component_properties) — see rule 5.
+go.property("player", msg.url())
+go.property("package", msg.url())
+
+-- Reported the way level_controller reports its level number, so
+-- `make play-room ROOM=N` can prove the room it asked for is the room that
+-- came up rather than assuming it.
+go.property("room_id", hash(""))
+
+local function build_platform(self, p)
+	-- A falling platform is a different prototype, not a flag on the same
+	-- one: player.script skips a dropping surface by reading is_falling off
+	-- whatever registered itself, so the two stay interchangeable from its
+	-- side (see CLAUDE.md's note on why that flag has to be explicit).
+	local properties = {
+		half_width = p.half_width,
+		half_height = p.half_height,
+		player = self.player,
+	}
+	if p.falling then
+		properties.fall_delay = p.fall_delay or 1.0
+		properties.fall_speed = p.fall_speed or 200
+		factory.create("#falling_factory", vmath.vector3(p.x, p.y, 0), nil, properties)
+	else
+		factory.create("#platform_factory", vmath.vector3(p.x, p.y, 0), nil, properties)
+	end
+end
+
+-- Which room to build has to cross a collectionproxy boundary, and there is
+-- no way to set a property on an object that does not exist yet: the
+-- collection's instances are created when the proxy is ENABLED, not when it
+-- is loaded. (hwc.autostart_level cannot help either — that is a
+-- game.project config key, fixed at build time.) So screens.script posts
+-- build_room immediately after enable, and Defold dispatches that after the
+-- enable it is queued behind, by which point this object exists.
+--
+-- update() is the backstop, so booting room.collection directly still shows
+-- a room instead of an empty screen. Both paths run the same build.
+local function build(self, index)
+	if self.built then
+		return
+	end
+	self.built = true
+
+	local room = rooms.ROOMS[index] or rooms.ROOMS[1]
+	self.room_id = hash(room.id)
+	-- The counterpart of level_controller's LEVEL-START line: it is the only
+	-- thing that can tell one room from another once it is up, which is what
+	-- lets `make play-room ROOM=N` prove it got the room it asked for.
+	print("ROOM-START " .. room.id)
+
+	-- The base floor lives on the PLAYER (ground_x_min/ground_x_max/
+	-- ground_y_top is what player_movement integrates against), so the room
+	-- writes it there rather than keeping a second copy of the same numbers.
+	go.set(self.player, "ground_x_min", room.floor.x_min)
+	go.set(self.player, "ground_x_max", room.floor.x_max)
+	go.set(self.player, "ground_y_top", room.floor.y_top)
+
+	-- set_spawn rather than a plain go.set_position: player.script captures
+	-- initial_position in its own init() and restores it on every restart,
+	-- so moving the object without telling it would send R back to wherever
+	-- the collection happened to place it.
+	msg.post(self.player, "set_spawn", { x = room.spawn.x, y = room.spawn.y })
+	msg.post(self.package, "set_spawn", { x = room.spawn.x, y = room.spawn.y })
+
+	for _, p in ipairs(room.platforms or {}) do
+		build_platform(self, p)
+	end
+
+	for _, h in ipairs(room.hazards or {}) do
+		factory.create("#hazard_factory", vmath.vector3(h.x, h.y, 0), nil, {
+			player = self.player,
+			package = self.package,
+			half_width = h.half_width or 8,
+			half_height = h.half_height or 8,
+			variant = hash(h.variant or "spike"),
+		})
+	end
+
+	factory.create("#door_factory", vmath.vector3(room.door.x, room.door.y, 0), nil, {
+		player = self.player,
+		package = self.package,
+		half_width = rooms.DEFAULTS.door_half_width,
+		half_height = rooms.DEFAULTS.door_half_height,
+	})
+end
+
+function init(self)
+	self.built = false
+end
+
+function update(self, dt)
+	build(self, self.room_index)
+end
+
+function on_message(self, message_id, message)
+	if message_id == hash("build_room") then
+		self.room_index = message.index or self.room_index
+		build(self, self.room_index)
+	end
+end

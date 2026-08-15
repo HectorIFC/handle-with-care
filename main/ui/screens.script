@@ -14,6 +14,7 @@ local flow = require "main.core.screen_flow"
 local save = require "main.core.save"
 local input_bindings = require "main.core.input_bindings"
 local audio_cues = require "main.core.audio_cues"
+local rooms = require "main.core.rooms"
 
 -- Same reverse map as player.script's: Defold delivers a hashed action_id
 -- and input_bindings speaks plain strings. Needed here so the Controls
@@ -194,8 +195,31 @@ local function proxy_for(self, level)
 	return url
 end
 
+-- The proxy of whatever is loaded right now, level or room, or nil when the
+-- menu is showing.
+--
+-- This exists because the first version of rooms did not have it, and the
+-- bug that produced was worth the extra function: load_room recorded only
+-- current_room, unload was guarded entirely by `if self.current_level`, so a
+-- finished room was never unloaded — and Next Level then loaded a level ON
+-- TOP of it. Two players on screen, one of them frozen by its own sticky
+-- `won`. Anything that acts on "the thing that is loaded" has to go through
+-- here rather than assuming a level.
+local function current_proxy(self)
+	if self.current_room then
+		local url = msg.url(self.loader)
+		url.fragment = hash("room_proxy")
+		return url
+	end
+	if self.current_level then
+		return proxy_for(self, self.current_level)
+	end
+	return nil
+end
+
 local function load_level(self, level)
 	self.current_level = level
+	self.current_room = nil
 	self.last_requested_level = level
 	if not self.test_mode then
 		-- Only one level is ever loaded, so an unload of whatever came
@@ -212,6 +236,27 @@ local function load_level(self, level)
 	render(self)
 end
 
+-- Rooms share one collection and therefore one proxy, unlike levels, which
+-- need a proxy component each because each is its own collection. Which room
+-- to build is posted AFTER enable rather than set as a property: the
+-- collection's instances do not exist until the proxy is enabled, so there
+-- is nothing to set a property on beforehand. Defold dispatches the two
+-- messages in order, so room_builder exists by the time build_room lands.
+local function load_room(self, index)
+	self.current_room = index
+	self.current_level = nil
+	self.last_requested_room = index
+	if not self.test_mode then
+		local proxy = msg.url(self.loader)
+		proxy.fragment = hash("room_proxy")
+		msg.post(proxy, "async_load")
+		self.pending_room = index
+	end
+	self.state = flow.set_screen(self.state, flow.PLAYING)
+	cue("music_gameplay")
+	render(self)
+end
+
 local function unload_level(self)
 	-- The level's camera left a scrolled view behind on the render script,
 	-- and the menu draws in plain screen coordinates. Without this, coming
@@ -220,24 +265,33 @@ local function unload_level(self)
 	msg.post("@render:", "set_view_projection",
 		{ id = hash("camera"), view = vmath.matrix4(),
 		  projection = vmath.matrix4() })
-	if self.current_level then
+	local proxy = current_proxy(self)
+	if proxy then
 		if not self.test_mode then
-			msg.post(proxy_for(self, self.current_level), "unload")
+			msg.post(proxy, "unload")
 		end
 		self.current_level = nil
+		self.current_room = nil
 	end
 end
 
 local function set_level_time_step(self, factor)
-	if not self.test_mode then
-		if self.current_level then
-			msg.post(proxy_for(self, self.current_level), "set_time_step", { factor = factor, mode = 0 })
-		end
+	-- Pause freezes the loaded collection's time step, which is the only
+	-- thing that actually stops gameplay. Routed through current_proxy so it
+	-- freezes a room too: while this only knew about levels, pausing inside
+	-- a room did nothing at all.
+	local proxy = current_proxy(self)
+	if proxy and not self.test_mode then
+		msg.post(proxy, "set_time_step", { factor = factor, mode = 0 })
 	end
 end
 
 local function show_result(self, won)
 	self.result_won = won
+	-- Which room this was, so Retry and Next Level can act on the room
+	-- rather than falling through to level 1. Captured BEFORE unload_level
+	-- clears it.
+	self.result_room = self.current_room
 	self.result_level = self.current_level or 1
 	self.result_time = self.pending_time or 0
 	self.result_attempts = self.pending_attempts or 1
@@ -281,11 +335,28 @@ local function perform(self, action)
 		set_level_time_step(self, 1)
 		self.state = flow.set_screen(self.state, flow.PLAYING)
 	elseif action == flow.ACTION_RETRY then
-		local level = self.current_level or self.result_level or 1
-		unload_level(self)
-		load_level(self, level)
+		-- A room retries as a room. Reading result_room rather than
+		-- current_room because show_result has already unloaded by now, and
+		-- unloading is what clears current_room.
+		local room = self.current_room or self.result_room
+		if room then
+			unload_level(self)
+			load_room(self, room)
+		else
+			local level = self.current_level or self.result_level or 1
+			unload_level(self)
+			load_level(self, level)
+		end
 	elseif action == flow.ACTION_NEXT_LEVEL then
-		load_level(self, math.min(self.result_level + 1, self.total_levels))
+		local room = self.current_room or self.result_room
+		if room then
+			-- Clamped on rooms.count() rather than total_levels: the two
+			-- counts are unrelated, and running off the end of the room list
+			-- would build room 1 again while claiming to advance.
+			load_room(self, math.min(room + 1, rooms.count()))
+		else
+			load_level(self, math.min(self.result_level + 1, self.total_levels))
+		end
 	elseif action == flow.ACTION_TO_MENU then
 		unload_level(self)
 		cue("music_menu")
@@ -356,6 +427,8 @@ function init(self)
 	self.state = flow.new()
 	self.total_levels = go.get(self.save_adapter, "total_levels")
 	self.current_level = nil
+	self.current_room = nil
+	self.result_room = nil
 	self.result_won = false
 	self.result_level = 1
 	self.result_time = 0
@@ -378,6 +451,12 @@ function init(self)
 	if autostart > 0 then
 		print("AUTOSTART: loading level " .. autostart)
 		load_level(self, autostart)
+	end
+
+	local autoroom = sys.get_config_int("hwc.autostart_room", 0)
+	if autoroom > 0 then
+		print("AUTOSTART: loading room " .. autoroom)
+		load_room(self, autoroom)
 	end
 end
 
@@ -524,6 +603,15 @@ end
 function on_message(self, message_id, message, sender)
 	if message_id == hash("proxy_loaded") then
 		msg.post(sender, "enable")
+		if self.pending_room then
+			-- Queued straight behind the enable, so it is dispatched once
+			-- the collection's objects exist. This is the only way a room
+			-- index can cross the proxy: there is nothing to set a property
+			-- on until enable has run.
+			msg.post("room:/room_builder#script", "build_room",
+				{ index = self.pending_room })
+			self.pending_room = nil
+		end
 		render(self)
 	elseif message_id == hash("level_finished") then
 		-- Posted by level_controller.script once the attempt is decided.

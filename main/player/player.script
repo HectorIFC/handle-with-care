@@ -495,6 +495,16 @@ function on_message(self, message_id, message, sender)
 	elseif message_id == hash("test_set_input") then
 		self.input.move_x = message.move_x or 0
 		self.input.jump_pressed = message.jump_pressed or false
+	elseif message_id == hash("set_spawn") then
+		-- Where a room puts the player. This has to move initial_position
+		-- too, not just the object: init() captured it and reset() restores
+		-- it on every restart, so teleporting without telling this script
+		-- would send R back to wherever the collection happened to place the
+		-- instance rather than to the room's own spawn.
+		local pos = go.get_position()
+		self.initial_position = vmath.vector3(
+			message.x or pos.x, message.y or pos.y, pos.z)
+		go.set_position(self.initial_position)
 	elseif message_id == hash("test_set_position") then
 		-- Test-only: teleports the player and forces it airborne, so a
 		-- test can produce a fall tall enough to exceed

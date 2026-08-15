@@ -1,0 +1,186 @@
+-- Rooms are data, so their geometry is testable — which is the main reason
+-- they are data. This replaces, for rooms, what scripts/check_levels.py does
+-- for the ten legacy levels: it runs in the suite, over the table the game
+-- actually loads, using player_movement's own multipliers, instead of a
+-- second program re-deriving the same arithmetic out of .collection text.
+
+local rooms = require "main.core.rooms"
+
+return function()
+	describe("Rooms", function()
+
+		test("every room is playable", function()
+			-- The one that matters: no unreachable surface, no unsupported
+			-- spawn, no unwinnable door, nothing off-screen, in any room.
+			local problems = rooms.validate_all()
+			if #problems > 0 then
+				-- Printed rather than only asserted: deftest reports
+				-- "assertion failed!" and nothing else, and which room broke
+				-- is the entire content of this failure.
+				for _, problem in ipairs(problems) do
+					print("ROOM PROBLEM: " .. problem)
+				end
+			end
+			assert(#problems == 0)
+		end)
+
+		test("every room names a theme that exists", function()
+			for _, room in ipairs(rooms.ROOMS) do
+				assert(rooms.theme(room.theme) ~= nil)
+			end
+		end)
+
+		test("rooms are grouped in themes of five, the way the format wants", function()
+			-- Level Devil groups five stages behind a door; the composition
+			-- rule (teach, charge, charge, charge, combine) only reads if a
+			-- theme is actually full. A partial theme is fine while it is
+			-- being built, so this only checks the ones that are complete.
+			local counts = {}
+			for _, room in ipairs(rooms.ROOMS) do
+				counts[room.theme] = (counts[room.theme] or 0) + 1
+			end
+			for theme, count in pairs(counts) do
+				assert(count <= 5, theme .. " has more than five rooms")
+			end
+		end)
+
+		test("a room's budget shrinks when it declares a mobility modifier", function()
+			local plain = { theme = "falling", platforms = {} }
+			local heavy = { theme = "falling", platforms = {}, modifier = "heavy_cycle" }
+			local plain_reach, plain_apex = rooms.budget(plain)
+			local heavy_reach, heavy_apex = rooms.budget(heavy)
+			assert(heavy_reach < plain_reach)
+			assert(heavy_apex < plain_apex)
+		end)
+
+		-- Negative proofs. A guard that has never failed has not been tested
+		-- — the lesson from the delivery-zone bug, which shipped because the
+		-- checker only ever ran against geometry that already passed.
+
+		test("an unreachable platform is reported", function()
+			local room = {
+				id = "broken", theme = "falling",
+				spawn = { x = 40, y = 60 },
+				floor = { x_min = 0, x_max = 80, y_top = 48 },
+				-- 200 above the floor, against an apex of 56.9.
+				platforms = { { x = 200, y = 200, half_width = 20, half_height = 8 } },
+				hazards = {},
+				door = { x = 40, y = 68 },
+			}
+			assert(#rooms.validate(room) > 0)
+		end)
+
+		test("a door with nothing under it is reported", function()
+			local room = {
+				id = "broken_door", theme = "falling",
+				spawn = { x = 40, y = 60 },
+				floor = { x_min = 0, x_max = 80, y_top = 48 },
+				platforms = {},
+				-- Well past the floor's right edge: the exact shape of the
+				-- bug that shipped in level 9, where the zone hung over the
+				-- pit and the checker said ok.
+				door = { x = 300, y = 68 },
+			}
+			assert(#rooms.validate(room) > 0)
+		end)
+
+		test("a door at the wrong height is reported", function()
+			local room = {
+				id = "high_door", theme = "falling",
+				spawn = { x = 40, y = 60 },
+				floor = { x_min = 0, x_max = 384, y_top = 48 },
+				platforms = {},
+				-- Right x, but the carried package rests at 68 and cannot
+				-- reach a zone centred at 160.
+				door = { x = 200, y = 160 },
+			}
+			assert(#rooms.validate(room) > 0)
+		end)
+
+		test("a spawn over nothing is reported", function()
+			local room = {
+				id = "no_ground", theme = "falling",
+				spawn = { x = 300, y = 60 },
+				floor = { x_min = 0, x_max = 80, y_top = 48 },
+				platforms = {},
+				door = { x = 40, y = 68 },
+			}
+			assert(#rooms.validate(room) > 0)
+		end)
+
+		test("a platform outside the screen is reported", function()
+			local room = {
+				id = "off_screen", theme = "falling",
+				spawn = { x = 40, y = 60 },
+				floor = { x_min = 0, x_max = 384, y_top = 48 },
+				-- A room has no camera, so anything past 384 is invisible
+				-- rather than merely far away.
+				platforms = { { x = 400, y = 80, half_width = 20, half_height = 8 } },
+				door = { x = 40, y = 68 },
+			}
+			assert(#rooms.validate(room) > 0)
+		end)
+
+		test("a room finishable by holding one direction is reported", function()
+			-- This is the geometry room 1 actually SHIPPED with: a floor
+			-- spanning the whole screen, the falling platform hovering
+			-- decoratively above it, and the door at walking height. It was
+			-- possible, reachable, winnable and completely trivial — every
+			-- other guard passed it. A troll platformer may never be
+			-- walkable in a straight line, so that is now a failure.
+			local room = {
+				id = "corridor", theme = "falling",
+				spawn = { x = 40, y = 60 },
+				floor = { x_min = 0, x_max = 384, y_top = 48 },
+				platforms = {
+					{ x = 150, y = 96, half_width = 40, half_height = 8, falling = true },
+				},
+				hazards = {},
+				door = { x = 330, y = 68 },
+			}
+			assert(#rooms.validate(room) > 0)
+		end)
+
+		test("a hazard standing in the walked band is enough to not be trivial", function()
+			-- The same corridor, with one spike on the floor between spawn
+			-- and door. Now it has to be jumped, so it is a room. This pins
+			-- the rule's other half: without it, the check would reject
+			-- rooms whose whole idea is a single well-placed hazard.
+			local room = {
+				id = "one_spike", theme = "falling",
+				spawn = { x = 40, y = 60 },
+				floor = { x_min = 0, x_max = 384, y_top = 48 },
+				platforms = {},
+				hazards = { { x = 200, y = 56 } },
+				door = { x = 330, y = 68 },
+			}
+			assert(#rooms.validate(room) == 0)
+		end)
+
+		test("a spike in the pit does not save a corridor", function()
+			-- Below the floor the player walks on, so it threatens nobody
+			-- who never leaves it. Distinguishing this from the case above
+			-- is the reason the band is checked by height and not just by x.
+			local room = {
+				id = "pit_spike", theme = "falling",
+				spawn = { x = 40, y = 60 },
+				floor = { x_min = 0, x_max = 384, y_top = 48 },
+				platforms = {},
+				hazards = { { x = 200, y = 16 } },
+				door = { x = 330, y = 68 },
+			}
+			assert(#rooms.validate(room) > 0)
+		end)
+
+		test("an unknown theme is reported", function()
+			local room = {
+				id = "no_theme", theme = "does_not_exist",
+				spawn = { x = 40, y = 60 },
+				floor = { x_min = 0, x_max = 384, y_top = 48 },
+				platforms = {},
+				door = { x = 40, y = 68 },
+			}
+			assert(#rooms.validate(room) > 0)
+		end)
+	end)
+end

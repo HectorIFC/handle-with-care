@@ -444,7 +444,20 @@ function update(self, dt)
 end
 
 function on_message(self, message_id, message)
-	if message_id == hash("test_set_position") then
+	if message_id == hash("set_spawn") then
+		-- The room's spawn, mirroring player.script's handler. Both the
+		-- physics position and initial_position move: the first so the very
+		-- next update() lerps from the right place instead of flying across
+		-- the screen from wherever the collection put this instance, the
+		-- second so a restart returns here (test_reset already snaps to
+		-- initial_position for exactly that reason).
+		local pos = go.get_position()
+		self.initial_position = vmath.vector3(
+			message.x or pos.x, message.y or pos.y, pos.z)
+		self.physics.position_x = self.initial_position.x
+		self.physics.position_y = self.initial_position.y
+		go.set_position(self.initial_position)
+	elseif message_id == hash("test_set_position") then
 		-- Test-only: overrides the physics-driven position directly (not
 		-- just go.set_position) so the very next update()'s pit/off-screen
 		-- checks see the overridden value before package_physics.update()

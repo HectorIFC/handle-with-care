@@ -1,0 +1,2 @@
+prototype: "/main/hazards/falling_platform.go"
+load_dynamically: false

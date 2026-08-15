@@ -1,0 +1,2 @@
+prototype: "/main/delivery/delivery_zone.go"
+load_dynamically: false
