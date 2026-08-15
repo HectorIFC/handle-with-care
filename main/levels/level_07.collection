@@ -26,20 +26,30 @@ instances {
       type: PROPERTY_TYPE_URL
     }
     properties {
+      id: "image"
+      value: "bg7_sky"
+      type: PROPERTY_TYPE_HASH
+    }
+    properties {
       id: "factor"
       value: "0.1"
       type: PROPERTY_TYPE_NUMBER
     }
     properties {
       id: "tile_width"
-      value: "384"
+      value: "64"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "copies"
+      value: "7"
       type: PROPERTY_TYPE_NUMBER
     }
   }
 }
 instances {
-  id: "bg_hills"
-  prototype: "/main/level/bg_hills.go"
+  id: "bg_far"
+  prototype: "/main/level/bg_far.go"
   position {
     x: 0.0
     y: 0.0
@@ -62,6 +72,11 @@ instances {
       id: "camera"
       value: "/camera#script"
       type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "image"
+      value: "bg7_far"
+      type: PROPERTY_TYPE_HASH
     }
     properties {
       id: "factor"
@@ -73,11 +88,16 @@ instances {
       value: "192"
       type: PROPERTY_TYPE_NUMBER
     }
+    properties {
+      id: "copies"
+      value: "3"
+      type: PROPERTY_TYPE_NUMBER
+    }
   }
 }
 instances {
-  id: "bg_ridge"
-  prototype: "/main/level/bg_ridge.go"
+  id: "bg_mid"
+  prototype: "/main/level/bg_mid.go"
   position {
     x: 0.0
     y: 0.0
@@ -100,6 +120,11 @@ instances {
       id: "camera"
       value: "/camera#script"
       type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "image"
+      value: "bg7_mid"
+      type: PROPERTY_TYPE_HASH
     }
     properties {
       id: "factor"
@@ -111,11 +136,16 @@ instances {
       value: "128"
       type: PROPERTY_TYPE_NUMBER
     }
+    properties {
+      id: "copies"
+      value: "4"
+      type: PROPERTY_TYPE_NUMBER
+    }
   }
 }
 instances {
-  id: "bg_trees"
-  prototype: "/main/level/bg_trees.go"
+  id: "bg_near"
+  prototype: "/main/level/bg_near.go"
   position {
     x: 0.0
     y: 0.0
@@ -140,6 +170,11 @@ instances {
       type: PROPERTY_TYPE_URL
     }
     properties {
+      id: "image"
+      value: "bg7_near"
+      type: PROPERTY_TYPE_HASH
+    }
+    properties {
       id: "factor"
       value: "0.7"
       type: PROPERTY_TYPE_NUMBER
@@ -147,6 +182,11 @@ instances {
     properties {
       id: "tile_width"
       value: "128"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "copies"
+      value: "4"
       type: PROPERTY_TYPE_NUMBER
     }
   }
@@ -313,7 +353,7 @@ instances {
     }
     properties {
       id: "level_width"
-      value: "1100"
+      value: "1250"
       type: PROPERTY_TYPE_NUMBER
     }
   }
@@ -365,172 +405,7 @@ instances {
   id: "platform_1"
   prototype: "/main/level/platform.go"
   position {
-    x: 215.0
-    y: 40.0
-    z: 0.0
-  }
-  rotation {
-    x: 0.0
-    y: 0.0
-    z: 0.0
-    w: 1.0
-  }
-  component_properties {
-    id: "script"
-    properties {
-      id: "player"
-      value: "/player#script"
-      type: PROPERTY_TYPE_URL
-    }
-    properties {
-      id: "half_width"
-      value: "55"
-      type: PROPERTY_TYPE_NUMBER
-    }
-    properties {
-      id: "half_height"
-      value: "8"
-      type: PROPERTY_TYPE_NUMBER
-    }
-  }
-}
-instances {
-  id: "platform_2"
-  prototype: "/main/level/platform.go"
-  position {
-    x: 360.0
-    y: 40.0
-    z: 0.0
-  }
-  rotation {
-    x: 0.0
-    y: 0.0
-    z: 0.0
-    w: 1.0
-  }
-  component_properties {
-    id: "script"
-    properties {
-      id: "player"
-      value: "/player#script"
-      type: PROPERTY_TYPE_URL
-    }
-    properties {
-      id: "half_width"
-      value: "55"
-      type: PROPERTY_TYPE_NUMBER
-    }
-    properties {
-      id: "half_height"
-      value: "8"
-      type: PROPERTY_TYPE_NUMBER
-    }
-  }
-}
-instances {
-  id: "platform_3"
-  prototype: "/main/level/platform.go"
-  position {
-    x: 505.0
-    y: 40.0
-    z: 0.0
-  }
-  rotation {
-    x: 0.0
-    y: 0.0
-    z: 0.0
-    w: 1.0
-  }
-  component_properties {
-    id: "script"
-    properties {
-      id: "player"
-      value: "/player#script"
-      type: PROPERTY_TYPE_URL
-    }
-    properties {
-      id: "half_width"
-      value: "55"
-      type: PROPERTY_TYPE_NUMBER
-    }
-    properties {
-      id: "half_height"
-      value: "8"
-      type: PROPERTY_TYPE_NUMBER
-    }
-  }
-}
-instances {
-  id: "platform_4"
-  prototype: "/main/level/platform.go"
-  position {
-    x: 650.0
-    y: 64.0
-    z: 0.0
-  }
-  rotation {
-    x: 0.0
-    y: 0.0
-    z: 0.0
-    w: 1.0
-  }
-  component_properties {
-    id: "script"
-    properties {
-      id: "player"
-      value: "/player#script"
-      type: PROPERTY_TYPE_URL
-    }
-    properties {
-      id: "half_width"
-      value: "55"
-      type: PROPERTY_TYPE_NUMBER
-    }
-    properties {
-      id: "half_height"
-      value: "8"
-      type: PROPERTY_TYPE_NUMBER
-    }
-  }
-}
-instances {
-  id: "platform_5"
-  prototype: "/main/level/platform.go"
-  position {
-    x: 800.0
-    y: 64.0
-    z: 0.0
-  }
-  rotation {
-    x: 0.0
-    y: 0.0
-    z: 0.0
-    w: 1.0
-  }
-  component_properties {
-    id: "script"
-    properties {
-      id: "player"
-      value: "/player#script"
-      type: PROPERTY_TYPE_URL
-    }
-    properties {
-      id: "half_width"
-      value: "55"
-      type: PROPERTY_TYPE_NUMBER
-    }
-    properties {
-      id: "half_height"
-      value: "8"
-      type: PROPERTY_TYPE_NUMBER
-    }
-  }
-}
-instances {
-  id: "platform_6"
-  prototype: "/main/level/platform.go"
-  position {
-    x: 950.0
+    x: 260.0
     y: 40.0
     z: 0.0
   }
@@ -560,10 +435,142 @@ instances {
   }
 }
 instances {
+  id: "platform_2"
+  prototype: "/main/level/platform.go"
+  position {
+    x: 455.0
+    y: 48.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "half_width"
+      value: "70"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "half_height"
+      value: "8"
+      type: PROPERTY_TYPE_NUMBER
+    }
+  }
+}
+instances {
+  id: "platform_3"
+  prototype: "/main/level/platform.go"
+  position {
+    x: 645.0
+    y: 48.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "half_width"
+      value: "70"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "half_height"
+      value: "8"
+      type: PROPERTY_TYPE_NUMBER
+    }
+  }
+}
+instances {
+  id: "platform_4"
+  prototype: "/main/level/platform.go"
+  position {
+    x: 835.0
+    y: 40.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "half_width"
+      value: "70"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "half_height"
+      value: "8"
+      type: PROPERTY_TYPE_NUMBER
+    }
+  }
+}
+instances {
+  id: "platform_5"
+  prototype: "/main/level/platform.go"
+  position {
+    x: 1035.0
+    y: 40.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+  component_properties {
+    id: "script"
+    properties {
+      id: "player"
+      value: "/player#script"
+      type: PROPERTY_TYPE_URL
+    }
+    properties {
+      id: "half_width"
+      value: "80"
+      type: PROPERTY_TYPE_NUMBER
+    }
+    properties {
+      id: "half_height"
+      value: "8"
+      type: PROPERTY_TYPE_NUMBER
+    }
+  }
+}
+instances {
   id: "spike_1"
   prototype: "/main/hazards/lethal_hazard.go"
   position {
-    x: 155.0
+    x: 357.0
     y: 16.0
     z: 0.0
   }
@@ -591,7 +598,7 @@ instances {
   id: "spike_2"
   prototype: "/main/hazards/lethal_hazard.go"
   position {
-    x: 290.0
+    x: 550.0
     y: 16.0
     z: 0.0
   }
@@ -624,7 +631,7 @@ instances {
   id: "spike_3"
   prototype: "/main/hazards/lethal_hazard.go"
   position {
-    x: 435.0
+    x: 740.0
     y: 16.0
     z: 0.0
   }
@@ -652,7 +659,7 @@ instances {
   id: "spike_4"
   prototype: "/main/hazards/lethal_hazard.go"
   position {
-    x: 580.0
+    x: 930.0
     y: 16.0
     z: 0.0
   }
@@ -685,8 +692,8 @@ instances {
   id: "spike_5"
   prototype: "/main/hazards/lethal_hazard.go"
   position {
-    x: 725.0
-    y: 16.0
+    x: 318.0
+    y: 56.0
     z: 0.0
   }
   rotation {
@@ -713,8 +720,8 @@ instances {
   id: "spike_6"
   prototype: "/main/hazards/lethal_hazard.go"
   position {
-    x: 880.0
-    y: 16.0
+    x: 893.0
+    y: 56.0
     z: 0.0
   }
   rotation {
@@ -746,7 +753,7 @@ instances {
   id: "delivery_zone"
   prototype: "/main/delivery/delivery_zone.go"
   position {
-    x: 975.0
+    x: 1035.0
     y: 68.0
     z: 0.0
   }

@@ -715,6 +715,34 @@ def islands(w, color, count=2, top=70, thick=16, taper=22, floor=None):
     return im
 
 
+def city(w, color, count=4, ground=150, low=118, high=78, gap=3, inverted=False):
+    """A skyline of flat-topped blocks. This is the silhouette level 1's
+    trees deliberately avoid — see treeline's note.
+
+    `inverted` hangs the blocks DOWN from the top of the frame instead of
+    standing them on the ground, which is what a level about inverted
+    controls wants: the city is upside down before the player touches
+    anything. `count` must divide the width."""
+    assert w % count == 0, "city: count must divide the width"
+    im = img(w, BG_H)
+    span = w // count
+    for i in range(count):
+        left = i * span + gap
+        right = i * span + span - gap
+        top = low if i % 2 == 0 else high
+        if inverted:
+            # Hanging: the block grows downward from y=0, and the "roof" is
+            # at the bottom of it.
+            rect(im, left, 0, right, BG_H - top, color)
+            rect(im, left + 3, BG_H - top, right - 3, BG_H - top + 6, color)
+        else:
+            rect(im, left, top, right, ground + 2, color)
+            rect(im, left + 3, top - 5, right - 3, top, color)
+    if not inverted:
+        rect(im, 0, ground, w, BG_H, color)
+    return im
+
+
 # Level 1 — Tutorial Soft: dusk over rolling hills. Warm, open, unthreatening;
 # it is the first thing anyone sees.
 L1_SKY_TOP  = (48, 52, 96, 255)
@@ -824,6 +852,31 @@ emit_single(islands(MID_W, L6_MID, count=2, top=96, thick=18, taper=16), "bg6_mi
 emit_single(islands(NEAR_W, L6_NEAR, count=2, top=140, thick=20, taper=18,
                     floor=196), "bg6_near")
 
+# Level 7 — Control Freak: a cyan city hanging upside down. The level is
+# about your inputs meaning the opposite of what you pressed, so the skyline
+# is wrong before you touch anything.
+L7_SKY_TOP  = (14, 44, 58, 255)
+L7_SKY_HIGH = (20, 76, 96, 255)
+L7_SKY_MID  = (30, 118, 138, 255)
+L7_SKY_LOW  = (72, 168, 176, 255)
+L7_FAR      = (26, 92, 110, 255)
+L7_MID      = (18, 66, 82, 255)
+L7_NEAR     = (10, 38, 50, 255)
+
+emit_single(sky([(50, L7_SKY_TOP), (92, L7_SKY_HIGH), (134, L7_SKY_MID),
+                 (BG_H, L7_SKY_LOW)]), "bg7_sky")
+# For the hanging layers `low`/`high` are measured from the BOTTOM, so a
+# larger number hangs LESS far down. Wide blocks at a shallow gap merge into
+# a solid mass and swallow the sky — the same crowding that ruined level 3's
+# first pass — so these are narrow and shallow, and only the near layer is a
+# normal city standing on the ground.
+emit_single(city(FAR_W, L7_FAR, count=4, low=168, high=150, gap=9,
+                 inverted=True), "bg7_far")
+emit_single(city(MID_W, L7_MID, count=4, low=148, high=126, gap=8,
+                 inverted=True), "bg7_mid")
+emit_single(city(NEAR_W, L7_NEAR, count=4, low=136, high=118, gap=7,
+                 ground=170), "bg7_near")
+
 
 # --- Atlas -------------------------------------------------------------
 def verify_contract():
@@ -845,7 +898,7 @@ def verify_contract():
     required |= {"tile_ground", "tile_platform", "spike", "saw", "delivery"}
     required |= {"bg_sky", "bg_hills", "bg_ridge", "bg_trees", "fx_burst"}
     # Per-level themes, added one slice at a time.
-    for level in (1, 2, 3, 4, 5, 6):
+    for level in (1, 2, 3, 4, 5, 6, 7):
         required |= {"bg%d_%s" % (level, role)
                      for role in ("sky", "far", "mid", "near")}
 
