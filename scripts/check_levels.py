@@ -29,6 +29,9 @@ LEVELS = os.path.join(os.path.dirname(__file__), "..", "main", "levels")
 # repeated here, so this cannot drift from the game (rule 5).
 PLAYER = os.path.join(os.path.dirname(__file__), "..", "main", "player", "player.script")
 CORE = os.path.join(os.path.dirname(__file__), "..", "main", "core", "player_movement.lua")
+PACKAGE = os.path.join(os.path.dirname(__file__), "..", "main", "package", "package.script")
+ZONE = os.path.join(os.path.dirname(__file__), "..", "main", "delivery",
+                    "delivery_zone.script")
 
 
 def property_default(path, name):
@@ -142,6 +145,71 @@ def reachable_from(target, others, max_gap, max_step):
     return False
 
 
+# --- the delivery zone --------------------------------------------------
+# Everything above answers "can the player get there". None of it answers
+# "is there a there" — the win condition was not checked at all until a
+# level shipped with its delivery zone hanging over the pit, 45 units past
+# the end of the last platform, while this script reported ok. Reaching
+# every surface is worth nothing if the goal is not on one.
+
+PLAYER_HALF_HEIGHT = property_default(PLAYER, "half_height")
+PACKAGE_OFFSET_Y = property_default(PACKAGE, "offset_y")
+PACKAGE_HALF_HEIGHT = property_default(PACKAGE, "half_height")
+ZONE_HALF_WIDTH = property_default(ZONE, "half_width")
+ZONE_HALF_HEIGHT = property_default(ZONE, "half_height")
+
+
+def delivery_zone(src):
+    """The zone as (centre x, centre y, half width, half height).
+
+    Scoped to the zone's own instance block, unlike base_floor's file-wide
+    search: half_width is a property on every platform and hazard too, so a
+    loose regex would happily return a platform's."""
+    m = re.search(r'instances \{\n  id: "[^"]*delivery[^"]*"\n(?:.*?\n)*?\}\n', src)
+    if not m:
+        return None
+    block = m.group(0)
+    pos = re.search(r'position \{\n    x: ([-\d.]+)\n    y: ([-\d.]+)', block)
+
+    def prop(name, default):
+        found = re.search(r'id: "%s"\n      value: "([-\d.]+)"' % name, block)
+        return float(found.group(1)) if found else default
+
+    return (float(pos.group(1)), float(pos.group(2)),
+            prop("half_width", ZONE_HALF_WIDTH),
+            prop("half_height", ZONE_HALF_HEIGHT))
+
+
+def deliverable_from(zone, walk):
+    """Is there a surface the player can stand on that puts the package
+    INSIDE the zone?
+
+    Containment, not overlap: core/delivery.lua's is_inside requires the
+    package rect to be fully within the zone (PRD 3.4's "dentro"), so a
+    check that accepted a corner touching would pass levels the game itself
+    would refuse to award.
+
+    The vertical test is exact — the package's resting height is fully
+    determined by the surface. The horizontal one is deliberately coarse
+    (does the surface's span reach the zone's at all), because the player
+    can stand anywhere along the surface and carries the package offset_x to
+    whichever side it is facing. That makes this side permissive rather than
+    strict: it catches a zone with no surface near it, which is the failure
+    that has actually happened, and would not catch a zone overhanging a
+    surface by a few pixels."""
+    cx, cy, zhw, zhh = zone
+    for left, right, top in walk:
+        # Standing on this surface, the player's centre is half its height
+        # above the top, and the package rides offset_y above that.
+        rest_y = top + PLAYER_HALF_HEIGHT + PACKAGE_OFFSET_Y
+        if right < cx - zhw or left > cx + zhw:
+            continue                       # cannot stand under the zone
+        if (cy - zhh <= rest_y - PACKAGE_HALF_HEIGHT
+                and rest_y + PACKAGE_HALF_HEIGHT <= cy + zhh):
+            return True
+    return False
+
+
 def check(path):
     src = open(path).read()
     name = os.path.basename(path)
@@ -157,6 +225,19 @@ def check(path):
                 "the surface at x=%.0f..%.0f (top y=%.0f) cannot be reached from "
                 "any other: needs a gap <=%.1f and a step <=%.1f (%s)"
                 % (tl, tr, tt, max_gap, max_step, why))
+
+    zone = delivery_zone(src)
+    if zone is None:
+        problems.append("no delivery zone: the level cannot be won")
+    elif not deliverable_from(zone, walk):
+        cx, cy, zhw, zhh = zone
+        problems.append(
+            "the delivery zone at x=%.0f y=%.0f (%.0fx%.0f) has no surface "
+            "under it that puts the package inside: standing on a surface "
+            "with top y=T leaves the package centred at T+%.0f, and it must "
+            "fit whole within y=%.0f..%.0f"
+            % (cx, cy, zhw * 2, zhh * 2,
+               PLAYER_HALF_HEIGHT + PACKAGE_OFFSET_Y, cy - zhh, cy + zhh))
     return name, why, max_gap, max_step, problems
 
 
