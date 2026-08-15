@@ -686,6 +686,35 @@ def pillars(w, color, count=2, ground=150, tall=70, short=100, half=9,
     return im
 
 
+def islands(w, color, count=2, top=70, thick=16, taper=22, floor=None):
+    """Chunks of land with nothing under them: a flat cap, then a keel that
+    narrows to a point. Nothing here touches a ground line unless `floor` is
+    given, which is the whole read — in a level about gravity changing its
+    mind, the scenery should look like it stopped agreeing with it.
+
+    `count` must divide the width."""
+    assert w % count == 0, "islands: count must divide the width"
+    im = img(w, BG_H)
+    if floor is not None:
+        rect(im, 0, floor, w, BG_H, color)
+    span = w // count
+    for i in range(count):
+        cx = i * span + span // 2
+        y0 = top if i % 2 == 0 else top + 26
+        # The cap has to be clearly wider than the keel is deep, and there
+        # has to be open sky between islands — sized the other way round they
+        # read as hanging funnels rather than as land that came loose.
+        half = max(6, span // 2 - span // 6)
+        rect(im, cx - half, y0, cx + half + 1, y0 + thick, color)
+        # Keel: each step narrower than the one above it.
+        steps = 4
+        for k in range(steps):
+            h = half - (half - 2) * (k + 1) // steps
+            rect(im, cx - h, y0 + thick + k * taper // steps,
+                 cx + h + 1, y0 + thick + (k + 1) * taper // steps, color)
+    return im
+
+
 # Level 1 — Tutorial Soft: dusk over rolling hills. Warm, open, unthreatening;
 # it is the first thing anyone sees.
 L1_SKY_TOP  = (48, 52, 96, 255)
@@ -778,6 +807,23 @@ emit_single(pillars(MID_W, L5_MID, count=2, tall=68, short=94,
 emit_single(pillars(NEAR_W, L5_NEAR, count=2, tall=100, short=122,
                     half=4, cap=2, ground=174, floor=True), "bg5_near")
 
+# Level 6 — Gravity Moods: an unsettled sky over land that has come loose.
+# Teal-green rather than any of the blues and violets used so far.
+L6_SKY_TOP  = (26, 52, 62, 255)
+L6_SKY_HIGH = (38, 84, 92, 255)
+L6_SKY_MID  = (64, 124, 118, 255)
+L6_SKY_LOW  = (118, 166, 140, 255)
+L6_FAR      = (56, 104, 104, 255)
+L6_MID      = (40, 76, 80, 255)
+L6_NEAR     = (24, 46, 52, 255)
+
+emit_single(sky([(46, L6_SKY_TOP), (82, L6_SKY_HIGH), (118, (50, 104, 106, 255)),
+                 (150, L6_SKY_MID), (BG_H, L6_SKY_LOW)]), "bg6_sky")
+emit_single(islands(FAR_W, L6_FAR, count=2, top=54, thick=16, taper=14), "bg6_far")
+emit_single(islands(MID_W, L6_MID, count=2, top=96, thick=18, taper=16), "bg6_mid")
+emit_single(islands(NEAR_W, L6_NEAR, count=2, top=140, thick=20, taper=18,
+                    floor=196), "bg6_near")
+
 
 # --- Atlas -------------------------------------------------------------
 def verify_contract():
@@ -799,7 +845,7 @@ def verify_contract():
     required |= {"tile_ground", "tile_platform", "spike", "saw", "delivery"}
     required |= {"bg_sky", "bg_hills", "bg_ridge", "bg_trees", "fx_burst"}
     # Per-level themes, added one slice at a time.
-    for level in (1, 2, 3, 4, 5):
+    for level in (1, 2, 3, 4, 5, 6):
         required |= {"bg%d_%s" % (level, role)
                      for role in ("sky", "far", "mid", "near")}
 
