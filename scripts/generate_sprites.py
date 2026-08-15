@@ -818,6 +818,45 @@ def reflected(w, color, count=3, horizon=132, peak=48, notch=8):
     return im
 
 
+def ruins(w, color, count=2, ground=162, top=86, leg=11, span_gap=14,
+          broken=(1,), rubble=6):
+    """Collapsed arcade: pairs of legs joined by a lintel, with some arches
+    fallen in. Distinct from pillars() (level 5) by the LINTEL — a standing
+    stone alone is a pillar, two joined at the top is architecture, and only
+    architecture can look ruined. `broken` lists which arches lost their
+    lintel and half a leg; the rest still stand, because a field where
+    everything is equally destroyed reads as texture rather than as ruin.
+
+    `count` must divide the width."""
+    assert w % count == 0, "ruins: count must divide the width"
+    im = img(w, BG_H)
+    if rubble:
+        # A low, uneven debris line. Flat would read as a floor, and this
+        # theme has to look like something fell rather than something was
+        # built.
+        for x in range(w):
+            step = ((x // 7) % 3) * 2
+            rect(im, x, ground - rubble + step, x + 1, ground, color)
+    step_w = w // count
+    for i in range(count):
+        left = i * step_w + span_gap
+        right = i * step_w + step_w - span_gap
+        is_broken = i in broken
+        # Left leg always stands; the right one is cut short when broken, so
+        # the silhouette has a clear diagonal of collapse rather than two
+        # equal stumps.
+        rect(im, left, top, left + leg, ground, color)
+        right_top = top + (ground - top) // 2 if is_broken else top
+        rect(im, right - leg, right_top, right, ground, color)
+        if not is_broken:
+            rect(im, left, top, right, top + 9, color)          # lintel
+            rect(im, left - 3, top - 4, right + 3, top, color)  # cornice
+        else:
+            # A stub of lintel still clinging to the standing leg.
+            rect(im, left, top, left + leg + 7, top + 9, color)
+    return im
+
+
 # Level 1 — Tutorial Soft: dusk over rolling hills. Warm, open, unthreatening;
 # it is the first thing anyone sees.
 L1_SKY_TOP  = (48, 52, 96, 255)
@@ -990,6 +1029,28 @@ emit_single(reflected(MID_W, L9_MID, count=2, horizon=142, peak=40, notch=10),
 emit_single(reflected(NEAR_W, L9_NEAR, count=4, horizon=168, peak=26, notch=5),
             "bg9_near")
 
+# Level 10 — Final Delivery: red ruins. The only warm-dark theme in the set;
+# every other level is cool or bright. This is the last thing the player
+# sees, and it should look like the end of something.
+L10_SKY_TOP  = (34, 14, 26, 255)
+L10_SKY_HIGH = (72, 24, 34, 255)
+L10_SKY_MID  = (124, 44, 40, 255)
+L10_SKY_LOW  = (176, 78, 52, 255)
+L10_FAR      = (96, 36, 40, 255)
+L10_MID      = (70, 26, 32, 255)
+L10_NEAR     = (44, 16, 24, 255)
+
+emit_single(sky([(58, L10_SKY_TOP), (104, L10_SKY_HIGH), (148, L10_SKY_MID),
+                 (BG_H, L10_SKY_LOW)]), "bg10_sky")
+# Progressively more of the arcade has fallen the closer it gets, so the
+# three layers read as one ruin at three distances rather than three ruins.
+emit_single(ruins(FAR_W, L10_FAR, count=3, ground=150, top=78, broken=(2,),
+                  rubble=5), "bg10_far")
+emit_single(ruins(MID_W, L10_MID, count=2, ground=164, top=96, broken=(0,),
+                  rubble=7), "bg10_mid")
+emit_single(ruins(NEAR_W, L10_NEAR, count=2, ground=182, top=122, leg=13,
+                  broken=(0, 1), rubble=9), "bg10_near")
+
 
 # --- Atlas -------------------------------------------------------------
 def verify_contract():
@@ -1011,7 +1072,7 @@ def verify_contract():
     required |= {"tile_ground", "tile_platform", "spike", "saw", "delivery"}
     required |= {"bg_sky", "bg_hills", "bg_ridge", "bg_trees", "fx_burst"}
     # Per-level themes, added one slice at a time.
-    for level in (1, 2, 3, 4, 5, 6, 7, 8, 9):
+    for level in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10):
         required |= {"bg%d_%s" % (level, role)
                      for role in ("sky", "far", "mid", "near")}
 
