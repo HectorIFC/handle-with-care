@@ -743,6 +743,30 @@ def city(w, color, count=4, ground=150, low=118, high=78, gap=3, inverted=False)
     return im
 
 
+def mesa(w, color, count=2, top=110, floor=None, notch=6):
+    """Flat-topped plateaus with stepped shoulders: wide, calm, horizontal.
+
+    Deliberately the quietest silhouette in the set — no spikes, no jitter,
+    nothing pointing up. Level 8 is the one the package sleeps through, and
+    the scenery should look asleep too. `count` must divide the width."""
+    assert w % count == 0, "mesa: count must divide the width"
+    im = img(w, BG_H)
+    if floor is not None:
+        rect(im, 0, floor, w, BG_H, color)
+    span = w // count
+    for i in range(count):
+        left = i * span + 4
+        right = i * span + span - 4
+        y = top if i % 2 == 0 else top + 18
+        bottom = floor + 2 if floor is not None else BG_H
+        rect(im, left, y, right, bottom, color)
+        # Stepped shoulders, so the plateau has a profile instead of being a
+        # bare box.
+        rect(im, left - notch, y + 8, right + notch, bottom, color)
+        rect(im, left - notch * 2, y + 18, right + notch * 2, bottom, color)
+    return im
+
+
 # Level 1 — Tutorial Soft: dusk over rolling hills. Warm, open, unthreatening;
 # it is the first thing anyone sees.
 L1_SKY_TOP  = (48, 52, 96, 255)
@@ -877,6 +901,22 @@ emit_single(city(MID_W, L7_MID, count=4, low=148, high=126, gap=8,
 emit_single(city(NEAR_W, L7_NEAR, count=4, low=136, high=118, gap=7,
                  ground=170), "bg7_near")
 
+# Level 8 — Sleepy Package: night. The darkest and least saturated theme in
+# the set, and the only one whose silhouettes are entirely horizontal.
+L8_SKY_TOP  = (12, 16, 34, 255)
+L8_SKY_HIGH = (22, 28, 54, 255)
+L8_SKY_MID  = (36, 44, 78, 255)
+L8_SKY_LOW  = (58, 66, 104, 255)
+L8_FAR      = (30, 36, 66, 255)
+L8_MID      = (22, 27, 50, 255)
+L8_NEAR     = (14, 18, 34, 255)
+
+emit_single(sky([(62, L8_SKY_TOP), (108, L8_SKY_HIGH), (150, L8_SKY_MID),
+                 (BG_H, L8_SKY_LOW)]), "bg8_sky")
+emit_single(mesa(FAR_W, L8_FAR, count=2, top=96), "bg8_far")
+emit_single(mesa(MID_W, L8_MID, count=2, top=126), "bg8_mid")
+emit_single(mesa(NEAR_W, L8_NEAR, count=2, top=156, floor=188), "bg8_near")
+
 
 # --- Atlas -------------------------------------------------------------
 def verify_contract():
@@ -898,7 +938,7 @@ def verify_contract():
     required |= {"tile_ground", "tile_platform", "spike", "saw", "delivery"}
     required |= {"bg_sky", "bg_hills", "bg_ridge", "bg_trees", "fx_burst"}
     # Per-level themes, added one slice at a time.
-    for level in (1, 2, 3, 4, 5, 6, 7):
+    for level in (1, 2, 3, 4, 5, 6, 7, 8):
         required |= {"bg%d_%s" % (level, role)
                      for role in ("sky", "far", "mid", "near")}
 
