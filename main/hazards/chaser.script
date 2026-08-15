@@ -1,0 +1,97 @@
+-- The advancing lethal wall (core/chaser.lua). Thin adapter (rule 1): the
+-- core decides where the wall is, this moves the object and reports the
+-- catch.
+--
+-- Checks itself against the player and the package, the same inversion every
+-- hazard uses since phase 9a, and routes a catch into the exact same
+-- "hazard_hit" the spikes post — so a death by chaser and a death by spike
+-- go through player.script's one die() and can never drift apart.
+
+local chaser = require "main.core.chaser"
+
+-- Must be overridden at spawn (the room builder passes these) — see rule 5.
+go.property("player", msg.url())
+go.property("package", msg.url())
+
+-- Where the face of the wall starts, in world x. Off the left edge by
+-- default, so it is visible arriving rather than appearing on top of you.
+go.property("start_x", -24)
+go.property("speed", 42)
+go.property("acceleration", 4)
+
+-- Drawn size. The wall is a half-plane for gameplay (anything at or behind
+-- the face is caught), but it has to be a finite sprite to look like
+-- something, so this is only the picture.
+go.property("half_width", 32)
+go.property("half_height", 108)
+
+-- tile_ground.png's native size, same derivation as platform.script.
+local TILE = 16
+
+local function config(self)
+	return { speed = self.speed, acceleration = self.acceleration }
+end
+
+function init(self)
+	self.state = chaser.new(self.start_x)
+	self.base_y = go.get_position().y
+	-- PRD 3.5: restart is broadcast through Defold's input dispatch — every
+	-- restorable object acquires focus and resets itself, and none of them
+	-- consume the action.
+	msg.post(".", "acquire_input_focus")
+	go.set_scale(vmath.vector3(
+		self.half_width * 2 / TILE,
+		self.half_height * 2 / TILE,
+		1))
+end
+
+function update(self, dt)
+	self.state = chaser.update(self.state, dt, self.start_x, config(self))
+	-- The object is drawn centred BEHIND its own face, so the sprite fills
+	-- the space the wall has already taken rather than sticking out in front
+	-- of it and killing at a position the player cannot see.
+	go.set_position(vmath.vector3(
+		self.state.position - self.half_width, self.base_y, go.get_position().z))
+
+	if go.get(self.player, "dead") or go.get(self.player, "won") then
+		return
+	end
+
+	local player_pos = go.get_position(self.player)
+	if chaser.caught(self.state, {
+		x = player_pos.x,
+		half_width = go.get(self.player, "half_width"),
+	}) then
+		msg.post(self.player, "hazard_hit")
+		return
+	end
+
+	local package_pos = go.get_position(self.package)
+	if chaser.caught(self.state, {
+		x = package_pos.x,
+		half_width = go.get(self.package, "half_width"),
+	}) then
+		-- Same message as the player's own catch: PRD 3.3 treats losing the
+		-- package as losing the attempt, and the player never puts it down.
+		msg.post(self.player, "hazard_hit")
+	end
+end
+
+local function reset(self)
+	self.state = chaser.new(self.start_x)
+	go.set_position(vmath.vector3(
+		self.start_x - self.half_width, self.base_y, go.get_position().z))
+end
+
+function on_input(self, action_id, action)
+	if action_id == hash("restart") and action.pressed then
+		reset(self)
+	end
+	return false -- never consume: every other object needs to see this too
+end
+
+function on_message(self, message_id, message)
+	if message_id == hash("reset") or message_id == hash("test_reset") then
+		reset(self)
+	end
+end

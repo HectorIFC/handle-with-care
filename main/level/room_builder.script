@@ -112,6 +112,17 @@ local function build(self, index)
 			half_height = rooms.DEFAULTS.door_half_height,
 			lie = hash(room.door.lie or "honest"),
 		})
+	if room.chase then
+		factory.create("#chaser_factory",
+			vmath.vector3(room.chase.start or -24, rooms.SCREEN_HEIGHT * 0.5, 0), nil, {
+				player = self.player,
+				package = self.package,
+				start_x = room.chase.start or -24,
+				speed = room.chase.speed or 42,
+				acceleration = room.chase.acceleration or 4,
+			})
+	end
+
 	if room.door.retreats then
 		-- By message because go.property has no list type. A one-off at
 		-- spawn, so rule 4's "messages are for discrete events" holds — the

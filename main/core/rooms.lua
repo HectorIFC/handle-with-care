@@ -28,6 +28,7 @@
 
 local player_movement = require "main.core.player_movement"
 local door_lie = require "main.core.door_lie"
+local chaser = require "main.core.chaser"
 
 local M = {}
 
@@ -302,6 +303,102 @@ M.ROOMS = {
 			retreats = { { x = 352, y = 104 } },
 		},
 	},
+
+	-- Theme 7, DO NOT STOP. The one theme where holding right is the correct
+	-- answer, which is why validate exempts it from the straight-walk rule:
+	-- what makes these rooms is that stopping kills you, not that the path
+	-- is complicated. Every one is checked as OUTRUNNABLE instead — see
+	-- core/chaser.lua.
+	{
+		id = "chase_1",
+		theme = "chase",
+		name = "BEHIND YOU",
+		-- Teaches by betraying, like every room 1: the room looks like the
+		-- calmest one in the game — flat floor, door in plain sight — and
+		-- then something starts eating it from the left. The slowest wall in
+		-- the theme, and 2s of forgiveness, so the lesson is "move" and not
+		-- "be fast".
+		spawn = { x = 30, y = 60 },
+		floor = { x_min = 0, x_max = 384, y_top = 48 },
+		platforms = {},
+		hazards = {},
+		chase = { start = -40, speed = 34, acceleration = 2.0, slack = 2.0 },
+		door = { x = 350, y = 68 },
+	},
+	{
+		id = "chase_2",
+		theme = "chase",
+		name = "NO TIME TO LOOK",
+		-- Charges for it: a gap now costs a jump, and a jump costs the
+		-- moment of hesitation before it.
+		spawn = { x = 30, y = 60 },
+		floor = { x_min = 0, x_max = 150, y_top = 48 },
+		platforms = {
+			{ x = 230, y = 60, half_width = 45, half_height = 8 },
+			{ x = 350, y = 60, half_width = 34, half_height = 8 },
+		},
+		hazards = { { x = 195, y = 16 } },
+		chase = { start = -40, speed = 38, acceleration = 3.0, slack = 1.8 },
+		door = { x = 350, y = 80 },
+	},
+	{
+		id = "chase_3",
+		theme = "chase",
+		name = "UPHILL",
+		-- Climbing costs no ground in this game (horizontal speed is
+		-- unchanged in the air), so the pressure here is that a missed step
+		-- sends you back down into the wall.
+		spawn = { x = 26, y = 60 },
+		floor = { x_min = 0, x_max = 130, y_top = 48 },
+		platforms = {
+			{ x = 190, y = 76, half_width = 34, half_height = 8 },
+			{ x = 280, y = 100, half_width = 34, half_height = 8 },
+			{ x = 356, y = 124, half_width = 28, half_height = 8 },
+		},
+		hazards = { { x = 160, y = 16 } },
+		chase = { start = -50, speed = 42, acceleration = 4.0 },
+		door = { x = 356, y = 152 },
+	},
+	{
+		id = "chase_4",
+		theme = "chase",
+		name = "THE FLOOR TOO",
+		-- Layers theme 1 in early: two of the steps are liars, so the one
+		-- thing you cannot do — stand still and think — is exactly what the
+		-- platform makes you want to do.
+		spawn = { x = 26, y = 60 },
+		floor = { x_min = 0, x_max = 120, y_top = 48 },
+		platforms = {
+			{ x = 180, y = 68, half_width = 32, half_height = 8, falling = true },
+			{ x = 270, y = 88, half_width = 32, half_height = 8, falling = true },
+			{ x = 356, y = 108, half_width = 28, half_height = 8 },
+		},
+		hazards = { { x = 150, y = 16 } },
+		chase = { start = -50, speed = 46, acceleration = 5.0 },
+		door = { x = 356, y = 136 },
+	},
+	{
+		id = "chase_5",
+		theme = "chase",
+		name = "AND IT LIES",
+		-- Room 5 combines rather than invents: the wall behind, and a door
+		-- that steps away once when you finally reach it. The retreat is
+		-- deliberately backwards-free — it moves further RIGHT, never left,
+		-- because a door that fled into the wall would be a death sentence
+		-- dressed as a joke.
+		spawn = { x = 26, y = 60 },
+		floor = { x_min = 0, x_max = 140, y_top = 48 },
+		platforms = {
+			{ x = 215, y = 72, half_width = 40, half_height = 8 },
+			{ x = 340, y = 72, half_width = 44, half_height = 8 },
+		},
+		hazards = { { x = 180, y = 16 }, { x = 275, y = 16 } },
+		chase = { start = -60, speed = 44, acceleration = 4.0 },
+		door = {
+			x = 215, y = 92, lie = "flee",
+			retreats = { { x = 356, y = 92 } },
+		},
+	},
 }
 
 -- Modifier -> the jump budget it leaves. Only mobility modifiers appear
@@ -569,7 +666,42 @@ function M.validate(room, config)
 			tostring(room.id)))
 	end
 
-	if walkable_straight_through(room, player_half_height, package_offset_y) then
+	-- A chased room has to be OUTRUNNABLE. Same shape as door_lie's "the lie
+	-- must end": a wall faster than the player is not difficulty, it is an
+	-- unwinnable room, and it would present as the player simply always
+	-- dying rather than as anything diagnosable. chaser.survivable answers
+	-- it in the same closed form the game runs on, so this is a proof and
+	-- not an estimate.
+	if room.chase then
+		local final = door_lie.positions(room.door, room.door.retreats)
+		final = final[#final]
+		local ok, wall_x = chaser.survivable({
+			spawn_x = room.spawn.x,
+			door_x = final.x,
+			move_speed = (config.move_speed or 90) * (room.modifier and
+				player_movement.speed_multiplier(MODIFIER_MASS[room.modifier]) or 1),
+			start = room.chase.start or -24,
+			speed = room.chase.speed,
+			acceleration = room.chase.acceleration,
+			slack = room.chase.slack,
+		})
+		if not ok then
+			fail(string.format(
+				"room %s cannot be outrun: walking straight to the door and "
+				.. "allowing %.1fs of hesitation, the wall is already at x=%.0f "
+				.. "with the door at x=%d",
+				tostring(room.id), room.chase.slack or chaser.DEFAULT_SLACK,
+				wall_x, final.x))
+		end
+	end
+
+	-- A chased room is exempt from the straight-walk rule, and this is not a
+	-- loophole: holding one direction is exactly what a chase asks for, and
+	-- the thing that makes it a room is that stopping kills you. Judging it
+	-- by the same yardstick as a still room would demand hazards that fight
+	-- the wall for the player's attention.
+	if not room.chase
+		and walkable_straight_through(room, player_half_height, package_offset_y) then
 		fail(string.format(
 			"room %s can be finished by holding one direction: the spawn's floor "
 			.. "runs unbroken to the door, the door is at walking height, and "

@@ -18,3 +18,7 @@ components {
   id: "door_factory"
   component: "/main/delivery/delivery_zone.factory"
 }
+components {
+  id: "chaser_factory"
+  component: "/main/hazards/chaser.factory"
+}

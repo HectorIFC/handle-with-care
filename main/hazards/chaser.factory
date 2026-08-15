@@ -1,0 +1,2 @@
+prototype: "/main/hazards/chaser.go"
+load_dynamically: false

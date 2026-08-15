@@ -213,6 +213,35 @@ return function()
 			assert(#rooms.validate(room) > 0)
 		end)
 
+		test("a room whose wall cannot be outrun is reported", function()
+			-- The chase equivalent of a door that flees forever: it would
+			-- present as the player simply always dying, with every other
+			-- guard reporting the room fine.
+			local room = {
+				id = "unwinnable_chase", theme = "chase",
+				spawn = { x = 30, y = 60 },
+				floor = { x_min = 0, x_max = 384, y_top = 48 },
+				platforms = {}, hazards = {},
+				chase = { start = 0, speed = 300, acceleration = 20, slack = 0 },
+				door = { x = 350, y = 68 },
+			}
+			assert(#rooms.validate(room) > 0)
+		end)
+
+		test("a chased room is exempt from the straight-walk rule", function()
+			-- Not a loophole: holding one direction is exactly what a chase
+			-- asks for, and what makes it a room is that stopping kills you.
+			local room = {
+				id = "honest_chase", theme = "chase",
+				spawn = { x = 30, y = 60 },
+				floor = { x_min = 0, x_max = 384, y_top = 48 },
+				platforms = {}, hazards = {},
+				chase = { start = -40, speed = 34, acceleration = 2, slack = 2 },
+				door = { x = 350, y = 68 },
+			}
+			assert(#rooms.validate(room) == 0)
+		end)
+
 		test("an unknown theme is reported", function()
 			local room = {
 				id = "no_theme", theme = "does_not_exist",
