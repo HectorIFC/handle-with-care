@@ -24,8 +24,18 @@ go.property("half_height", 8)
 -- this level's player instance — see CLAUDE.md rule 5.
 go.property("player", msg.url())
 go.property("fall_delay", 1.0)
-go.property("fall_speed", 200)
+-- Lowered from 200. At 200 the platform left the screen almost the instant
+-- it let go, so the drop read as the platform vanishing rather than as
+-- something you might still scramble off. Slower is also more legible:
+-- PRD section 11 asks that a death be understandable within two seconds,
+-- and you cannot learn from a hazard you never saw move.
+go.property("fall_speed", 150)
 go.property("is_falling", false)
+
+-- The pre-fall shudder. Exposed as properties, like every other tunable, so
+-- a level can dial it without touching the core defaults (rule 5).
+go.property("wobble_amplitude", 2.0)
+go.property("wobble_frequency", 16.0)
 
 -- tile_platform.png's native size; see main/level/platform.script.
 local TILE = 16
@@ -65,7 +75,20 @@ function update(self, dt)
 
 	if self.platform.falling then
 		go.set_position(vmath.vector3(pos.x, pos.y - self.fall_speed * dt, pos.z))
+		return
 	end
+
+	-- Wobble is measured from the platform's HOME x, never added to wherever
+	-- it happens to be: adding a per-frame offset to the live position would
+	-- integrate the sine instead of tracing it, and the platform would walk
+	-- off sideways over a few seconds.
+	go.set_position(vmath.vector3(
+		self.initial_position.x + falling_platform.wobble_offset(self.platform, {
+			fall_delay = self.fall_delay,
+			wobble_amplitude = self.wobble_amplitude,
+			wobble_frequency = self.wobble_frequency,
+		}),
+		pos.y, pos.z))
 end
 
 local function reset(self)
