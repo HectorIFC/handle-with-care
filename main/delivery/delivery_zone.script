@@ -9,6 +9,7 @@
 -- ever one zone per level, so this costs nothing here.
 
 local delivery = require "main.core.delivery"
+local door_lie = require "main.core.door_lie"
 
 go.property("half_width", 20)
 go.property("half_height", 20)
@@ -25,11 +26,38 @@ go.property("delivered", false)
 go.property("has_audio", false)
 go.property("audio", msg.url())
 
+-- Which lie this zone tells, if any (see core/door_lie.lua). A hash rather
+-- than a string because go.property has no string type; "honest" is the
+-- default, so every level built before this existed behaves exactly as it
+-- did.
+go.property("lie", hash("honest"))
+go.property("trigger_distance", 48)
+
+-- Mirrored for tests and debugging, the same way `delivered` is: whether the
+-- zone will currently accept a delivery at all.
+go.property("open", true)
+
+-- go.property has no string type, so the behavior travels as a hash and is
+-- translated once, here, rather than at every comparison — a hash-vs-string
+-- == is always false and never errors, which is exactly the mistake
+-- CLAUDE.md records against `current_state`.
+local LIE_NAMES = {
+	[hash("honest")] = door_lie.HONEST,
+	[hash("flee")] = door_lie.FLEE,
+	[hash("vanish")] = door_lie.VANISH,
+}
+
 -- delivery.png's native size.
 local SPRITE_SIZE = 40
 
 function init(self)
 	self.initial_position = go.get_position()
+	self.lie_state = door_lie.new()
+	-- Where a fleeing door may run to. It cannot be a go.property (no list
+	-- type), so the room builder posts it right after spawning this — a
+	-- one-off discrete event, which is what a message is for (rule 4); the
+	-- per-frame reads below stay synchronous.
+	self.retreats = nil
 	-- PRD 3.5: restart is broadcast through Defold's input dispatch rather
 	-- than a registry of objects to notify — see player.script's on_input
 	-- for why. Every restorable object acquires focus and resets itself.
@@ -50,6 +78,28 @@ function update(self, dt)
 	if self.delivered then
 		return
 	end
+
+	local package_lie_pos = go.get_position(self.package)
+	local home = self.initial_position
+	local lie_config = {
+		behavior = LIE_NAMES[self.lie] or door_lie.HONEST,
+		trigger_distance = self.trigger_distance,
+	}
+	-- Distance is measured to where the door IS, not to its home: a door
+	-- that has already fled once must be approached again before it flees
+	-- again, which is what spaces the retreats out over the room.
+	local door_x, door_y = door_lie.position(self.lie_state, home, self.retreats)
+	local dx, dy = package_lie_pos.x - door_x, package_lie_pos.y - door_y
+	self.lie_state = door_lie.update(self.lie_state, dt,
+		math.sqrt(dx * dx + dy * dy), self.retreats, lie_config)
+	self.open = door_lie.is_open(self.lie_state, lie_config)
+
+	door_x, door_y = door_lie.position(self.lie_state, home, self.retreats)
+	go.set_position(vmath.vector3(door_x, door_y, self.initial_position.z))
+	-- A hidden door is drawn away rather than deleted: the sprite component
+	-- has no per-frame visibility knob that survives a reset cleanly, and
+	-- tinting it to zero alpha is one call.
+	go.set("#visual", "tint", vmath.vector4(1, 1, 1, self.open and 1 or 0))
 
 	local pos = go.get_position()
 	local zone = {
@@ -74,7 +124,10 @@ function update(self, dt)
 		player_dead = go.get(self.player, "dead"),
 	}
 
-	if delivery.is_delivered(package_rect, zone, package_state) then
+	-- A closed door is not a door. Checked here rather than by moving the
+	-- zone off-screen so the geometry a test reads stays honest even while
+	-- the door is lying.
+	if self.open and delivery.is_delivered(package_rect, zone, package_state) then
 		self.delivered = true
 		msg.post(self.player, "package_delivered")
 		if self.has_audio then
@@ -85,6 +138,12 @@ end
 
 local function reset(self)
 	self.delivered = false
+	-- The lie resets with everything else: a door that had already spent
+	-- its retreats would otherwise be honest on every attempt after the
+	-- first, and the room would get easier the more you failed.
+	self.lie_state = door_lie.new()
+	self.open = true
+	go.set("#visual", "tint", vmath.vector4(1, 1, 1, 1))
 	go.set_position(self.initial_position)
 end
 
@@ -98,5 +157,7 @@ end
 function on_message(self, message_id, message)
 	if message_id == hash("reset") or message_id == hash("test_reset") then
 		reset(self)
+	elseif message_id == hash("set_retreats") then
+		self.retreats = message.retreats
 	end
 end

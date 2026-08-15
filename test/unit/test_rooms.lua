@@ -172,6 +172,47 @@ return function()
 			assert(#rooms.validate(room) > 0)
 		end)
 
+		test("a door that flees somewhere unreachable is reported", function()
+			-- The retreat, not the home, is where the room ends. A door that
+			-- runs out over a pit is unwinnable while every other guard here
+			-- says ok — so validate checks EVERY position it can occupy.
+			local room = {
+				id = "flees_into_the_void", theme = "door",
+				spawn = { x = 40, y = 60 },
+				floor = { x_min = 0, x_max = 140, y_top = 48 },
+				platforms = {},
+				hazards = { { x = 90, y = 56 } },
+				door = { x = 60, y = 68, lie = "flee",
+					retreats = { { x = 340, y = 68 } } },
+			}
+			assert(#rooms.validate(room) > 0)
+		end)
+
+		test("a door set to flee with nowhere to flee is reported", function()
+			-- Otherwise it is silently the boring version of itself.
+			local room = {
+				id = "flee_nowhere", theme = "door",
+				spawn = { x = 40, y = 60 },
+				floor = { x_min = 0, x_max = 384, y_top = 48 },
+				platforms = {},
+				hazards = { { x = 200, y = 56 } },
+				door = { x = 330, y = 68, lie = "flee" },
+			}
+			assert(#rooms.validate(room) > 0)
+		end)
+
+		test("an unknown lie is reported", function()
+			local room = {
+				id = "bad_lie", theme = "door",
+				spawn = { x = 40, y = 60 },
+				floor = { x_min = 0, x_max = 384, y_top = 48 },
+				platforms = {},
+				hazards = { { x = 200, y = 56 } },
+				door = { x = 330, y = 68, lie = "teleports" },
+			}
+			assert(#rooms.validate(room) > 0)
+		end)
+
 		test("an unknown theme is reported", function()
 			local room = {
 				id = "no_theme", theme = "does_not_exist",

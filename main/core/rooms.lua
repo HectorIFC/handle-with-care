@@ -27,6 +27,7 @@
 -- Python script parsing .collection files with regexes.
 
 local player_movement = require "main.core.player_movement"
+local door_lie = require "main.core.door_lie"
 
 local M = {}
 
@@ -197,6 +198,110 @@ M.ROOMS = {
 		},
 		door = { x = 366, y = 80 },
 	},
+
+	-- Theme 8, THE DOOR LIES. Placed here rather than last in play order so
+	-- it can be reached and judged now; the map that orders themes is the
+	-- migration slice's job.
+	{
+		id = "door_1",
+		theme = "door",
+		name = "ALMOST THERE",
+		-- Teaches by betraying, like every room 1: the door is right there
+		-- on the floor, four seconds away, and it steps back once when you
+		-- reach for it. Nothing here can kill — this one room is about
+		-- learning that the goal is not on your side, and the lesson is
+		-- cheap because a corridor with a door that MOVES is not a corridor.
+		spawn = { x = 30, y = 60 },
+		floor = { x_min = 0, x_max = 384, y_top = 48 },
+		platforms = {},
+		hazards = { { x = 210, y = 56 } },
+		door = {
+			x = 150, y = 68, lie = "flee",
+			retreats = { { x = 340, y = 68 } },
+		},
+	},
+	{
+		id = "door_2",
+		theme = "door",
+		name = "TWICE SHY",
+		-- Now it runs twice, and the second retreat is across a gap, so the
+		-- room turns from a walk into a jump the moment the door decides so.
+		spawn = { x = 30, y = 60 },
+		floor = { x_min = 0, x_max = 150, y_top = 48 },
+		platforms = {
+			{ x = 250, y = 60, half_width = 50, half_height = 8 },
+			{ x = 350, y = 92, half_width = 34, half_height = 8 },
+		},
+		hazards = { { x = 195, y = 16 } },
+		door = {
+			x = 80, y = 68, lie = "flee",
+			retreats = { { x = 250, y = 88 }, { x = 350, y = 120 } },
+		},
+	},
+	{
+		id = "door_3",
+		theme = "door",
+		name = "NOW YOU DON'T",
+		-- vanish instead of flee: the door stays put and stops existing on a
+		-- cycle. Waiting always works, which is what keeps it a timing test
+		-- rather than a coin flip — but waiting on a falling platform does
+		-- not, and that is the room.
+		spawn = { x = 30, y = 60 },
+		floor = { x_min = 0, x_max = 110, y_top = 48 },
+		platforms = {
+			{ x = 190, y = 60, half_width = 40, half_height = 8, falling = true },
+			{ x = 320, y = 60, half_width = 60, half_height = 8 },
+		},
+		hazards = { { x = 145, y = 16 }, { x = 265, y = 16 } },
+		door = { x = 320, y = 80, lie = "vanish" },
+	},
+	{
+		id = "door_4",
+		theme = "door",
+		name = "THE LONG WAY",
+		-- Three retreats, each one higher, so the door walks the player up a
+		-- staircase it would never have bothered climbing. The last position
+		-- is the only one that matters and it is checked like all the rest.
+		spawn = { x = 28, y = 60 },
+		floor = { x_min = 0, x_max = 120, y_top = 48 },
+		platforms = {
+			{ x = 190, y = 76, half_width = 36, half_height = 8 },
+			{ x = 290, y = 108, half_width = 36, half_height = 8 },
+			{ x = 360, y = 140, half_width = 24, half_height = 8 },
+		},
+		hazards = { { x = 155, y = 16 } },
+		door = {
+			x = 60, y = 68, lie = "flee",
+			retreats = {
+				{ x = 190, y = 104 },
+				{ x = 290, y = 136 },
+				{ x = 360, y = 168 },
+			},
+		},
+	},
+	{
+		id = "door_5",
+		theme = "door",
+		name = "EVERYTHING LIES",
+		-- Room 5 layers rather than inventing: the floor lies (theme 1) and
+		-- the door lies (theme 8) at once, with the package going Heavy on a
+		-- cycle underneath both. Sized against Heavy's 34.8 reach and 39.8
+		-- apex, because the cycle can turn on any jump.
+		spawn = { x = 26, y = 60 },
+		modifier = "heavy_cycle",
+		floor = { x_min = 0, x_max = 100, y_top = 48 },
+		platforms = {
+			{ x = 145, y = 60, half_width = 24, half_height = 8, falling = true },
+			{ x = 215, y = 76, half_width = 24, half_height = 8 },
+			{ x = 285, y = 60, half_width = 24, half_height = 8, falling = true },
+			{ x = 352, y = 76, half_width = 32, half_height = 8 },
+		},
+		hazards = { { x = 180, y = 16 }, { x = 250, y = 16 } },
+		door = {
+			x = 215, y = 104, lie = "flee",
+			retreats = { { x = 352, y = 104 } },
+		},
+	},
 }
 
 -- Modifier -> the jump budget it leaves. Only mobility modifiers appear
@@ -322,15 +427,23 @@ local function walkable_straight_through(room, player_half_height,
 		end
 	end
 
-	if room.door.x < left or room.door.x > right then
+	-- Judged against where the door ENDS UP, not where it starts. A fleeing
+	-- door's first position is often right in front of the player — that is
+	-- the joke — but the room is only over at the last retreat, so measuring
+	-- the walk to the opening position called two perfectly good rooms
+	-- corridors.
+	local positions = door_lie.positions(room.door, room.door.retreats)
+	local final = positions[#positions]
+
+	if final.x < left or final.x > right then
 		return false -- a gap or a climb stands between spawn and door
 	end
-	if room.door.y ~= spawn_top + player_half_height + package_offset_y then
+	if final.y ~= spawn_top + player_half_height + package_offset_y then
 		return false -- the door is not at walking height
 	end
 
-	local low = math.min(room.spawn.x, room.door.x)
-	local high = math.max(room.spawn.x, room.door.x)
+	local low = math.min(room.spawn.x, final.x)
+	local high = math.max(room.spawn.x, final.x)
 	for _, h in ipairs(room.hazards or {}) do
 		local half_width = h.half_width or 8
 		local half_height = h.half_height or 8
@@ -411,27 +524,49 @@ function M.validate(room, config)
 			tostring(room.id), room.spawn.x, room.spawn.y))
 	end
 
-	-- And the door has to be winnable. core/delivery.lua requires the package
-	-- rect to be fully INSIDE the zone (PRD 3.4's "dentro"), not merely
-	-- overlapping it, so this uses containment too — a check that accepted a
-	-- corner touching would pass rooms the game itself refuses to award.
+	-- And the door has to be winnable — at EVERY position it can occupy, not
+	-- just the one the author typed first. A door that lies (core/door_lie
+	-- .lua) runs through its retreats, and the player ends the room at the
+	-- last one, so a retreat placed over a pit would make the room
+	-- unwinnable while every other guard here reported ok.
+	--
+	-- core/delivery.lua requires the package rect to be fully INSIDE the
+	-- zone (PRD 3.4's "dentro"), not merely overlapping it, so this uses
+	-- containment too: a check that accepted a corner touching would pass
+	-- rooms the game itself refuses to award.
 	local rest_offset = player_half_height + package_offset_y
-	local door_ok = false
-	for _, s in ipairs(surfaces) do
-		local rest_y = s[3] + rest_offset
-		if s[2] >= room.door.x - door_half_width
-			and s[1] <= room.door.x + door_half_width
-			and room.door.y - door_half_height <= rest_y - package_half
-			and rest_y + package_half <= room.door.y + door_half_height then
-			door_ok = true
+	for _, door in ipairs(door_lie.positions(room.door, room.door.retreats)) do
+		local door_ok = false
+		for _, s in ipairs(surfaces) do
+			local rest_y = s[3] + rest_offset
+			if s[2] >= door.x - door_half_width
+				and s[1] <= door.x + door_half_width
+				and door.y - door_half_height <= rest_y - package_half
+				and rest_y + package_half <= door.y + door_half_height then
+				door_ok = true
+			end
+		end
+		if not door_ok then
+			fail(string.format(
+				"room %s: the door at (%d, %d) has no surface under it that puts "
+				.. "the package inside — standing on a surface with top y=T leaves "
+				.. "the package centred at T+%d",
+				tostring(room.id), door.x, door.y, rest_offset))
 		end
 	end
-	if not door_ok then
+
+	-- A lie has to be one this game knows how to tell. A typo here would
+	-- otherwise fall back to honest, and the room would silently be the
+	-- boring version of itself.
+	local lie = room.door.lie or door_lie.HONEST
+	if lie ~= door_lie.HONEST and lie ~= door_lie.FLEE and lie ~= door_lie.VANISH then
+		fail(string.format("room %s: the door tells an unknown lie %q",
+			tostring(room.id), tostring(lie)))
+	end
+	if lie == door_lie.FLEE and door_lie.max_flees(room.door.retreats) == 0 then
 		fail(string.format(
-			"room %s: the door at (%d, %d) has no surface under it that puts the "
-			.. "package inside — standing on a surface with top y=T leaves the "
-			.. "package centred at T+%d",
-			tostring(room.id), room.door.x, room.door.y, rest_offset))
+			"room %s: the door is set to flee but has nowhere to flee to",
+			tostring(room.id)))
 	end
 
 	if walkable_straight_through(room, player_half_height, package_offset_y) then

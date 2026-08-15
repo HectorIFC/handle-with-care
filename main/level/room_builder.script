@@ -104,12 +104,21 @@ local function build(self, index)
 		})
 	end
 
-	factory.create("#door_factory", vmath.vector3(room.door.x, room.door.y, 0), nil, {
-		player = self.player,
-		package = self.package,
-		half_width = rooms.DEFAULTS.door_half_width,
-		half_height = rooms.DEFAULTS.door_half_height,
-	})
+	local door = factory.create("#door_factory",
+		vmath.vector3(room.door.x, room.door.y, 0), nil, {
+			player = self.player,
+			package = self.package,
+			half_width = rooms.DEFAULTS.door_half_width,
+			half_height = rooms.DEFAULTS.door_half_height,
+			lie = hash(room.door.lie or "honest"),
+		})
+	if room.door.retreats then
+		-- By message because go.property has no list type. A one-off at
+		-- spawn, so rule 4's "messages are for discrete events" holds — the
+		-- door's per-frame reads stay synchronous.
+		msg.post(msg.url(nil, door, "script"), "set_retreats",
+			{ retreats = room.door.retreats })
+	end
 end
 
 function init(self)
