@@ -303,6 +303,25 @@ return function()
 			assert(rooms.count() % 5 == 0)
 		end)
 
+		test("an unknown modifier is reported", function()
+			-- The hole this closes: a room could declare a modifier, have its
+			-- geometry validated against that modifier's much smaller reach
+			-- and apex, and then have room_builder spawn no driver for it.
+			-- The room played easier than it was checked as, silently — the
+			-- worst kind of mismatch, because everything reported fine.
+			local room = {
+				id = "typo_modifier", theme = "heavy",
+				modifier = "heavy_cicle",
+				spawn = { x = 30, y = 60 },
+				floor = { x_min = 0, x_max = 120, y_top = 48 },
+				platforms = { { x = 195, y = 56, half_width = 30, half_height = 8 },
+					{ x = 327, y = 56, half_width = 57, half_height = 8 } },
+				hazards = { { x = 245, y = 16 } },
+				door = { x = 327, y = 84 },
+			}
+			assert(#rooms.validate(room) > 0)
+		end)
+
 		test("an unknown theme is reported", function()
 			local room = {
 				id = "no_theme", theme = "does_not_exist",

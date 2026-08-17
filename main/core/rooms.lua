@@ -491,6 +491,100 @@ M.ROOMS = {
 			retreats = { { x = 320, y = 124 } },
 		},
 	},
+	-- Theme 2, DEAD WEIGHT. The package goes Heavy on a cycle, which cuts
+	-- reach to 34.8 and apex to 39.8 — so every gap here is 45 and every
+	-- climb 24, sized against the cycle being ON. It can turn anywhere, and
+	-- a gap sized for the light half is a gap that kills for reasons the
+	-- player cannot see.
+	{
+		id = "heavy_1",
+		theme = "heavy",
+		name = "SUDDENLY",
+		-- Teaches by betraying: the first gap is nothing, and the identical
+		-- second one is not, because the package chose that moment.
+		modifier = "heavy_cycle",
+		cycle_on = 3.0, cycle_off = 3.0,
+		spawn = { x = 30, y = 60 },
+		floor = { x_min = 0, x_max = 120, y_top = 48 },
+		platforms = {
+			{ x = 195, y = 56, half_width = 30, half_height = 8 },
+			{ x = 327, y = 56, half_width = 57, half_height = 8 },
+		},
+		hazards = { { x = 245, y = 16 } },
+		door = { x = 327, y = 84 },
+	},
+	{
+		id = "heavy_2",
+		theme = "heavy",
+		name = "UP AND OVER",
+		modifier = "heavy_cycle",
+		cycle_on = 3.0, cycle_off = 4.0,
+		spawn = { x = 28, y = 60 },
+		floor = { x_min = 0, x_max = 100, y_top = 48 },
+		platforms = {
+			{ x = 170, y = 64, half_width = 25, half_height = 8 },
+			{ x = 265, y = 88, half_width = 25, half_height = 8 },
+			{ x = 360, y = 64, half_width = 24, half_height = 8 },
+		},
+		hazards = { { x = 120, y = 16 }, { x = 215, y = 16 }, { x = 312, y = 16 } },
+		door = { x = 360, y = 92 },
+	},
+	{
+		id = "heavy_3",
+		theme = "heavy",
+		name = "NO REST",
+		-- Shorter off-window than on: most of this room is spent heavy, so
+		-- the light stretches read as the reward rather than the default.
+		modifier = "heavy_cycle",
+		cycle_on = 4.0, cycle_off = 2.0,
+		spawn = { x = 26, y = 60 },
+		floor = { x_min = 0, x_max = 90, y_top = 48 },
+		platforms = {
+			{ x = 160, y = 56, half_width = 25, half_height = 8 },
+			{ x = 255, y = 72, half_width = 25, half_height = 8 },
+			{ x = 355, y = 56, half_width = 29, half_height = 8 },
+		},
+		hazards = { { x = 110, y = 16 }, { x = 205, y = 16 }, { x = 300, y = 16 } },
+		door = { x = 355, y = 76 },
+	},
+	{
+		id = "heavy_4",
+		theme = "heavy",
+		name = "TOO HEAVY TO WAIT",
+		-- Layers theme 1: the first step is a liar, and standing on it to
+		-- wait out the heavy window is exactly what drops you.
+		modifier = "heavy_cycle",
+		cycle_on = 3.0, cycle_off = 3.0,
+		spawn = { x = 26, y = 60 },
+		floor = { x_min = 0, x_max = 110, y_top = 48 },
+		platforms = {
+			{ x = 180, y = 56, half_width = 25, half_height = 8, falling = true },
+			{ x = 275, y = 72, half_width = 25, half_height = 8 },
+			{ x = 365, y = 56, half_width = 19, half_height = 8 },
+		},
+		hazards = { { x = 130, y = 16 }, { x = 225, y = 16 } },
+		door = { x = 365, y = 76 },
+	},
+	{
+		id = "heavy_5",
+		theme = "heavy",
+		name = "AND IT MOVES",
+		-- Room 5 combines: heavy AND the door steps away once, so the jump
+		-- you saved up for is not the jump you end up needing.
+		modifier = "heavy_cycle",
+		cycle_on = 3.0, cycle_off = 3.0,
+		spawn = { x = 26, y = 60 },
+		floor = { x_min = 0, x_max = 110, y_top = 48 },
+		platforms = {
+			{ x = 185, y = 60, half_width = 30, half_height = 8 },
+			{ x = 295, y = 60, half_width = 35, half_height = 8 },
+		},
+		hazards = { { x = 135, y = 16 }, { x = 235, y = 16 } },
+		door = {
+			x = 185, y = 88, lie = "flee",
+			retreats = { { x = 295, y = 88 } },
+		},
+	},
 }
 
 -- Modifier -> the jump budget it leaves. Only mobility modifiers appear
@@ -793,6 +887,18 @@ function M.validate(room, config)
 				.. "the package centred at T+%d",
 				tostring(room.id), door.x, door.y, rest_offset))
 		end
+	end
+
+	local KNOWN_MODIFIERS = {
+		heavy_cycle = true, explosive_cycle = true,
+		magnetized_cycle = true, sleeping_cycle = true,
+	}
+	if room.modifier and not KNOWN_MODIFIERS[room.modifier] then
+		fail(string.format(
+			"room %s declares an unknown modifier %q: room_builder would spawn "
+			.. "no driver for it, so the room would play easier than it is "
+			.. "validated as",
+			tostring(room.id), tostring(room.modifier)))
 	end
 
 	-- A lie has to be one this game knows how to tell. A typo here would

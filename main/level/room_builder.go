@@ -22,3 +22,7 @@ components {
   id: "chaser_factory"
   component: "/main/hazards/chaser.factory"
 }
+components {
+  id: "cycle_factory"
+  component: "/main/level/heavy_cycle.factory"
+}

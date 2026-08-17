@@ -129,6 +129,33 @@ local function build(self, index)
 			half_height = rooms.DEFAULTS.door_half_height,
 			lie = hash(room.door.lie or "honest"),
 		})
+	-- The package-state driver, when the room asks for one. This was missing
+	-- until now, and it was a real hole rather than a missing feature: a room
+	-- could declare `modifier = "heavy_cycle"`, rooms.validate would hold its
+	-- geometry to Heavy's much smaller reach and apex, and the game would
+	-- then never actually turn the package Heavy. The room was simply easier
+	-- than it was validated as, silently.
+	--
+	-- One driver covers all four cyclic states: core/heavy_cycle.lua takes
+	-- the two state names as config, which is how levels 3, 4, 5 and 8 each
+	-- got their own cycle without a module apiece.
+	local CYCLE_MODES = {
+		heavy_cycle = nil,
+		explosive_cycle = "explosive_mode",
+		magnetized_cycle = "magnetized_mode",
+		sleeping_cycle = "sleeping_mode",
+	}
+	if room.modifier then
+		local properties = { package = self.package }
+		local mode = CYCLE_MODES[room.modifier]
+		if mode then
+			properties[mode] = true
+		end
+		if room.cycle_on then properties.heavy_duration = room.cycle_on end
+		if room.cycle_off then properties.normal_duration = room.cycle_off end
+		factory.create("#cycle_factory", vmath.vector3(0, 0, 0), nil, properties)
+	end
+
 	if room.chase then
 		factory.create("#chaser_factory",
 			vmath.vector3(room.chase.start or -24, rooms.SCREEN_HEIGHT * 0.5, 0), nil, {
