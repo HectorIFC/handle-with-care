@@ -34,6 +34,11 @@ go.property("package", msg.url())
 -- came up rather than assuming it.
 go.property("room_id", hash(""))
 
+-- The room's controller, so it can be told WHICH room this is. Without it
+-- every room would report completing room 1 to the save adapter, and the
+-- unlock would never advance past the second.
+go.property("controller", msg.url())
+
 local function build_platform(self, p)
 	-- A falling platform is a different prototype, not a flag on the same
 	-- one: player.script skips a dropping surface by reading is_falling off
@@ -75,6 +80,12 @@ local function build(self, index)
 	-- thing that can tell one room from another once it is up, which is what
 	-- lets `make play-room ROOM=N` prove it got the room it asked for.
 	print("ROOM-START " .. room.id)
+
+	-- The controller owns progression reporting (level_started /
+	-- level_completed). It is authored with a fixed number in the collection
+	-- because it predates rooms, so the room index is written here — one
+	-- place, derived from the index that was actually built.
+	go.set(self.controller, "level_number", index)
 
 	-- The base floor lives on the PLAYER (ground_x_min/ground_x_max/
 	-- ground_y_top is what player_movement integrates against), so the room

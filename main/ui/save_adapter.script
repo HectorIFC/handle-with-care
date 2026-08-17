@@ -15,11 +15,16 @@
 -- answered by posting `save_state` back to the sender.
 
 local save = require "main.core.save"
+local rooms = require "main.core.rooms"
 local storage = require "main.ui.storage"
 
 -- PRD section 10 ships 10 levels. Exposed as a property so a test or a
 -- future level pack can override it rather than editing this file (rule 5).
-go.property("total_levels", 10)
+-- Rooms, not the ten legacy levels. Read from rooms.lua at init rather than
+-- authored here, so adding a theme never means remembering to bump a count —
+-- and save.lua already took this as a parameter, so nothing in the progress
+-- format changes.
+go.property("total_levels", 20)
 
 -- Mirrors the in-memory state's headline values for synchronous go.get
 -- reads, the same convention player.script uses for facing/grounded — a
@@ -59,6 +64,7 @@ local function persist(self)
 end
 
 function init(self)
+	self.total_levels = rooms.count()
 	if self.in_memory_only then
 		self.state = save.new(self.total_levels)
 	else

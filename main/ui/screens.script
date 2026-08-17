@@ -133,19 +133,35 @@ local function render(self)
 		table.insert(lines, "built with Defold")
 		table.insert(lines, "")
 	elseif self.state.screen == flow.LEVEL_SELECT then
-		title = "SELECT LEVEL"
+		title = "SELECT ROOM"
 		local unlocked = go.get(self.save_adapter, "unlocked")
+		-- Grouped by theme rather than a flat row of twenty numbers, which
+		-- would say nothing about what any of them is. Level Devil clusters
+		-- its stages behind a signpost for the same reason.
+		local current_theme = nil
 		local row = {}
-		for level = 1, self.total_levels do
-			if level > unlocked then
-				table.insert(row, " . ")
-			elseif level == self.state.selected_level then
-				table.insert(row, "[" .. level .. "]")
-			else
-				table.insert(row, " " .. level .. " ")
+		local function flush()
+			if #row > 0 then
+				table.insert(lines, table.concat(row))
+				row = {}
 			end
 		end
-		table.insert(lines, table.concat(row))
+		for index, room in ipairs(rooms.ROOMS) do
+			if room.theme ~= current_theme then
+				flush()
+				current_theme = room.theme
+				local theme = rooms.theme(current_theme)
+				table.insert(lines, theme and theme.name or current_theme)
+			end
+			if index > unlocked then
+				table.insert(row, " . ")
+			elseif index == self.state.selected_level then
+				table.insert(row, "[" .. index .. "]")
+			else
+				table.insert(row, " " .. index .. " ")
+			end
+		end
+		flush()
 	end
 
 	for index, entry in ipairs(entries_for(self)) do
@@ -246,6 +262,11 @@ local function load_room(self, index)
 	self.current_room = index
 	self.current_level = nil
 	self.last_requested_room = index
+	-- The same mirror the level path has always written. Now that the menu
+	-- only ever loads rooms, "the thing the player last asked for" is one
+	-- number, and keeping two of them is how a test ends up asserting the
+	-- stale one. The name is historical; the meaning is the room index.
+	self.last_requested_level = index
 	if not self.test_mode then
 		local proxy = msg.url(self.loader)
 		proxy.fragment = hash("room_proxy")
@@ -305,11 +326,11 @@ end
 local function perform(self, action)
 	if action == flow.ACTION_NEW_GAME then
 		msg.post(self.save_adapter, "new_game")
-		load_level(self, 1)
+		load_room(self, 1)
 	elseif action == flow.ACTION_CONTINUE then
 		-- Resumes at the furthest level reached, which is what "Continuar"
 		-- means to a player — not the last one they happened to replay.
-		load_level(self, go.get(self.save_adapter, "unlocked"))
+		load_room(self, go.get(self.save_adapter, "unlocked"))
 	elseif action == flow.ACTION_LEVEL_SELECT then
 		self.state = flow.set_screen(self.state, flow.LEVEL_SELECT)
 	elseif action == flow.ACTION_OPTIONS then
@@ -330,7 +351,7 @@ local function perform(self, action)
 			self.state = flow.begin_capture(self.state, entry.bind)
 		end
 	elseif action == flow.ACTION_PLAY_LEVEL then
-		load_level(self, self.state.selected_level)
+		load_room(self, self.state.selected_level)
 	elseif action == flow.ACTION_RESUME then
 		set_level_time_step(self, 1)
 		self.state = flow.set_screen(self.state, flow.PLAYING)

@@ -108,7 +108,25 @@ if [ ! -f "$BOB" ]; then
 fi
 
 echo "Building test bootstrap (test/testing.settings)..."
-java -jar "$BOB" --variant=headless --settings test/testing.settings resolve build
+# `resolve` re-fetches the deftest dependency from GitHub on EVERY run, and
+# GitHub rate-limits: an HTTP 429 there fails the whole build with a stack
+# trace, even though the library has been sitting in .internal/lib since the
+# first run. That is a transient network condition reported as a test
+# failure, which is the worst way to report anything.
+#
+# So resolve is attempted, and if it fails while a populated cache exists,
+# the build goes ahead with what is already there. A cold cache still fails
+# loudly — CI has nothing to fall back ON, which is exactly when resolving
+# has to work.
+if ! java -jar "$BOB" --variant=headless --settings test/testing.settings resolve build; then
+	if [ -n "$(ls -A .internal/lib 2>/dev/null)" ]; then
+		echo "resolve failed (rate limit?) — building from the cached library"
+		java -jar "$BOB" --variant=headless --settings test/testing.settings build
+	else
+		echo "ERROR: could not resolve dependencies and no cached library exists"
+		exit 1
+	fi
+fi
 
 echo "Running tests..."
 # deftest.run() calls os.exit(0) on success and os.exit(1) on any failure or

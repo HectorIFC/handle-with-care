@@ -412,5 +412,10 @@ instances {
       value: "/package#script"
       type: PROPERTY_TYPE_URL
     }
+    properties {
+      id: "controller"
+      value: "/level_controller#script"
+      type: PROPERTY_TYPE_URL
+    }
   }
 }
