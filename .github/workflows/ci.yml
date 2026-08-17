@@ -31,7 +31,7 @@ jobs:
           # Keep in sync with DEFOLD_VERSION in scripts/run_tests.sh — bumping
           # that constant must invalidate this cache instead of silently
           # reusing a stale engine/bob.jar.
-          key: defold-tools-${{ runner.os }}-1.13.0
+          key: defold-tools-${{ runner.os }}-1.13.1
 
       - name: Run unit + integration tests
         run: ./scripts/run_tests.sh x86_64-linux
