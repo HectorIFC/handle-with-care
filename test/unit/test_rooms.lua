@@ -322,6 +322,24 @@ return function()
 			assert(#rooms.validate(room) > 0)
 		end)
 
+		test("a room whose fuse cannot be beaten is reported", function()
+			-- The fuse equivalent of a wall that cannot be outrun. The worst
+			-- moment the fuse can light is the first frame, so the whole walk
+			-- has to fit inside it — explosive.lua detonates on its own
+			-- countdown regardless of where the player has got to.
+			local room = {
+				id = "impossible_fuse", theme = "fuse",
+				modifier = "explosive_cycle", fuse_time = 0.5,
+				spawn = { x = 30, y = 60 },
+				floor = { x_min = 0, x_max = 120, y_top = 48 },
+				platforms = { { x = 200, y = 56, half_width = 40, half_height = 8 },
+					{ x = 320, y = 56, half_width = 45, half_height = 8 } },
+				hazards = { { x = 255, y = 16 } },
+				door = { x = 320, y = 84 },
+			}
+			assert(#rooms.validate(room) > 0)
+		end)
+
 		test("an unknown theme is reported", function()
 			local room = {
 				id = "no_theme", theme = "does_not_exist",

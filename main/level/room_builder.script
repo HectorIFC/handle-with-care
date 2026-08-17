@@ -145,6 +145,14 @@ local function build(self, index)
 		magnetized_cycle = "magnetized_mode",
 		sleeping_cycle = "sleeping_mode",
 	}
+	if room.fuse_time then
+		-- The fuse is a property of the PACKAGE, not of the driver: the
+		-- driver only says "become explosive", and explosive.lua owns the
+		-- countdown from there (architecture rule 6). A room that lights a
+		-- fuse therefore has to set the package's own timer.
+		go.set(self.package, "explosive_time", room.fuse_time)
+	end
+
 	if room.modifier then
 		local properties = { package = self.package }
 		local mode = CYCLE_MODES[room.modifier]

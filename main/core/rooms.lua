@@ -585,6 +585,188 @@ M.ROOMS = {
 			retreats = { { x = 295, y = 88 } },
 		},
 	},
+	-- Theme 3, LIT FUSE. The package cycles into Explosive and detonates on
+	-- its own countdown — explosive.lua owns that timer, the driver only
+	-- says when to start it (architecture rule 6). Rooms are short and the
+	-- doors are close, because validate requires the whole walk to fit
+	-- inside the fuse: the worst moment it can light is the first frame.
+	{
+		id = "fuse_1",
+		theme = "fuse",
+		name = "TICK",
+		-- Teaches by betraying: a calm window first, then the package lights
+		-- up while you are still deciding whether the gap needs a run-up.
+		modifier = "explosive_cycle",
+		cycle_on = 4.0, cycle_off = 4.0, fuse_time = 4.0,
+		spawn = { x = 30, y = 60 },
+		floor = { x_min = 0, x_max = 120, y_top = 48 },
+		platforms = {
+			{ x = 200, y = 56, half_width = 40, half_height = 8 },
+			{ x = 320, y = 56, half_width = 45, half_height = 8 },
+		},
+		hazards = { { x = 255, y = 16 } },
+		door = { x = 320, y = 84 },
+	},
+	{
+		id = "fuse_2",
+		theme = "fuse",
+		name = "NO DAWDLING",
+		modifier = "explosive_cycle",
+		cycle_on = 4.0, cycle_off = 3.0, fuse_time = 3.5,
+		spawn = { x = 28, y = 60 },
+		floor = { x_min = 0, x_max = 100, y_top = 48 },
+		platforms = {
+			{ x = 170, y = 64, half_width = 34, half_height = 8 },
+			{ x = 290, y = 64, half_width = 40, half_height = 8 },
+		},
+		hazards = { { x = 130, y = 16 }, { x = 225, y = 16 } },
+		door = { x = 290, y = 92 },
+	},
+	{
+		id = "fuse_3",
+		theme = "fuse",
+		name = "THE LONG WAY ROUND",
+		-- A climb rather than a sprint: the same seconds, spent going up.
+		modifier = "explosive_cycle",
+		cycle_on = 4.0, cycle_off = 3.0, fuse_time = 3.5,
+		spawn = { x = 26, y = 60 },
+		floor = { x_min = 0, x_max = 110, y_top = 48 },
+		platforms = {
+			{ x = 175, y = 72, half_width = 32, half_height = 8 },
+			{ x = 275, y = 104, half_width = 32, half_height = 8 },
+		},
+		hazards = { { x = 135, y = 16 }, { x = 225, y = 16 } },
+		door = { x = 275, y = 132 },
+	},
+	{
+		id = "fuse_4",
+		theme = "fuse",
+		name = "AND THE FLOOR",
+		-- Layers theme 1: waiting out a fuse on a platform that is leaving.
+		modifier = "explosive_cycle",
+		cycle_on = 4.0, cycle_off = 3.0, fuse_time = 3.5,
+		spawn = { x = 26, y = 60 },
+		floor = { x_min = 0, x_max = 100, y_top = 48 },
+		platforms = {
+			{ x = 165, y = 60, half_width = 30, half_height = 8, falling = true },
+			{ x = 285, y = 60, half_width = 40, half_height = 8 },
+		},
+		hazards = { { x = 125, y = 16 }, { x = 225, y = 16 } },
+		door = { x = 285, y = 80 },
+	},
+	{
+		id = "fuse_5",
+		theme = "fuse",
+		name = "IT WILL NOT WAIT",
+		-- Room 5 combines: a fuse AND a door that steps away once. The
+		-- retreat is close, because a fuse leaves no room for a second trip.
+		modifier = "explosive_cycle",
+		cycle_on = 4.0, cycle_off = 3.0, fuse_time = 4.0,
+		spawn = { x = 26, y = 60 },
+		floor = { x_min = 0, x_max = 110, y_top = 48 },
+		platforms = {
+			{ x = 180, y = 64, half_width = 34, half_height = 8 },
+			{ x = 300, y = 64, half_width = 40, half_height = 8 },
+		},
+		hazards = { { x = 135, y = 16 }, { x = 240, y = 16 } },
+		door = {
+			x = 180, y = 92, lie = "flee",
+			retreats = { { x = 300, y = 92 } },
+		},
+	},
+
+	-- Theme 4, ATTRACTION. The package cycles into Magnetized and drags
+	-- hazards toward itself (core/magnetism.lua, radius 95). Mobility is
+	-- untouched — which is exactly why level 10 cycles this instead of Heavy
+	-- — so these rooms keep the full 64.0 / 56.9 budget and get their
+	-- difficulty from placement: every spike here sits close enough to be
+	-- pulled INTO the path the player has to take.
+	{
+		id = "magnet_1",
+		theme = "magnet",
+		name = "COME HERE",
+		-- Teaches by betraying: the spike is safely off to the side, until
+		-- it is not.
+		modifier = "magnetized_cycle",
+		cycle_on = 4.0, cycle_off = 3.0,
+		spawn = { x = 30, y = 60 },
+		floor = { x_min = 0, x_max = 130, y_top = 48 },
+		platforms = {
+			{ x = 210, y = 60, half_width = 40, half_height = 8 },
+			{ x = 330, y = 60, half_width = 45, half_height = 8 },
+		},
+		hazards = { { x = 210, y = 130 } },
+		door = { x = 330, y = 80 },
+	},
+	{
+		id = "magnet_2",
+		theme = "magnet",
+		name = "OVERHEAD",
+		-- Two hanging spikes, both within the radius of the platform under
+		-- them, so crossing means choosing which one to be under.
+		modifier = "magnetized_cycle",
+		cycle_on = 4.0, cycle_off = 3.0,
+		spawn = { x = 28, y = 60 },
+		floor = { x_min = 0, x_max = 110, y_top = 48 },
+		platforms = {
+			{ x = 180, y = 60, half_width = 35, half_height = 8 },
+			{ x = 300, y = 60, half_width = 40, half_height = 8 },
+		},
+		hazards = { { x = 180, y = 140 }, { x = 300, y = 140 } },
+		door = { x = 300, y = 80 },
+	},
+	{
+		id = "magnet_3",
+		theme = "magnet",
+		name = "BOTH SIDES",
+		modifier = "magnetized_cycle",
+		cycle_on = 5.0, cycle_off = 2.0,
+		spawn = { x = 26, y = 60 },
+		floor = { x_min = 0, x_max = 100, y_top = 48 },
+		platforms = {
+			{ x = 175, y = 76, half_width = 32, half_height = 8 },
+			{ x = 290, y = 76, half_width = 32, half_height = 8 },
+		},
+		hazards = { { x = 175, y = 150 }, { x = 235, y = 16 }, { x = 290, y = 150 } },
+		door = { x = 290, y = 96 },
+	},
+	{
+		id = "magnet_4",
+		theme = "magnet",
+		name = "PATIENCE",
+		-- The relief window is short, so the answer is to move during the
+		-- pull rather than to wait it out.
+		modifier = "magnetized_cycle",
+		cycle_on = 5.0, cycle_off = 2.0,
+		spawn = { x = 26, y = 60 },
+		floor = { x_min = 0, x_max = 110, y_top = 48 },
+		platforms = {
+			{ x = 180, y = 68, half_width = 30, half_height = 8 },
+			{ x = 280, y = 92, half_width = 30, half_height = 8 },
+			{ x = 360, y = 68, half_width = 24, half_height = 8 },
+		},
+		hazards = { { x = 180, y = 145 }, { x = 280, y = 165 } },
+		door = { x = 360, y = 88 },
+	},
+	{
+		id = "magnet_5",
+		theme = "magnet",
+		name = "AND IT RUNS AWAY",
+		-- Room 5 combines: the spikes come to you and the door does not.
+		modifier = "magnetized_cycle",
+		cycle_on = 4.0, cycle_off = 3.0,
+		spawn = { x = 26, y = 60 },
+		floor = { x_min = 0, x_max = 120, y_top = 48 },
+		platforms = {
+			{ x = 200, y = 64, half_width = 36, half_height = 8 },
+			{ x = 330, y = 64, half_width = 45, half_height = 8 },
+		},
+		hazards = { { x = 200, y = 140 }, { x = 265, y = 16 } },
+		door = {
+			x = 200, y = 92, lie = "flee",
+			retreats = { { x = 330, y = 92 } },
+		},
+	},
 }
 
 -- Modifier -> the jump budget it leaves. Only mobility modifiers appear
@@ -913,6 +1095,24 @@ function M.validate(room, config)
 		fail(string.format(
 			"room %s: the door is set to flee but has nowhere to flee to",
 			tostring(room.id)))
+	end
+
+	-- A lit fuse has to be beatable from the WORST moment it can light,
+	-- which is the instant the room starts. Same discipline as the chaser
+	-- and the fleeing door: if the mechanic can make the room unwinnable,
+	-- the mechanic gets a proof rather than a hope. explosive.lua detonates
+	-- when the countdown ends regardless of where the player is, so the
+	-- whole walk has to fit inside it.
+	if room.fuse_time then
+		local final = door_lie.positions(room.door, room.door.retreats)
+		final = final[#final]
+		local walk = (final.x - room.spawn.x) / (config.move_speed or 90)
+		if walk >= room.fuse_time then
+			fail(string.format(
+				"room %s cannot beat its own fuse: walking straight from the "
+				.. "spawn to the door takes %.1fs and the fuse is %.1fs",
+				tostring(room.id), walk, room.fuse_time))
+		end
 	end
 
 	-- A chased room has to be OUTRUNNABLE. Same shape as door_lie's "the lie
