@@ -189,6 +189,44 @@ function M.move_level_cursor(state, delta, save_state)
 	return new_state
 end
 
+-- Which theme page a selected room sits on. Rooms are grouped five to a
+-- theme (see rooms.THEMES), and the select screen shows exactly one page —
+-- the flat list of forty numbers under eight headings did not fit the
+-- 384x216 screen and overlapped itself into an unreadable pile.
+local ROOMS_PER_THEME = 5
+
+function M.theme_page(selected, per_page)
+	return math.floor((selected - 1) / (per_page or ROOMS_PER_THEME)) + 1
+end
+
+-- Jump the selection to the FIRST room of an adjacent theme page. Two rules:
+--
+--   * Clamped on `unlocked`, never wrapped: asking for a page that is still
+--     locked lands on the furthest room actually reachable, so the page
+--     shown is always the furthest one the player can do anything with.
+--   * No wrap at either end — pages are pages, not a ring. move_level_cursor
+--     wraps because stepping one room past the end reads as "around"; a
+--     PAGE flip past the end reads as a stuck button doing something weird.
+function M.move_level_page(state, delta, save_state, per_page)
+	per_page = per_page or ROOMS_PER_THEME
+	local new_state = {
+		screen = state.screen,
+		cursor = state.cursor,
+		selected_level = state.selected_level,
+		capturing = state.capturing,
+	}
+	local page = M.theme_page(state.selected_level, per_page) + delta
+	local last_page = M.theme_page(save_state.total_levels, per_page)
+	if page < 1 then
+		page = 1
+	elseif page > last_page then
+		page = last_page
+	end
+	local first = (page - 1) * per_page + 1
+	new_state.selected_level = math.min(first, save_state.unlocked)
+	return new_state
+end
+
 -- Changing screen always drops any pending capture: leaving the Controls
 -- screen mid-rebind and coming back should not still be waiting for a key.
 function M.set_screen(state, screen)

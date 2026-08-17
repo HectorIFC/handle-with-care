@@ -45,8 +45,5 @@ jobs:
       # Geometry only — no engine needed, so it runs before the slow steps
       # and fails fast. It found a genuinely unreachable platform in level 8
       # the first time it ran.
-      - name: Check every level can be completed
-        run: make check-levels
-
       - name: Boot smoke test
         run: make smoke

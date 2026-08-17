@@ -135,24 +135,18 @@ local function render(self)
 	elseif self.state.screen == flow.LEVEL_SELECT then
 		title = "SELECT ROOM"
 		local unlocked = go.get(self.save_adapter, "unlocked")
-		-- Grouped by theme rather than a flat row of twenty numbers, which
-		-- would say nothing about what any of them is. Level Devil clusters
-		-- its stages behind a signpost for the same reason.
-		local current_theme = nil
+		-- A carousel: ONE theme per page. The flat list of forty numbers
+		-- under eight headings did not fit 216px and overlapped itself into
+		-- an unreadable pile — the exact overflow v0.59.0 flagged as
+		-- unverifiable headless.
+		local page = flow.theme_page(self.state.selected_level)
+		local page_count = flow.theme_page(rooms.count())
+		local theme = rooms.theme(rooms.ROOMS[self.state.selected_level].theme)
+		table.insert(lines, string.format("THEME %d/%d - %s", page, page_count,
+			theme and theme.name or "?"))
+		table.insert(lines, "")
 		local row = {}
-		local function flush()
-			if #row > 0 then
-				table.insert(lines, table.concat(row))
-				row = {}
-			end
-		end
-		for index, room in ipairs(rooms.ROOMS) do
-			if room.theme ~= current_theme then
-				flush()
-				current_theme = room.theme
-				local theme = rooms.theme(current_theme)
-				table.insert(lines, theme and theme.name or current_theme)
-			end
+		for index = (page - 1) * 5 + 1, math.min(page * 5, rooms.count()) do
 			if index > unlocked then
 				table.insert(row, " . ")
 			elseif index == self.state.selected_level then
@@ -161,7 +155,15 @@ local function render(self)
 				table.insert(row, " " .. index .. " ")
 			end
 		end
-		flush()
+		table.insert(lines, table.concat(row))
+		local selected = rooms.ROOMS[self.state.selected_level]
+		table.insert(lines, selected.name or "")
+		table.insert(lines, "")
+		-- The prev/next buttons, each side drawn only when there is a page
+		-- in that direction, with the key that operates it.
+		local prev_button = page > 1 and "< W: PREV THEME" or ""
+		local next_button = page < page_count and "S: NEXT THEME >" or ""
+		table.insert(lines, prev_button .. "   " .. next_button)
 	end
 
 	for index, entry in ipairs(entries_for(self)) do
@@ -203,53 +205,21 @@ local function render(self)
 	self.selected_level = self.state.selected_level
 end
 
--- The proxy component for a given level, derived from the loader URL by
--- swapping the fragment (see the `loader` property).
-local function proxy_for(self, level)
-	local url = msg.url(self.loader)
-	url.fragment = hash("level_proxy_" .. tostring(level))
-	return url
-end
-
--- The proxy of whatever is loaded right now, level or room, or nil when the
--- menu is showing.
+-- The room proxy when a room is loaded, nil when the menu is showing.
 --
--- This exists because the first version of rooms did not have it, and the
--- bug that produced was worth the extra function: load_room recorded only
--- current_room, unload was guarded entirely by `if self.current_level`, so a
--- finished room was never unloaded — and Next Level then loaded a level ON
--- TOP of it. Two players on screen, one of them frozen by its own sticky
--- `won`. Anything that acts on "the thing that is loaded" has to go through
--- here rather than assuming a level.
+-- The indirection survives the retirement of levels on purpose: the bug it
+-- was born from (a finished room never unloaded because unload was guarded
+-- by a LEVEL field, and Next Level then loading on top of it — two players
+-- on screen) is exactly the kind that comes back when "what is loaded"
+-- stops having one answer. Everything that unloads, pauses or retries goes
+-- through here.
 local function current_proxy(self)
 	if self.current_room then
 		local url = msg.url(self.loader)
 		url.fragment = hash("room_proxy")
 		return url
 	end
-	if self.current_level then
-		return proxy_for(self, self.current_level)
-	end
 	return nil
-end
-
-local function load_level(self, level)
-	self.current_level = level
-	self.current_room = nil
-	self.last_requested_level = level
-	if not self.test_mode then
-		-- Only one level is ever loaded, so an unload of whatever came
-		-- before must complete first — async_load's own "proxy_loaded" is
-		-- what tells us it is safe to enable.
-		msg.post(proxy_for(self, level), "async_load")
-	end
-	self.state = flow.set_screen(self.state, flow.PLAYING)
-	-- Each level has its own theme. Falling back rather than assuming one
-	-- exists: an eleventh level added without a track would otherwise load
-	-- in silence, and silence is the one bug nobody notices until playtest.
-	local theme = "music_level_" .. level
-	cue(audio_cues.exists(theme) and theme or "music_gameplay")
-	render(self)
 end
 
 -- Rooms share one collection and therefore one proxy, unlike levels, which
@@ -260,7 +230,6 @@ end
 -- messages in order, so room_builder exists by the time build_room lands.
 local function load_room(self, index)
 	self.current_room = index
-	self.current_level = nil
 	self.last_requested_room = index
 	-- The same mirror the level path has always written. Now that the menu
 	-- only ever loads rooms, "the thing the player last asked for" is one
@@ -278,7 +247,7 @@ local function load_room(self, index)
 	render(self)
 end
 
-local function unload_level(self)
+local function unload_current(self)
 	-- The level's camera left a scrolled view behind on the render script,
 	-- and the menu draws in plain screen coordinates. Without this, coming
 	-- back from a level you had walked into would render the menu off to
@@ -291,7 +260,6 @@ local function unload_level(self)
 		if not self.test_mode then
 			msg.post(proxy, "unload")
 		end
-		self.current_level = nil
 		self.current_room = nil
 	end
 end
@@ -310,15 +278,15 @@ end
 local function show_result(self, won)
 	self.result_won = won
 	-- Which room this was, so Retry and Next Level can act on the room
-	-- rather than falling through to level 1. Captured BEFORE unload_level
+	-- rather than falling through to level 1. Captured BEFORE unload_current
 	-- clears it.
 	self.result_room = self.current_room
-	self.result_level = self.current_level or 1
+	self.result_level = self.current_room or 1
 	self.result_time = self.pending_time or 0
 	self.result_attempts = self.pending_attempts or 1
 	self.result_quip = flow.quip(won, rng)
 	cue(won and "music_win" or "music_gameover")
-	unload_level(self)
+	unload_current(self)
 	self.state = flow.set_screen(self.state, flow.RESULT)
 	render(self)
 end
@@ -356,30 +324,17 @@ local function perform(self, action)
 		set_level_time_step(self, 1)
 		self.state = flow.set_screen(self.state, flow.PLAYING)
 	elseif action == flow.ACTION_RETRY then
-		-- A room retries as a room. Reading result_room rather than
-		-- current_room because show_result has already unloaded by now, and
-		-- unloading is what clears current_room.
-		local room = self.current_room or self.result_room
-		if room then
-			unload_level(self)
-			load_room(self, room)
-		else
-			local level = self.current_level or self.result_level or 1
-			unload_level(self)
-			load_level(self, level)
-		end
+		-- Reading result_room rather than current_room because show_result
+		-- has already unloaded by now, and unloading is what clears
+		-- current_room.
+		local room = self.current_room or self.result_room or 1
+		unload_current(self)
+		load_room(self, room)
 	elseif action == flow.ACTION_NEXT_LEVEL then
-		local room = self.current_room or self.result_room
-		if room then
-			-- Clamped on rooms.count() rather than total_levels: the two
-			-- counts are unrelated, and running off the end of the room list
-			-- would build room 1 again while claiming to advance.
-			load_room(self, math.min(room + 1, rooms.count()))
-		else
-			load_level(self, math.min(self.result_level + 1, self.total_levels))
-		end
+		local room = self.current_room or self.result_room or 1
+		load_room(self, math.min(room + 1, rooms.count()))
 	elseif action == flow.ACTION_TO_MENU then
-		unload_level(self)
+		unload_current(self)
 		cue("music_menu")
 		self.state = flow.set_screen(self.state, flow.MENU)
 	elseif action == flow.ACTION_QUIT then
@@ -447,7 +402,6 @@ function init(self)
 	cue("music_menu")
 	self.state = flow.new()
 	self.total_levels = go.get(self.save_adapter, "total_levels")
-	self.current_level = nil
 	self.current_room = nil
 	self.result_room = nil
 	self.result_won = false
@@ -468,12 +422,6 @@ function init(self)
 	-- automated loads a level collection otherwise — the gap that hid two
 	-- boot-breaking bugs behind a fully green suite — so this is what lets
 	-- the headless engine walk the async_load/enable path for real.
-	local autostart = sys.get_config_int("hwc.autostart_level", 0)
-	if autostart > 0 then
-		print("AUTOSTART: loading level " .. autostart)
-		load_level(self, autostart)
-	end
-
 	local autoroom = sys.get_config_int("hwc.autostart_room", 0)
 	if autoroom > 0 then
 		print("AUTOSTART: loading room " .. autoroom)
@@ -564,7 +512,13 @@ local function handle_action(self, action_id)
 	end
 
 	if screen == flow.LEVEL_SELECT then
-		if action_id == hash("move_left") then
+		if action_id == hash("menu_up") then
+			self.state = flow.move_level_page(self.state, -1,
+				{ total_levels = self.total_levels, unlocked = go.get(self.save_adapter, "unlocked") })
+		elseif action_id == hash("menu_down") then
+			self.state = flow.move_level_page(self.state, 1,
+				{ total_levels = self.total_levels, unlocked = go.get(self.save_adapter, "unlocked") })
+		elseif action_id == hash("move_left") then
 			self.state = flow.move_level_cursor(self.state, -1,
 				{ total_levels = self.total_levels, unlocked = go.get(self.save_adapter, "unlocked") })
 		elseif action_id == hash("move_right") then

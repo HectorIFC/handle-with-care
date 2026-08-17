@@ -381,8 +381,25 @@ SFX obrigatórios em estilo 8-bit/chiptune para:
 
 ## 10. Escopo da Versão 1.0
 
+> **Emenda (v0.63.0, decisão de playtest):** o formato de fases longas foi
+> substituído por **salas curtas**. O playtest das 10 fases concluiu que
+> todas corriam da esquerda para a direita em linha reta — monótono a partir
+> da segunda — e a análise dos concorrentes (Level Devil em particular)
+> mostrou que o gênero resolve monotonia com **quantidade de ideias, não
+> comprimento**. O jogo agora é composto de **40 salas de uma tela
+> (5-15s cada), agrupadas em 8 temas de 5**: O CHÃO MENTE, PESO MORTO,
+> PAVIO ACESO, ATRAÇÃO, DIREÇÃO ERRADA, GRAVIDADE É SUGESTÃO, NÃO PARE e
+> A PORTA MENTE. Dentro de um tema, a sala 1 ensina traindo uma vez, as
+> salas 2-4 cobram, e a sala 5 combina com uma peça de tema anterior. As
+> salas são dados (`main/core/rooms.lua`) validados por teste unitário —
+> alcançabilidade, porta ganhável em toda posição, fugibilidade de
+> perseguição e pavio, e nenhuma sala vencível andando em linha reta. Todo
+> o sistema do pacote (estados, física, stress) permanece como
+> especificado nas seções 3-4; as fases nomeadas da seção 5 viveram até a
+> v0.58.0 e seus temas visuais e mecânicos foram herdados pelas salas.
+
 **Incluído:**
-- 10 fases completas
+- 40 salas curtas em 8 temas (ver emenda acima)
 - Sistema completo do pacote grudado + física e estados
 - Menu + Save/Load
 - Áudio completo
@@ -390,7 +407,7 @@ SFX obrigatórios em estilo 8-bit/chiptune para:
 - Suporte a teclado
 
 **Fora de escopo:**
-- Multiplayer, Level Editor, Mobile nativo, Cosméticos, Leaderboards, mais de 10 fases
+- Multiplayer, Level Editor, Mobile nativo, Cosméticos, Leaderboards
 
 ---
 

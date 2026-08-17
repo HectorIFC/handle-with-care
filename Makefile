@@ -33,7 +33,7 @@ JAVA     := $(if $(JAVA_HOME),$(JAVA_HOME)/bin/java,java)
 JAVA_QUIET := --enable-native-access=ALL-UNNAMED \
               -Dcom.google.protobuf.use_unsafe_pre22_gencode=true
 
-.PHONY: help test test-ci build clean verify play play-level play-headless smoke smoke-level check-levels checklist \
+.PHONY: help test test-ci build clean verify play play-headless smoke checklist \
         bundle-web serve assets sprites audio font doctor require-java \
         require-tools
 
@@ -84,10 +84,7 @@ clean: ## Delete build output
 	@rm -rf build
 	@echo "removed build/"
 
-check-levels: ## Prove every level can actually be completed
-	@python3 scripts/check_levels.py
-
-verify: assets check-levels build test ## Assets + geometry + build + suite: the pre-commit gate
+verify: assets build test ## Assets + geometry + build + suite: the pre-commit gate
 
 # --- playtest ----------------------------------------------------------
 # Boot smoke test. This exists because `make play` crashed the first time it
@@ -102,41 +99,17 @@ verify: assets check-levels build test ## Assets + geometry + build + suite: the
 # initializes", not "the game works".
 SMOKE_SECONDS ?= 8
 
-# Playtest and diagnostics for ONE level, without beating the ones before it.
-#
-# Both targets work through hwc.autostart_level, a config key screens.script
-# reads at init. It does NOT swap the bootstrap: main.collection stays the
-# root and the autostart just calls the normal load_level, which is why the
-# level's main:/audio#script and main:/settings_adapter#script URLs still
-# resolve. Booting a level collection directly as the bootstrap would break
-# every one of those.
-LEVEL ?= 1
-# Inside the project on purpose: bob walks the project tree to resolve a
-# --settings path and throws a NullPointerException on one that sits outside
-# it (mktemp's /var/folders/... fails this way). build/ is gitignored, so a
-# playtest never leaves the working tree dirty.
-LEVEL_SETTINGS := build/autostart.settings
-
-# Writes the temp settings for $(LEVEL) and refuses a level that does not
-# exist, rather than producing a build that boots into nothing.
-define level_settings
-	@case "$(LEVEL)" in \
-		''|*[!0-9]*) echo "LEVEL must be a number 1..10 (got '$(LEVEL)')"; exit 1 ;; \
-	esac; \
-	if [ "$(LEVEL)" -lt 1 ] || [ "$(LEVEL)" -gt 10 ]; then \
-		echo "LEVEL must be 1..10 (got $(LEVEL))"; exit 1; fi
-	@mkdir -p $(dir $(LEVEL_SETTINGS))
-	@printf '[hwc]\nautostart_level = $(LEVEL)\n\n[engine]\nrun_while_iconified = 1\n' \
-		> $(LEVEL_SETTINGS)
-endef
-
-# The same two targets for a ROOM. Rooms are one screen and live in one
+# Playtest and diagnostics for ONE room, without beating the ones before
+# it. Rooms are one screen and live in one
 # collection (main/levels/room.collection) built at runtime from
 # main/core/rooms.lua, so unlike levels they share a single proxy and the
 # index travels by message — see room_builder.script. ROOM is validated
 # against the room count in rooms.lua rather than a hardcoded ceiling, so
 # adding rooms never means editing this file.
 ROOM ?= 1
+# Inside the project on purpose: bob walks the project tree to resolve a
+# --settings path and NPEs on one outside it. build/ is gitignored.
+LEVEL_SETTINGS := build/autostart.settings
 ROOM_COUNT = $(shell grep -c '^\t\tid = "' main/core/rooms.lua)
 
 define room_settings
@@ -180,41 +153,6 @@ smoke-room: require-java require-tools ## Boot one room headless: make smoke-roo
 		echo "SMOKE-ROOM FAILED — no ROOM-START line at all"; \
 		rm -f "$$log" "$$log.pid"; exit 1; fi; \
 	rm -f "$$log" "$$log.pid"; echo "smoke-room ok — room $(ROOM) built"
-	@echo "restoring the normal (menu) build..."
-	@$(JAVA) $(JAVA_QUIET) -jar $(BOB) build > /dev/null
-
-play-level: require-java require-tools ## Play one level directly: make play-level LEVEL=3
-	$(level_settings)
-	@$(JAVA) $(JAVA_QUIET) -jar $(BOB) --settings $(LEVEL_SETTINGS) build
-	@rm -f $(LEVEL_SETTINGS)
-	@test -f $(DMENGINE) || { echo "ERROR: $(DMENGINE) missing — run 'make test' once."; exit 1; }
-	@echo "Launching level $(LEVEL). Checklist: $(CHECKLIST)"
-	@-$(DMENGINE)
-	@echo "restoring the normal (menu) build..."
-	@$(JAVA) $(JAVA_QUIET) -jar $(BOB) build > /dev/null
-
-smoke-level: require-java require-tools ## Boot one level headless: make smoke-level LEVEL=3
-	$(level_settings)
-	@$(JAVA) $(JAVA_QUIET) -jar $(BOB) --settings $(LEVEL_SETTINGS) build
-	@rm -f $(LEVEL_SETTINGS)
-	@log=$$(mktemp); \
-	( $(DMENGINE_HL) > "$$log" 2>&1 & echo $$! > "$$log.pid" ); \
-	sleep $(SMOKE_SECONDS); \
-	pid=$$(cat "$$log.pid"); \
-	if kill -0 "$$pid" 2>/dev/null; then kill "$$pid" 2>/dev/null; alive=1; else alive=0; fi; \
-	wait "$$pid" 2>/dev/null || true; \
-	echo "--- level boot log ---"; grep -aE "AUTOSTART|LEVEL-START|ERROR|Assertion" "$$log" | head -20; \
-	if grep -qaE "Assertion failed|ERROR:CRASH|ERROR:SCRIPT" "$$log"; then \
-		echo "SMOKE-LEVEL FAILED — see errors above"; rm -f "$$log" "$$log.pid"; exit 1; fi; \
-	if [ "$$alive" = "0" ]; then \
-		echo "SMOKE-LEVEL FAILED — engine exited early"; tail -5 "$$log"; \
-		rm -f "$$log" "$$log.pid"; exit 1; fi; \
-	if ! grep -qa "LEVEL-START $(LEVEL)$$" "$$log"; then \
-		echo "SMOKE-LEVEL FAILED — asked for level $(LEVEL) but the collection that"; \
-		echo "  started reported something else (or nothing):"; \
-		grep -a "LEVEL-START" "$$log" || echo "  (no LEVEL-START line at all)"; \
-		rm -f "$$log" "$$log.pid"; exit 1; fi; \
-	rm -f "$$log" "$$log.pid"; echo "smoke-level ok — level $(LEVEL) confirmed"
 	@echo "restoring the normal (menu) build..."
 	@$(JAVA) $(JAVA_QUIET) -jar $(BOB) build > /dev/null
 

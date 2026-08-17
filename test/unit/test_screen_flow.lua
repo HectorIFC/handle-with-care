@@ -260,5 +260,48 @@ return function()
 			local entries = flow.menu_entries({ has_progress = save.has_progress(state) })
 			assert(entries[1].action == flow.ACTION_CONTINUE)
 		end)
+
+		test("theme_page maps rooms to their five-room pages", function()
+			assert(flow.theme_page(1) == 1)
+			assert(flow.theme_page(5) == 1)
+			assert(flow.theme_page(6) == 2)
+			assert(flow.theme_page(40) == 8)
+		end)
+
+		test("move_level_page jumps to the first room of the next theme", function()
+			local state = flow.new()
+			state.selected_level = 3
+			state = flow.move_level_page(state, 1,
+				{ total_levels = 40, unlocked = 40 })
+			assert(state.selected_level == 6)
+		end)
+
+		test("move_level_page clamps on the unlock, not the page", function()
+			-- With only 7 rooms unlocked, asking for page 2 lands on 6 (its
+			-- first room), and asking again lands on 7 — the furthest room
+			-- reachable — never on 11, which would select a locked room.
+			local save_state = { total_levels = 40, unlocked = 7 }
+			local state = flow.new()
+			state.selected_level = 1
+			state = flow.move_level_page(state, 1, save_state)
+			assert(state.selected_level == 6)
+			state = flow.move_level_page(state, 1, save_state)
+			assert(state.selected_level == 7)
+		end)
+
+		test("pages do not wrap at either end", function()
+			-- move_level_cursor wraps because one room past the end reads as
+			-- "around"; a PAGE flip past the end reads as a stuck button. So
+			-- prev on page 1 stays, and next on the last page stays.
+			local save_state = { total_levels = 40, unlocked = 40 }
+			local state = flow.new()
+			state.selected_level = 2
+			state = flow.move_level_page(state, -1, save_state)
+			assert(flow.theme_page(state.selected_level) == 1)
+			state.selected_level = 38
+			state = flow.move_level_page(state, 1, save_state)
+			assert(flow.theme_page(state.selected_level) == 8)
+			assert(state.selected_level == 36)
+		end)
 	end)
 end
