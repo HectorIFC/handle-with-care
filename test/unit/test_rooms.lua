@@ -340,6 +340,23 @@ return function()
 			assert(#rooms.validate(room) > 0)
 		end)
 
+		test("an unknown inversion mode is reported", function()
+			-- Same class as the unknown-modifier guard: a typo here would
+			-- spawn a timed driver when the room was designed around
+			-- airborne flips, and nothing else would notice.
+			local room = {
+				id = "typo_inversion", theme = "controls",
+				inversion = "airborn",
+				spawn = { x = 30, y = 60 },
+				floor = { x_min = 0, x_max = 150, y_top = 48 },
+				platforms = { { x = 250, y = 56, half_width = 50, half_height = 8 },
+					{ x = 350, y = 56, half_width = 34, half_height = 8 } },
+				hazards = { { x = 190, y = 56 } },
+				door = { x = 350, y = 84 },
+			}
+			assert(#rooms.validate(room) > 0)
+		end)
+
 		test("an unknown theme is reported", function()
 			local room = {
 				id = "no_theme", theme = "does_not_exist",

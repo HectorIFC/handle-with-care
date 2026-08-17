@@ -164,6 +164,24 @@ local function build(self, index)
 		factory.create("#cycle_factory", vmath.vector3(0, 0, 0), nil, properties)
 	end
 
+	-- Control inversion (theme 8, WRONG WAY). Unlike the cyclic driver, this
+	-- one needs wiring BACK into the player: player.script only consults the
+	-- inversion when has_input_inversion is set, and the URL cannot be
+	-- authored in the collection because the driver does not exist until
+	-- this line creates it. factory.create returns the new instance's id,
+	-- which is exactly what the player's URL property needs.
+	if room.inversion then
+		local driver = factory.create("#inversion_factory",
+			vmath.vector3(0, 0, 0), nil, {
+				player = self.player,
+				airborne_mode = room.inversion == "airborne",
+				inverted_duration = room.inversion_on or 6.0,
+				normal_duration = room.inversion_off or 3.0,
+			})
+		go.set(self.player, "has_input_inversion", true)
+		go.set(self.player, "input_inversion", msg.url(nil, driver, "script"))
+	end
+
 	if room.chase then
 		factory.create("#chaser_factory",
 			vmath.vector3(room.chase.start or -24, rooms.SCREEN_HEIGHT * 0.5, 0), nil, {

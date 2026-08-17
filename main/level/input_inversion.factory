@@ -1,0 +1,2 @@
+prototype: "/main/level/input_inversion.go"
+load_dynamically: false

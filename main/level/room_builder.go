@@ -26,3 +26,7 @@ components {
   id: "cycle_factory"
   component: "/main/level/heavy_cycle.factory"
 }
+components {
+  id: "inversion_factory"
+  component: "/main/level/input_inversion.factory"
+}

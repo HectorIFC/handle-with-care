@@ -767,6 +767,104 @@ M.ROOMS = {
 			retreats = { { x = 330, y = 92 } },
 		},
 	},
+	-- Theme 5, WRONG WAY. Controls invert — on a schedule, or whenever the
+	-- player is airborne. Mobility numbers are untouched, so the full
+	-- 64.0 / 56.9 budget holds; the phase-17 lesson applies unchanged here:
+	-- with inverted controls the difficulty must come from READING
+	-- direction, not from pixel-perfect landings, so platforms are wide and
+	-- gaps modest. A corridor with inverted controls is still a corridor —
+	-- you just hold the other key — so the straight-walk rule stays in
+	-- force for these rooms, unlike the chase exemption.
+	{
+		id = "controls_1",
+		theme = "controls",
+		name = "OTHER LEFT",
+		-- Teaches by betraying: the room is nearly flat, and halfway across
+		-- the controls swap mid-hold. The one spike is there so walking
+		-- blindly into the flip costs something.
+		inversion = "timed",
+		inversion_on = 5.0, inversion_off = 3.0,
+		spawn = { x = 30, y = 60 },
+		floor = { x_min = 0, x_max = 150, y_top = 48 },
+		platforms = {
+			{ x = 250, y = 56, half_width = 50, half_height = 8 },
+			{ x = 350, y = 56, half_width = 34, half_height = 8 },
+		},
+		hazards = { { x = 190, y = 56 } },
+		door = { x = 350, y = 84 },
+	},
+	{
+		id = "controls_2",
+		theme = "controls",
+		name = "COMMIT",
+		-- Airborne mode: every jump flips the controls for exactly as long
+		-- as you are in the air, so every jump is a commitment made in one
+		-- direction and finished in the other.
+		inversion = "airborne",
+		spawn = { x = 28, y = 60 },
+		floor = { x_min = 0, x_max = 130, y_top = 48 },
+		platforms = {
+			{ x = 215, y = 60, half_width = 40, half_height = 8 },
+			{ x = 330, y = 60, half_width = 45, half_height = 8 },
+		},
+		hazards = { { x = 170, y = 16 }, { x = 272, y = 16 } },
+		door = { x = 330, y = 80 },
+	},
+	{
+		id = "controls_3",
+		theme = "controls",
+		name = "STAIRS, BACKWARDS",
+		-- A climb under airborne inversion: each step is short, but the
+		-- correction after each landing is where the room lives.
+		inversion = "airborne",
+		spawn = { x = 26, y = 60 },
+		floor = { x_min = 0, x_max = 120, y_top = 48 },
+		platforms = {
+			{ x = 195, y = 72, half_width = 36, half_height = 8 },
+			{ x = 290, y = 96, half_width = 36, half_height = 8 },
+			{ x = 360, y = 120, half_width = 24, half_height = 8 },
+		},
+		hazards = { { x = 150, y = 16 } },
+		door = { x = 360, y = 148 },
+	},
+	{
+		id = "controls_4",
+		theme = "controls",
+		name = "DO NOT THINK",
+		-- Layers theme 1: a falling platform under timed inversion. The
+		-- flip is slower here (4s on) so the cruelty is the OVERLAP — the
+		-- platform starts leaving while your keys are still backwards.
+		inversion = "timed",
+		inversion_on = 4.0, inversion_off = 3.0,
+		spawn = { x = 26, y = 60 },
+		floor = { x_min = 0, x_max = 110, y_top = 48 },
+		platforms = {
+			{ x = 190, y = 60, half_width = 36, half_height = 8, falling = true },
+			{ x = 310, y = 60, half_width = 45, half_height = 8 },
+		},
+		hazards = { { x = 145, y = 16 }, { x = 245, y = 16 } },
+		door = { x = 310, y = 80 },
+	},
+	{
+		id = "controls_5",
+		theme = "controls",
+		name = "WRONG DOOR TOO",
+		-- Room 5 combines: airborne inversion AND a fleeing door. The door
+		-- runs the moment you land from the jump that reached it — landing
+		-- is when your controls come back, and the room takes that instant.
+		inversion = "airborne",
+		spawn = { x = 26, y = 60 },
+		floor = { x_min = 0, x_max = 140, y_top = 48 },
+		platforms = {
+			{ x = 230, y = 64, half_width = 45, half_height = 8 },
+			{ x = 345, y = 64, half_width = 39, half_height = 8 },
+		},
+		hazards = { { x = 185, y = 16 }, { x = 290, y = 16 } },
+		door = {
+			x = 230, y = 92, lie = "flee",
+			retreats = { { x = 345, y = 92 } },
+		},
+	},
 }
 
 -- Modifier -> the jump budget it leaves. Only mobility modifiers appear
@@ -1069,6 +1167,12 @@ function M.validate(room, config)
 				.. "the package centred at T+%d",
 				tostring(room.id), door.x, door.y, rest_offset))
 		end
+	end
+
+	if room.inversion and room.inversion ~= "timed" and room.inversion ~= "airborne" then
+		fail(string.format(
+			"room %s declares an unknown inversion mode %q (timed or airborne)",
+			tostring(room.id), tostring(room.inversion)))
 	end
 
 	local KNOWN_MODIFIERS = {
