@@ -303,5 +303,31 @@ return function()
 			assert(flow.theme_page(state.selected_level) == 8)
 			assert(state.selected_level == 36)
 		end)
+
+		test("a death spends one life", function()
+			local lives, wasted = flow.apply_death(5)
+			assert(lives == 4 and wasted == false)
+		end)
+
+		test("the last life ends in wasted", function()
+			local lives, wasted = flow.apply_death(1)
+			assert(lives == 0 and wasted == true)
+		end)
+
+		test("a stray extra death cannot drive lives negative", function()
+			-- The controller's `reported` flag makes a double report
+			-- impossible today, but the HUD drawing -1 hearts is the kind
+			-- of garbage worth being structurally unable to produce.
+			local lives, wasted = flow.apply_death(0)
+			assert(lives == 0 and wasted == true)
+		end)
+
+		test("wasted never fires with lives remaining", function()
+			-- The negative proof: every count above one survives.
+			for start = 2, flow.DEFAULT_LIVES do
+				local _, wasted = flow.apply_death(start)
+				assert(wasted == false)
+			end
+		end)
 	end)
 end

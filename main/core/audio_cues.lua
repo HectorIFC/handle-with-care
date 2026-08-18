@@ -20,6 +20,10 @@ M.CUES = {
 	jump        = { group = "sfx" },
 	land        = { group = "sfx" },
 	player_death = { group = "sfx" },
+	-- Out of lives: the WASTED sting. Distinct from player_death (one
+	-- attempt lost) and from music_gameover (the old result-screen track) —
+	-- this is the room throwing the player out.
+	wasted = { group = "sfx" },
 	-- Package
 	package_shake    = { group = "sfx" },
 	package_panic    = { group = "sfx" },

@@ -419,3 +419,18 @@ instances {
     }
   }
 }
+instances {
+  id: "hud"
+  prototype: "/main/ui/hud.go"
+  position {
+    x: 14.0
+    y: 204.0
+    z: 0.0
+  }
+  rotation {
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 1.0
+  }
+}

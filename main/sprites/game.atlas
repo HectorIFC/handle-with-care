@@ -167,6 +167,14 @@ images {
   sprite_trim_mode: SPRITE_TRIM_MODE_OFF
 }
 images {
+  image: "/main/sprites/heart_empty.png"
+  sprite_trim_mode: SPRITE_TRIM_MODE_OFF
+}
+images {
+  image: "/main/sprites/heart_full.png"
+  sprite_trim_mode: SPRITE_TRIM_MODE_OFF
+}
+images {
   image: "/main/sprites/package_heavy.png"
   sprite_trim_mode: SPRITE_TRIM_MODE_OFF
 }

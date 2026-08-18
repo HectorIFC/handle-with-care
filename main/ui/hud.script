@@ -1,0 +1,29 @@
+-- The in-room HUD: five hearts, top-left. Thin by design — it owns no
+-- state of its own and no rules: screens.script owns the lives (they must
+-- survive the room being unloaded and reloaded on every retry), and this
+-- only draws whatever the last set_status said.
+--
+-- One post per room build is all it ever receives, because lives cannot
+-- change during an attempt: a death unloads the whole room. If that ever
+-- stops being true (mid-room checkpoints, pickups), the message channel is
+-- already here.
+
+local HEARTS = 5
+
+function init(self)
+	self.lives = HEARTS
+end
+
+local function draw(self)
+	for i = 1, HEARTS do
+		sprite.play_flipbook("#heart" .. i,
+			i <= self.lives and "heart_full" or "heart_empty")
+	end
+end
+
+function on_message(self, message_id, message)
+	if message_id == hash("set_status") then
+		self.lives = message.lives or HEARTS
+		draw(self)
+	end
+end

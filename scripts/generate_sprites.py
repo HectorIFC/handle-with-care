@@ -475,6 +475,32 @@ rect(d, 22, 17, 34, 19, (206, 176, 62, 255))
 outline(d)
 emit_single(d, "delivery")
 
+# --- HUD: lives ---------------------------------------------------------
+# A Minecraft-style heart, 8x8. Two states, two images, no tinting games:
+# hud.script swaps flipbooks, and an empty heart is a dark socket rather
+# than an invisible one so the player can always count how many a room
+# gives — five sockets, some of them still red.
+
+def heart(full):
+    im = img(8, 8)
+    body = STRAP if full else INK_SOFT
+    dark = STRAP_DARK if full else INK_SOFT
+    for x0, x1, y in ((1, 3, 1), (5, 7, 1),
+                      (0, 8, 2), (0, 8, 3),
+                      (1, 7, 4), (2, 6, 5), (3, 5, 6)):
+        rect(im, x0, y, x1, y + 1, body)
+    if full:
+        # One highlight pixel on the left lobe — the whole "glossy" read.
+        px(im, 2, 2, WHITE)
+        rect(im, 3, 4, 7, 5, dark)
+        rect(im, 3, 5, 6, 6, dark)
+    outline(im)
+    return im
+
+
+emit_single(heart(True), "heart_full")
+emit_single(heart(False), "heart_empty")
+
 
 # --- FX ----------------------------------------------------------------
 # A single burst shape, scaled and faded by main/fx/burst.script. Tinted at
@@ -1037,7 +1063,8 @@ def verify_contract():
                                         "death")}
     required |= {"package_" + s for s in PACKAGE_STATES}
     # Referenced as default_animation by the .sprite components.
-    required |= {"tile_ground", "tile_platform", "spike", "saw", "delivery"}
+    required |= {"tile_ground", "tile_platform", "spike", "saw", "delivery",
+                 "heart_full", "heart_empty"}
     required |= {"fx_burst"}
     # Per-level themes, added one slice at a time.
     for level in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10):

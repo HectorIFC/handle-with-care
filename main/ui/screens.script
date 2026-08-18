@@ -105,8 +105,17 @@ local function render(self)
 		title = "HANDLE WITH CARE"
 	elseif self.state.screen == flow.PAUSED then
 		title = "PAUSED"
+	elseif self.state.screen == flow.WASTED then
+		title = "WASTED"
+		table.insert(lines, "OUT OF LIVES")
+		table.insert(lines, "")
 	elseif self.state.screen == flow.RESULT then
 		title = self.result_won and "DELIVERED" or "FAILED"
+		if not self.result_won then
+			-- The countdown made legible before it runs out: losing should
+			-- read as spending something, not as a free loop.
+			table.insert(lines, tostring(self.room_lives) .. " LIVES LEFT")
+		end
 		table.insert(lines, self.result_quip)
 		table.insert(lines, "time " .. flow.format_time(self.result_time)
 			.. "   attempts " .. tostring(self.result_attempts))
@@ -228,7 +237,13 @@ end
 -- collection's instances do not exist until the proxy is enabled, so there
 -- is nothing to set a property on beforehand. Defold dispatches the two
 -- messages in order, so room_builder exists by the time build_room lands.
-local function load_room(self, index)
+local function load_room(self, index, keep_lives)
+	-- A fresh visit gets full lives; Retry is the SAME visit continuing, so
+	-- it keeps what is left — otherwise the lives counter would be theater,
+	-- reset by the very action that follows every death.
+	if not keep_lives then
+		self.room_lives = flow.DEFAULT_LIVES
+	end
 	self.current_room = index
 	self.last_requested_room = index
 	-- The same mirror the level path has always written. Now that the menu
@@ -278,6 +293,18 @@ local function set_level_time_step(self, factor)
 	if proxy and not self.test_mode then
 		msg.post(proxy, "set_time_step", { factor = factor, mode = 0 })
 	end
+end
+
+-- Out of lives. Deliberately NOT show_result: there is no Retry here (that
+-- is the point), no quip, no time — a full stop with its own sting, held
+-- for a few seconds and then the menu.
+local function show_wasted(self)
+	self.result_room = self.current_room
+	unload_current(self)
+	self.wasted_time = 0
+	cue("wasted")
+	self.state = flow.set_screen(self.state, flow.WASTED)
+	render(self)
 end
 
 local function show_result(self, won)
@@ -334,7 +361,7 @@ local function perform(self, action)
 		-- current_room.
 		local room = self.current_room or self.result_room or 1
 		unload_current(self)
-		load_room(self, room)
+		load_room(self, room, true)
 	elseif action == flow.ACTION_NEXT_LEVEL then
 		local room = self.current_room or self.result_room or 1
 		load_room(self, math.min(room + 1, rooms.count()))
@@ -409,6 +436,8 @@ function init(self)
 	self.total_levels = go.get(self.save_adapter, "total_levels")
 	self.current_room = nil
 	self.result_room = nil
+	self.room_lives = flow.DEFAULT_LIVES
+	self.wasted_time = 0
 	self.result_won = false
 	self.result_level = 1
 	self.result_time = 0
@@ -516,6 +545,14 @@ local function handle_action(self, action_id)
 		return false -- gameplay owns every other key while a level is live
 	end
 
+	if screen == flow.WASTED then
+		-- Any key skips the hold; nothing else is on offer here.
+		cue("music_menu")
+		self.state = flow.set_screen(self.state, flow.MENU)
+		render(self)
+		return true
+	end
+
 	if screen == flow.LEVEL_SELECT then
 		if action_id == hash("menu_up") then
 			self.state = flow.move_level_page(self.state, -1,
@@ -580,6 +617,20 @@ function on_input(self, action_id, action)
 	return handle_action(self, action_id)
 end
 
+-- Only job: walk the WASTED screen back to the menu after its hold. GTA
+-- shows its version for a beat and moves on; a screen with no menu must
+-- leave by itself or it is a softlock.
+function update(self, dt)
+	if self.state.screen == flow.WASTED then
+		self.wasted_time = (self.wasted_time or 0) + dt
+		if self.wasted_time >= flow.WASTED_SECONDS then
+			cue("music_menu")
+			self.state = flow.set_screen(self.state, flow.MENU)
+			render(self)
+		end
+	end
+end
+
 function on_message(self, message_id, message, sender)
 	if message_id == hash("proxy_loaded") then
 		msg.post(sender, "enable")
@@ -590,6 +641,14 @@ function on_message(self, message_id, message, sender)
 			-- on until enable has run.
 			msg.post("room:/room_builder#script", "build_room",
 				{ index = self.pending_room })
+			-- The HUD's numbers, on the same channel and for the same
+			-- reason: nothing inside the collection exists to receive them
+			-- any earlier. One post per build is enough — a death unloads
+			-- the room, so lives never change during an attempt.
+			msg.post("room:/hud#script", "set_status", {
+				lives = self.room_lives,
+				deaths = 0,
+			})
 			self.pending_room = nil
 		end
 		render(self)
@@ -598,6 +657,18 @@ function on_message(self, message_id, message, sender)
 		-- The controller owns the timing; this screen only presents it.
 		self.pending_time = message.time
 		self.pending_attempts = message.attempts
+		if not message.won then
+			-- Every death funnels through here (the controller posts once,
+			-- guarded by its `reported` flag), so this is the ONE place
+			-- lives are spent — and the R key mid-room is a voluntary
+			-- reset, not a death, so it never charges one.
+			local wasted
+			self.room_lives, wasted = flow.apply_death(self.room_lives)
+			if wasted then
+				show_wasted(self)
+				return
+			end
+		end
 		show_result(self, message.won)
 	elseif message_id == hash("set_bindings") then
 		-- The settings adapter's answer to request_bindings, and also what

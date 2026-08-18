@@ -15,6 +15,10 @@ components {
   component: "/main/audio/player_death.sound"
 }
 components {
+  id: "wasted"
+  component: "/main/audio/wasted.sound"
+}
+components {
   id: "package_shake"
   component: "/main/audio/package_shake.sound"
 }

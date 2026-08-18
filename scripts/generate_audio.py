@@ -388,6 +388,12 @@ CUES["package_sleep"] = arp([hz(4), hz(0), hz(-3)], 0.14, "tri", release=0.15)
 CUES["package_wake"] = arp([hz(-3), hz(4), hz(11)], 0.06)
 CUES["package_magnet"] = tone(hz(9), 0.30, duty=0.5, release=0.2, vib=0.6)
 CUES["hazard"] = tone(hz(1), 0.12, duty=0.15, release=0.4)
+# The out-of-lives sting (WASTED). A slow chromatic slide down two octaves
+# on the triangle — heavier and longer than player_death on purpose: that
+# one is "you lost an attempt", this one is "the room threw you out". Ends
+# well below the melody register so nothing else in the mix sounds like it.
+CUES["wasted"] = arp([hz(0), hz(-4), hz(-9), hz(-14), hz(-21)], 0.28,
+                     "tri", release=0.12)
 CUES["platform_fall"] = tone(hz(-2), 0.30, "tri", release=0.1, vib=0.2)
 CUES["delivery"] = arp([hz(12), hz(16), hz(19), hz(24)], 0.10, release=0.5)
 CUES["ui_move"] = tone(hz(12), 0.04, duty=0.5, release=0.6)

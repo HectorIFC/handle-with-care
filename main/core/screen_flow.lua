@@ -17,6 +17,28 @@ M.RESULT = "result"
 M.OPTIONS = "options"
 M.CREDITS = "credits"
 M.CONTROLS = "controls"
+-- The out-of-lives screen. Its own state rather than a flavor of RESULT
+-- because it behaves differently in every way that matters: it has no menu
+-- (no Retry — that is the point), it plays its own sting, and it leaves by
+-- itself after a few seconds.
+M.WASTED = "wasted"
+
+-- Lives per room visit. Every death costs one; at zero the room throws the
+-- player out (WASTED) instead of offering Retry. Owned here so the number
+-- exists in exactly one place, and so the decrement is a pure function a
+-- test can pin at the boundaries.
+M.DEFAULT_LIVES = 5
+
+-- How long the WASTED screen holds before returning to the menu on its own.
+M.WASTED_SECONDS = 3.0
+
+-- One death applied to a lives count. Returns the new count and whether
+-- that death was the last one. Clamped at zero: a stray double-report must
+-- not drive lives negative and make the HUD draw garbage.
+function M.apply_death(lives)
+	local remaining = math.max((lives or M.DEFAULT_LIVES) - 1, 0)
+	return remaining, remaining == 0
+end
 
 -- Menu actions, returned by select() so the adapter knows what to do
 -- without having to match on label text (which is display copy and will be
