@@ -243,7 +243,12 @@ local function load_room(self, index)
 		self.pending_room = index
 	end
 	self.state = flow.set_screen(self.state, flow.PLAYING)
-	cue("music_gameplay")
+	-- The theme's own track, with the same fallback the levels used: a
+	-- theme without one plays the generic gameplay music rather than
+	-- silence, which is the one bug nobody notices until playtest.
+	local theme = rooms.theme(rooms.ROOMS[index] and rooms.ROOMS[index].theme)
+	local track = theme and theme.music and ("music_" .. theme.music)
+	cue((track and audio_cues.exists(track)) and track or "music_gameplay")
 	render(self)
 end
 

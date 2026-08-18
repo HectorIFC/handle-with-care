@@ -42,14 +42,14 @@ M.SCREEN_HEIGHT = 216
 -- behind a door. Each reuses a background palette and a music cue that
 -- already exist, so a theme costs no new assets.
 M.THEMES = {
-	{ id = "falling", name = "THE FLOOR LIES", background = "bg2", music = "level_02" },
-	{ id = "heavy", name = "DEAD WEIGHT", background = "bg3", music = "level_03" },
-	{ id = "fuse", name = "LIT FUSE", background = "bg4", music = "level_04" },
-	{ id = "magnet", name = "ATTRACTION", background = "bg5", music = "level_05" },
-	{ id = "controls", name = "WRONG WAY", background = "bg7", music = "level_07" },
-	{ id = "gravity", name = "UP IS A SUGGESTION", background = "bg6", music = "level_06" },
+	{ id = "falling", name = "THE FLOOR LIES", background = "bg2", music = "level_2" },
+	{ id = "heavy", name = "DEAD WEIGHT", background = "bg3", music = "level_3" },
+	{ id = "fuse", name = "LIT FUSE", background = "bg4", music = "level_4" },
+	{ id = "magnet", name = "ATTRACTION", background = "bg5", music = "level_5" },
+	{ id = "controls", name = "WRONG WAY", background = "bg7", music = "level_7" },
+	{ id = "gravity", name = "UP IS A SUGGESTION", background = "bg6", music = "level_6" },
 	{ id = "chase", name = "DO NOT STOP", background = "bg10", music = "level_10" },
-	{ id = "door", name = "THE DOOR LIES", background = "bg9", music = "level_09" },
+	{ id = "door", name = "THE DOOR LIES", background = "bg9", music = "level_9" },
 }
 
 -- The player carries the package above itself, so "can the package reach the

@@ -96,6 +96,19 @@ local function build(self, index)
 	-- package.script's carry_sign). Nothing else has to be told.
 	go.set(self.player, "gravity", room.inverted and 900 or -900)
 
+	-- The theme's own scenery. The four layers were authored with level 1's
+	-- dusk (the sprite defaults), and were showing it for every room — a
+	-- straight regression of "every level must look distinct". Posted, not
+	-- go.set: background.script reads `image` once in init, which has
+	-- already run by the time this builds (see set_image there).
+	local theme = rooms.theme(room.theme)
+	if theme and theme.background then
+		for _, role in ipairs({ "sky", "far", "mid", "near" }) do
+			msg.post("/bg_" .. role .. "#script", "set_image",
+				{ image = hash(theme.background .. "_" .. role) })
+		end
+	end
+
 	go.set(self.player, "ground_x_min", room.floor.x_min)
 	go.set(self.player, "ground_x_max", room.floor.x_max)
 	go.set(self.player, "ground_y_top", room.floor.y_top)

@@ -5,6 +5,7 @@
 -- second program re-deriving the same arithmetic out of .collection text.
 
 local rooms = require "main.core.rooms"
+local audio_cues = require "main.core.audio_cues"
 
 return function()
 	describe("Rooms", function()
@@ -355,6 +356,31 @@ return function()
 				door = { x = 350, y = 84 },
 			}
 			assert(#rooms.validate(room) > 0)
+		end)
+
+		test("every theme's music names a track the cue catalogue has", function()
+			-- This is the test that would have caught the zero-padding
+			-- mismatch: THEMES said "level_02" while the catalogue names its
+			-- tracks music_level_2, so every theme would have silently
+			-- fallen back to the generic gameplay loop. A wrong track name
+			-- has no error path at all — audio.script pcalls, the fallback
+			-- catches, and the only symptom is the wrong song.
+			for _, theme in ipairs(rooms.THEMES) do
+				assert(audio_cues.exists("music_" .. theme.music),
+					theme.id .. " names a missing track " .. theme.music)
+			end
+		end)
+
+		test("every theme's background is one of the ten drawn sets", function()
+			-- generate_sprites' own contract guarantees bg1..bg10 each emit
+			-- all four roles, so a prefix inside that range is a prefix with
+			-- art behind it. Outside it, sprite.play_flipbook errors at
+			-- runtime — in every room of the theme at once.
+			for _, theme in ipairs(rooms.THEMES) do
+				local n = tonumber(theme.background:match("^bg(%d+)$"))
+				assert(n and n >= 1 and n <= 10,
+					theme.id .. " names unknown background " .. tostring(theme.background))
+			end
 		end)
 
 		test("an unknown theme is reported", function()

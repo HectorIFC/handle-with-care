@@ -52,6 +52,21 @@ function init(self)
 	end
 end
 
+-- A room can re-theme this layer AFTER init has run: room_builder only
+-- learns which room it is building once build_room crosses the proxy, by
+-- which point every layer has already played its authored default. A
+-- message rather than go.set on `image`, because the property alone does
+-- nothing — it is read once in init; what changes the picture is replaying
+-- the flipbook on every copy.
+function on_message(self, message_id, message)
+	if message_id == hash("set_image") then
+		self.image = message.image
+		for i = 0, self.copies - 1 do
+			sprite.play_flipbook("#layer" .. i, self.image)
+		end
+	end
+end
+
 function update(self, dt)
 	-- No camera in this level: sit still. Same safe failure as the rest of
 	-- the has_X/X wiring — a level that forgets it looks static rather than
