@@ -705,32 +705,64 @@ new `wait`-heavy integration tests, not just at the very end.
   `shasum -a 256` it), and update the cache key in `ci.yml` to match — all as
   one reviewable commit, never resolved automatically at run time.
 
-### Level geometry is checked by a script, not by hand
+### The rooms era (v0.53.0-v0.66.0): levels are DATA, geometry is a unit test
 
-`scripts/check_levels.py` (`make check-levels`, and a CI step) reads the ten
-collections as data and fails if any surface cannot be reached — every gap
-against the player's real horizontal reach, every climb against the apex,
-**using the worst mobility modifier that level itself declares**. The
-constants are read out of `player.script` and `player_movement.lua` rather
-than repeated, so they cannot drift.
+The ten long levels were retired at v0.64.0. The game is now **40 one-screen
+rooms (5-15s each) in 8 themes of 5**, per the playtest verdict (every level
+ran left-to-right in a straight line) and the Level Devil analysis — see the
+dated amendment in PRD section 10. Everything below in this file that talks
+about level collections, `check_levels.py`, or `make play-level` is history:
+accurate about how the ten levels were built, not about what exists now.
 
-This replaces doing the arithmetic on paper, which had already caught two
-impossible layouts (level 6's 70-unit gap in the heavy mood; level 10
-stacking Heavy on the heavy mood). The first run of the script caught a
-third: **level 8 had a platform whose top sat 64 above the nearest approach,
-with an apex of 56.9** — unreachable, and shipped since phase 18.
+How rooms work, and where each lesson lives:
 
-Two modelling points that produced false failures before they were fixed,
-worth keeping:
-
-- A gap is clearable up to `reach + 2 * player_half_width`: the player
-  leaves the ledge with its trailing half still over it and lands with its
-  leading half already over the next.
-- Reachability is "from ANY surface", not "from the previous one in x
-  order". Comparing x-sorted neighbours assumes strict left-to-right
-  progress and flags a high platform as unreachable when a lower one beside
-  it is the real approach. Dropping down is always free; only climbing is
-  limited.
+- **`main/core/rooms.lua` holds every room as a plain table** (spawn, floor,
+  platforms, hazards, door, modifier, chase, inversion). `main/level/
+  room_builder.script` spawns them with `factory.create()` into the ONE
+  `main/levels/room.collection`, behind the ONE `room_proxy`. Rule 5 holds
+  unchanged: `half_width` etc. are still the go.property values the AABB
+  reads, passed at spawn.
+- **Which room to build crosses the proxy BY MESSAGE** (`build_room`, posted
+  right behind the proxy `enable`): the collection's instances do not exist
+  until enable, so there is nothing to set a property on earlier, and
+  `hwc.autostart_room` is a build-time key (`make play-room ROOM=N` /
+  `make smoke-room ROOM=N`, which fails unless the log reports the right
+  `ROOM-START <id>`).
+- **`rooms.validate` replaced `check_levels.py`**, strengthened: it runs in
+  the suite, over the table the game loads, with the player's real
+  multipliers. It checks reachability (gap up to `reach + 2*half_width`,
+  climb vs. apex, from ANY surface — dropping is free), spawn support, the
+  door winnable **by containment at EVERY position it can occupy** (a
+  fleeing door's retreats included), nothing off the 384x216 screen, chases
+  outrunnable and fuses beatable in closed form, and — the playtest's own
+  complaint as a test — **no room finishable by holding one direction**
+  (chase rooms exempt: stopping killing you IS the room). Unknown
+  modifiers/lies/inversion modes fail validation, because a typo would make
+  a room validate harder than it plays, silently — that exact bug shipped
+  once (falling_5/door_5 declared heavy_cycle and no driver spawned).
+- **Guards get negative proofs.** A guard that has never failed has not been
+  tested: the delivery zone shipped floating over a pit while the checker
+  said ok, and the count test exists because five rooms were once inserted
+  into the WRONG TABLE (`MODIFIER_MASS`) — valid Lua, green suite, and only
+  booting room 16 and getting room 1 gave it away. A checker that reads
+  source text can be fooled by where the text is.
+- **The lie must end.** `door_lie.lua` (flee/vanish), `chaser.lua`
+  (closed-form advancing wall) and the fuse guard all obey the same rule: if
+  a mechanic can make a room unwinnable, it gets a proof, not a hope.
+- **Inverted gravity is one property**: the SIGN of `gravity` (+900) makes
+  the player fall up, jump down, stand on undersides (`resting_y_on_ground`
+  takes `inverted`; surfaces publish `y_top` AND `y_bottom`; the base floor
+  has `ground_thickness`) and carry the package below. validate checks
+  inverted rooms by REFLECTING them upright rather than duplicating rules.
+- **`current_proxy` in screens.script answers "what is loaded"** — born
+  from the two-players bug (a finished room never unloaded because unload
+  was guarded by a LEVEL field; Next Level loaded a level on top). Unload,
+  pause, retry, next all go through it.
+- **Themes own scenery and music** (`set_image` posted per layer, because
+  `background.script` reads `image` once in init, which has run before
+  build_room arrives). The select screen is a one-theme-per-page carousel
+  (`flow.theme_page`/`move_level_page`, clamped on the unlock, no wrap) —
+  the flat 40-room list physically did not fit 216px.
 
 ### The camera's view must not move Z, and headless cannot see a black screen
 
@@ -750,7 +782,7 @@ things about that are load-bearing:
   projection with `use_fixed_fit_projection`'s own. Omitting either is a
   runtime error.
 
-**`make smoke-level` cannot catch a rendering bug.** It proves the game boots
+**`make smoke-room` cannot catch a rendering bug.** It proves the game boots
 and logs no error; on a null graphics device a black screen and a correct
 screen are identical. It caught the two missing message fields (those throw)
 and was blind to the vanished level (that does not). Any visual change still
@@ -982,6 +1014,12 @@ Common prefixes used in this project: `feat:` (new gameplay/system/level),
   complete (all 10 levels, menu/save, full audio, Web + Steam builds).
 
 ## Sliced roadmap
+
+> **This table is history.** It records how the ten long levels were built,
+> phase by phase, and every lesson in it still applies to the modules the
+> rooms reuse. The levels themselves retired at v0.64.0 — see "The rooms
+> era" under Testing, and PRD section 10's amendment, for what the game is
+> now.
 
 One vertical slice per row. Each ships with its own tests, manual checklist,
 and drafted commit (Conventional Commits + the version shown) — see

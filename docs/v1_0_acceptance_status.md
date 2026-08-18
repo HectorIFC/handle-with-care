@@ -1,8 +1,9 @@
 # v1.0 Acceptance Status
 
-Where the project actually stands against **PRD section 10** (the v1.0 scope)
-and **PRD section 11** (the per-level acceptance criteria), as of
-`v0.29.0`.
+Where the project actually stands against **PRD section 10** (the v1.0 scope,
+as amended — the game is 40 one-screen rooms in 8 themes, see the dated
+amendment in the PRD) and **PRD section 11** (the per-room acceptance
+criteria), as of `v0.67.0`.
 
 This document is deliberately conservative. An item is only **Done** when
 something checkable proves it — a passing test, a file that exists, a
@@ -14,9 +15,10 @@ Companion document: [`playtest_checklist.md`](playtest_checklist.md) is the
 manual pass itself (the boxes to tick). This file is the map of what is
 left and who can do it.
 
-**Automated suite: 433 tests, 433 passing, 854 assertions, 0 failed,
+**Automated suite: 527 tests, 527 passing, 2064 assertions, 0 failed,
 0 errors.** Reproduced across independent runs, including ones that hit the
-known engine wedge and were absorbed by `run_tests.sh`'s retry.
+known engine wedge and were absorbed by `run_tests.sh`'s retry (the wedge
+rate has been as bad as 8-10 attempts on some days; the retry cap is 10).
 
 ---
 
@@ -24,7 +26,7 @@ known engine wedge and were absorbed by `run_tests.sh`'s retry.
 
 | Scope item | Status | Evidence / what is missing |
 |---|---|---|
-| 10 complete levels | **Built, acceptance pending** | `main/levels/level_01..10.collection` all exist, are reachable from the menu, and each level's mechanic has unit + integration coverage of its driver. What is *not* proven is section 11 (fairness, legibility, 35-75s pacing) — that needs the playtest. |
+| 40 rooms in 8 themes (amended scope) | **Built, acceptance pending** | `main/core/rooms.lua` holds all 40 as data; every room passes `rooms.validate` (reachability, door winnable at every position it can occupy, chases outrunnable, fuses beatable, no room walkable in a straight line); all 8 themes boot headless and report their ROOM-START. What is *not* proven is section 11 (fairness, legibility, whether the trolls are funny) — that needs the playtest. The ten legacy levels retired at v0.64.0. |
 | Sticky package: physics + 8 states | **Done** | `core/package_physics.lua`, `core/package_state_machine.lua`, `core/stress.lua`, plus `explosive`, `magnetism`, `heavy_cycle`, `gravity_driver`, `input_inversion`, `mirror`. All 8 PRD states reachable in play, all unit-tested, all covered by integration suites against a real headless collection. |
 | Menu + Save/Load | **Done in code; persistence across a real restart is manual** | `core/screen_flow.lua` + `main/ui/screens.script` (menu, level select, pause, result screen); `core/save.lua` + `save_adapter`; `core/settings.lua` + `settings_adapter` (kept separate so "New Game" cannot wipe preferences). The suite runs `in_memory_only`, so *actually writing and re-reading a file across a process restart* is a checklist item, not a test. |
 | Complete audio | **Written and wired; never heard** | `core/audio_cues.lua` catalogs all 32 cues; `scripts/generate_audio.py` synthesizes every one of them, including ten per-level chiptune themes from a small NES-style tracker (2 pulse + triangle + noise, ADSR, chord progressions, drums). No sampled assets exist in the project. The generator asserts no clipping, no DC offset, clean loop seams, and that every cue the game names has a file. What remains is a **listening test**, not asset work: the null sound device means nothing here has ever been audible to anyone. |
@@ -33,7 +35,7 @@ known engine wedge and were absorbed by `run_tests.sh`'s retry.
 | Keyboard support | **Done** | `input/game.input_binding`; move/jump/restart/menu navigation all bound and exercised by integration tests. Controls **remapping** (PRD 6.1) shipped in phase 25 — see below. |
 
 Out of scope for v1.0 per the PRD and correctly absent: multiplayer, level
-editor, native mobile, cosmetics, leaderboards, levels beyond 10.
+editor, native mobile, cosmetics, leaderboards.
 
 ---
 
@@ -55,13 +57,13 @@ What the automated suite *does* contribute to them:
   `die()`, and win through the mirrored `won` flag, both sticky. That removes
   the most likely softlock shape (a state with neither progress nor death),
   but does not prove a specific level's geometry has no trap.
-- **Completable fairly** — level geometry is checked by *arithmetic* against
-  the player's real constants (jump apex ~57, horizontal reach ~64, and the
-  reduced figures under Heavy or a heavy gravity mood), not by playing. That
-  arithmetic already caught two impossible layouts before they shipped
-  (level 6's 70-unit gap under the heavy mood; level 10 stacking heavy
-  gravity on a Heavy package, which put apex below the level's own step-ups).
-  It cannot catch "technically possible but miserable".
+- **Completable fairly** — room geometry is checked by `rooms.validate`, a
+  unit test over the data the game loads, against the player's real
+  constants (jump apex ~57, horizontal reach ~64, and the reduced figures
+  under Heavy). It proves reachability, spawn support, the door winnable at
+  every position it can occupy, chases outrunnable, fuses beatable, and that
+  no room is finishable by holding one direction. It cannot catch
+  "technically possible but miserable" — or whether a troll is funny.
 
 Everything else is [`playtest_checklist.md`](playtest_checklist.md).
 
@@ -86,8 +88,7 @@ section 10 scope.
    floor was drawn 128 wide in all ten levels while the real walkable range
    is 112 to 140 — `main/player/ground.script` now derives the picture from
    the player's own bounds. **Still needs a human to look at it**: headless
-   proves only that nothing broke (433/433) and that every collection
-   compiles.
+   proves only that nothing broke and that every collection compiles.
 2. ~~**Controls remapping**~~ **Done (phase 25, v0.29.0)** — Options →
    Controls rebinds Move Left / Move Right / Jump, persisted in the settings
    file next to the volumes. Defold cannot change an input binding at
@@ -111,7 +112,7 @@ section 10 scope.
 5. **The Web (Poki) build**, and the **PRD 9.5 performance pass** in Chrome
    and Firefox — 60 FPS including during Panic shake and Explosive, no GC
    hitches on level load or restart.
-6. **The section 10/11 acceptance playtest** across all 10 levels →
+6. **The section 10/11 acceptance playtest** across all 40 rooms →
    the `v1.0.0` version bump. This is the gate, not a formality: several of
    the criteria (pacing, legibility, "the madness is felt") have never been
    observed by anyone.

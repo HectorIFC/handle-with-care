@@ -1,230 +1,106 @@
-# Playtest & Polish Checklist (phase 22)
+# Playtest & Polish Checklist — rooms edition
 
 The automated suite covers pure logic and object wiring, but **nothing
-automated loads a level collection or runs a real graphics context** (see
-CLAUDE.md). Everything below is manual, done in the Defold Editor or a real
-`dmengine` build — not headless. Check each box by actually playing.
+automated draws a pixel or plays a sound** (see CLAUDE.md). Everything below
+is manual, done in a real windowed build. Check each box by actually
+playing.
 
-**To launch the game: `make play`.** It compiles the production bootstrap
-first, which matters because the automated suite boots `test/test.collection`
-and never compiles the ten level collections — playing a stale build means
-debugging bugs you already fixed. `make checklist` prints this file.
+**To launch the game: `make play`.** To open one room directly, skipping the
+ones before it: **`make play-room ROOM=N`** (N is the global room number,
+1..40). `make checklist` prints this file.
 
-This is the acceptance pass for PRD sections 10 and 11. For what is already
-proven, what is still missing, and who can do each remaining piece, see
-[`v1_0_acceptance_status.md`](v1_0_acceptance_status.md).
+The game is 40 one-screen rooms in 8 themes of 5 — see PRD section 10's
+amendment. Within a theme: room 1 teaches by betraying once, rooms 2-4
+charge for it, room 5 combines with an earlier theme's piece.
 
-## Per-level acceptance (PRD section 11)
+## Whole-game checks (do these first, they gate everything else)
 
-**Open any level directly with `make play-level LEVEL=N`** — no menu, no
-need to beat the ones before it. This section asks you to judge ten levels
-and until phase 31 gave no way to reach any of them except by playing
-through.
+- [ ] **Fullscreen does not touch the Mac's resolution.** Launch and quit:
+      the desktop resolution must not change either way, Cmd-Tab must work
+      while the game is up, and the game fills the screen as a borderless
+      window. (This is the v0.65.0 engine bump's entire point; only a human
+      at the machine can see it.)
+- [ ] The select screen is a carousel: ONE theme per page, W/S flips theme,
+      arrows move within the page, Enter plays, nothing overflows 216px.
+      Prev/next buttons appear only when a page exists in that direction.
+- [ ] Entering any room plays that THEME's music, not the generic loop, and
+      shows that theme's background (eight distinct palettes across the
+      themes — dusk hills appear nowhere except the menu).
+- [ ] Winning a room, Next Level advances to the next room; Retry replays
+      the SAME room; Main Menu returns; exactly ONE player on screen at all
+      times (the two-players bug of v0.54.0 must stay dead).
+- [ ] Pause (Esc) freezes a room — package shake and chasers included — and
+      Resume continues it.
+- [ ] R restarts instantly: player at the room's spawn, platforms restored,
+      door back home with its lies re-armed, chaser back at its start.
+- [ ] Progression: winning room N unlocks N+1, saves survive a full quit
+      and relaunch, Continue resumes at the furthest room.
 
-For **each** of the 10 levels, confirm:
+## Per-theme acceptance
 
-- [ ] **Completable fairly** — a first-time player can finish without
-  frame-perfect input or memorized tricks.
-- [ ] **At least 2 clear second-layer moments** — the level's twist bites in
-  at least two distinct, readable ways.
-- [ ] **Common deaths are legible in < 2s** — when you die, it is obvious
-  *why* within two seconds (PRD section 11).
-- [ ] **The package reacts visibly and audibly** — audio is currently
-  generated placeholders, so judge *whether a cue fires at the right moment*,
-  not whether it sounds good.
-- [ ] **Restart (R) is instant** — no perceptible reload pause.
-- [ ] **No softlocks** — there is no state you can reach with no way forward
-  and no death to reset you.
-- [ ] **The madness is clearly felt** — the level's central mechanic is
-  unmistakable, not subtle.
-- [ ] **Attempt duration lands in the PRD's 35-75s target** (section 5,
-  "Estrutura das 10 Fases"). Time a clean run; if it is far under, the level
-  is too short.
+Judge each theme by its own promise. PRD section 11 still applies to every
+room: fair, deaths legible in under 2s, restart instant, no softlocks, the
+madness clearly felt.
 
-### Level-specific things to watch
+### THE FLOOR LIES (rooms 1-5, jagged peaks)
+- [ ] Room 1: the two platforms look IDENTICAL and the first one drops —
+      the lesson costs one death and about four seconds.
+- [ ] Falling platforms shudder while stood on, and the shake visibly GROWS
+      as the drop approaches (2px/16Hz — does it read as a warning, or as a
+      rendering glitch? Tunables: wobble_amplitude/wobble_frequency).
+- [ ] The slower fall (150) reads as the platform LEAVING, not vanishing.
 
-- [ ] **THE PLAYER ACTUALLY MOVES** with the arrow keys and with A/D, and
-  jumps with W / Up / Space. Input into a proxy-loaded level was completely
-  dead until phase 30 — nothing automated covers it, because the suite
-  drives the screen adapter through a message seam and never presses a key.
-- [ ] Completing level 1 **unlocks level 2** in Level Select. Progression
-  was writing to a throwaway save adapter inside the level until phase 30.
-- [ ] **L1 Tutorial Soft** — package sticks with no initial jolt; first
-  spike death teaches the gap.
-- [ ] **L2 Jump Scare** — stress climbs much faster per jump than L1; the
-  opening gap genuinely needs a full jump; falling platforms drop on
-  hesitation.
-- [ ] **L3 Heavy Duty** — during a Heavy cycle the player is visibly slower
-  and lower **but still clears every gap** (the phase-13 fix); the cycle
-  turning mid-jump is felt but never an unfair death.
-- [ ] **L4 Hot Potato** — the fuse gives enough time to sprint a stretch;
-  going too slow detonates, going too fast spikes stress.
-- [ ] **L5 Magnet Madness** — dodging one spike pulls another into your
-  path; the overhead spike drags down onto you.
-- [ ] **L6 Gravity Moods** — the mood is **telegraphed before it applies**;
-  a floaty mood while carrying Light compounds; no gap is unclearable in the
-  heavy (1.8x) mood.
-- [ ] **L7 Control Freak** — inversion flips mid-hold correctly (you do not
-  have to release and re-press); the relief windows are readable.
-- [ ] **L8 Sleepy Package** — tall drops wake the package; waking lands it
-  straight in Panic.
-- [ ] **L9 Mirror World** — reactions are mirrored through the main stretch;
-  the final section un-mirrors the world **while the package still reacts
-  backwards** (the muscle-memory trap).
-- [ ] **L10 Final Delivery** — all three combined modifiers are survivable
-  together; no gap is impossible when two stack (the reason it cycles
-  Magnetized, not Heavy).
+### THE DOOR LIES (rooms 6-10, teal reflection)
+- [ ] The fleeing door moves while you are still committing to the jump —
+      funny, not merely annoying. (Tunable: trigger_distance, default 48.)
+- [ ] A door that has spent its retreats stays put — the room is always
+      finishable.
+- [ ] Room 8 (vanish): the door's off phase is visibly a closed door, and
+      waiting on solid ground always works.
 
-## Menu, progression, save (PRD 6)
+### DO NOT STOP (rooms 11-15, red ruins)
+- [ ] The wall enters the screen early enough to read as a threat before it
+      is a death.
+- [ ] Being caught reads correctly: the wall's face kills, the sprite fills
+      the space behind it.
+- [ ] Room 15: the door's retreat never sends you back toward the wall.
 
-- [ ] Menu rows are **clearly separated**, not overlapping (line spacing is
-  `leading` on `main/ui/menu.label`, not the font's lineHeight).
-- [ ] The menu theme is **driving, not sleepy**.
-- [ ] Fresh boot opens on the main menu with **no** "Continue" entry.
-- [ ] "New Game" starts level 1.
-- [ ] Completing a level shows the result screen with time, attempts and a
-  quip; "Next Level" advances.
-- [ ] After any progress, "Continue" appears and resumes the furthest level.
-- [ ] Close and reopen the game — **progress persisted** (this is the one
-  thing the suite genuinely cannot check: it runs `in_memory_only`).
-- [ ] "Level Select" shows unlocked levels; locked ones are not selectable.
-- [ ] "New Game" from a save with progress **wipes progress but keeps volume
-  settings**.
-- [ ] Esc pauses a live level (the level actually freezes); Esc resumes.
-- [ ] Pause → Restart reloads; Pause → Main Menu unloads and returns.
-- [ ] Beating level 10 shows the all-complete state; every level is
-  replayable afterward (PRD 6.2).
+### UP IS A SUGGESTION (rooms 16-20, floating islands)
+- [ ] Walking on ceilings reads as intentional, not as a bug. (The player
+      sprite is NOT flipped upside down — decide whether it needs to be.)
+- [ ] Jumps go DOWN, falls go UP, and the package hangs BELOW the player.
+- [ ] Room 18: the falling platform falls AWAY (down) from the player
+      standing under it.
 
-## Options (PRD 6.1)
+### DEAD WEIGHT (rooms 21-25, factory chimneys)
+- [ ] The Heavy cycle is readable: you can tell the package is heavy BEFORE
+      committing to a jump (state color + the player's own sluggishness).
+- [ ] The 3s/3s cycle: long enough to plan around, short enough to matter.
 
-- [ ] Master/Music/SFX sliders move with left/right and show a bar.
-- [ ] The game **starts in fullscreen**.
-- [ ] Leaving fullscreen with the OS shortcut leaves a usable window, and
-  the game still renders correctly at that size.
-- [ ] The window **cannot be dragged smaller than 768x432** — it springs
-  back, and does not judder in a resize loop.
-- [ ] The Fullscreen row shows the OS shortcut and does not pretend to be a
-  toggle (this engine has no API for it).
-- [ ] Settings persist across a restart of the game.
-- [ ] Each slider **audibly** changes its channel; master scales the others.
-- [ ] **Controls** opens from Options and shows the current key for Move
-  Left, Move Right and Jump.
-- [ ] Selecting a row waits for a key; the key you press becomes the binding
-  and the row updates.
-- [ ] Pressing a key **another action already uses** is refused with a
-  readable reason, and nothing changes.
-- [ ] Binding an action to **Down or Up does not also scroll the menu** —
-  one physical key raises both a remappable and a menu action, so this is
-  the case most likely to break.
-- [ ] Esc during capture cancels; Esc on the screen returns to Options.
-- [ ] The new binding **works in a level**, including after restarting the
-  game (it lives in the settings file, not the save file).
-- [ ] "New Game" wipes progress but **keeps the remapped keys**.
+### LIT FUSE (rooms 26-30, hot dunes)
+- [ ] The fuse is visible/audible enough that dying to it reads as "too
+      slow", never as "what happened".
+- [ ] Every room is beatable when the fuse lights at the worst moment
+      (validate proves the walk fits; only play proves it FEELS possible).
 
-## Visuals (placeholder sprites, phase 24)
+### ATTRACTION (rooms 31-35, purple pillars)
+- [ ] Hanging spikes visibly drift toward the package during the pull.
+- [ ] A dragged spike never ends up parked ON the door (this is the one
+      thing validate cannot prove — it depends on where the package is when
+      the cycle turns; report the room number if it happens).
 
-Nothing here is checkable headless — the whole point of this section is that
-a human has to look at the screen.
+### WRONG WAY (rooms 36-40, upside-down city)
+- [ ] The flip is READABLE: you can tell controls are inverted before the
+      first spike teaches you. If not, the fix is a visual cue on the
+      player, not a rooms change.
+- [ ] Airborne mode (37, 38, 40): controls flip exactly while airborne and
+      return exactly on landing.
 
-- [ ] Every object renders as a **sprite**, not text: player, package,
-  ground, platforms, falling platforms, spikes, delivery zone.
-- [ ] **Platform widths match what you can stand on** — walk to each edge and
-  confirm the sprite ends exactly where the footing does.
-- [ ] **The base floor matches its walkable range** in every level. This was
-  wrong before phase 24 (the floor was drawn 128 wide in all ten levels while
-  the real range is 112 in level 1 and 140 in levels 3-10), so it is worth
-  checking per level rather than spot-checking one.
-- [ ] The player **flips horizontally** when changing direction.
-- [ ] The player's animation changes across idle / run / jump / fall / land.
-- [ ] **Idle breathes** (4 frames) rather than flickering between two, and
-  the **run cycle** (6 frames) reads as a stride rather than a shuffle.
-- [ ] **Death plays its own animation** — recoil, buckle, topple — and then
-  **holds on the last frame**. If the corpse twitches or restarts, the
-  atlas playback is looping when it should be once-forward.
-- [ ] The package **changes image across all 8 states** (force them with the
-  levels that cycle each, or the debug messages).
-- [ ] **No z-fighting / flicker** where objects overlap. Intended draw order,
-  back to front: ground, platforms, delivery zone, hazards, player, package.
-- [ ] The ground and platform tiles do **not look smeared** when stretched
-  wide — they are drawn as horizontal bands specifically to survive this.
-- [ ] **Parallax reads as depth**: walking right, the sky barely moves, the
-  hills drift, the tree line moves most. Nothing slides against the world.
-- [ ] **No seam** appears in any background layer as the level scrolls, and
-  no gap at either end of a long level.
-- [ ] **Screen shake fires on impact**: a hard landing nudges, a death hits
-  harder, a detonation is the biggest. It settles quickly rather than
-  rattling on.
-- [ ] Shake **never scrolls the background or kills you** — it is visual
-  only. Blow up next to a screen edge and confirm nothing dies from it.
-- [ ] **Saws spin and spikes do not**, and the two are tellable apart at a
-  glance while playing (PRD 7.1).
-- [ ] A spinning saw kills at the **same distance** as a still one — the
-  hitbox must not appear to change with the blade's angle.
-- [ ] **A burst appears on impact** — hard landing, death, detonation — in a
-  colour that suits the event, growing and fading in about a third of a
-  second rather than lingering.
-- [ ] **The UI renders in the pixel font**, not Defold's default — title,
-  menu, hint, result screen, and the package's debug number.
-- [ ] Every glyph is legible and correctly spaced: check a quip with
-  punctuation, a time like "40.2s", and the volume bar's # and . characters.
-- [ ] No faint fringes around letters (a padding-bleed symptom).
-- [ ] Bursts **clean themselves up**: die repeatedly in one attempt and
-  confirm nothing accumulates on screen or slows the game down.
+## Performance & polish (PRD phase 22, unchanged)
 
-## Music (PRD section 8) — listening test
-
-Nothing in this section can be automated: the suite proves the wiring and
-the generator proves the signal is clean, but **no one has ever heard any of
-this**. Judge it by ear.
-
-- [ ] Each of the ten levels plays its **own theme**, and they are
-  distinguishable from one another.
-- [ ] The theme suits the level: 3 heavy and low, 4 urgent, 8 sparse and
-  slow, 10 the busiest.
-- [ ] **Loops are seamless** — sit on one level for two full loops and
-  listen for a click or a gap at the seam. The generator checks the sample
-  values line up, which is necessary but not sufficient.
-- [ ] Changing level **swaps** the track rather than layering two.
-- [ ] Menu music plays on the menu, stops when a level starts, and comes
-  back on returning to the menu.
-- [ ] Win and game-over stings fire and do not loop.
-- [ ] Nothing distorts at master volume 100%.
-- [ ] No track is so busy it buries the SFX that carry gameplay information
-  (package panic, the explosive fuse).
-
-## Performance (PRD 9.5) — real build only
-
-- [ ] **60 FPS stable** in Chrome and Firefox (DevTools performance panel),
-  including during Panic shake and Explosive.
-- [ ] No GC hitches on level load or restart.
-- [ ] Build size is reasonable with engine compression on.
-
-## Known gaps carried into this pass
-
-- **All audio is synthesized by `scripts/generate_audio.py`** — 32 cues,
-  including ten per-level chiptune themes written by a small NES-style
-  tracker (2 pulse + triangle + noise, ADSR, chord progressions, drums).
-  There are no sampled assets anywhere in this project. It is deterministic,
-  so regenerating is byte-identical and any diff is a real edit.
-  **Nobody has heard it.** The generator asserts what is checkable (no
-  clipping, no DC offset, clean loop seams, every named cue has a file) and
-  the rest is the listening test above.
-- **Visuals are generated placeholder sprites, not final art.** The atlas is
-  wired in (`scripts/generate_sprites.py` → `main/sprites/game.atlas`), so
-  the game renders shapes rather than `[label]` text — but judge **layout,
-  size and readability**, not art quality. Real pixel art is a drop-in swap.
-- **The package still shows a debug stress number** next to it
-  (`debug_hud` on `package.script`, on by default). It is there to make this
-  pass judgeable; turn it off before shipping.
-- **Controls remapping** (PRD 6.1's "Controles") is unimplemented.
-- **The pixel font renders nowhere the suite can see it.** The suite passes
-  with it wired (467), which proves it loads and never throws, but a null
-  graphics device draws no glyphs. If the UI comes up blank, garbled or in
-  the wrong shapes, the font is where to look first —
-  `scripts/generate_font.py` regenerates it, and reverting the
-  `font:`/`material:` lines in `main/ui/*.label` back to
-  `/builtins/fonts/default.font` + `label.material` restores the previous UI
-  immediately.
-- **`dmengine_headless` intermittent wedge**: affects the automated suite
-  only (mitigated by retry), not the real windowed build. If a real build
-  ever wedges the same way, that is new information worth capturing.
+- [ ] Steady 60 FPS on the target machines (Chrome/Firefox DevTools for the
+      web build).
+- [ ] Audio: sliders in Options change music and SFX volume; every state
+      change and death has its cue.
+- [ ] Controls remapping: movement rebinds work, R/Esc/Enter stay fixed,
+      bindings survive a relaunch.
