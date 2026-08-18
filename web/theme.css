@@ -1,0 +1,26 @@
+/* The web page around the game. Inlined into index.html at bundle time
+ * (html5.cssfile), replacing Defold's light theme: the player should see
+ * the game, not the engine's scaffolding.
+ *
+ * The page itself is the letterbox — the same near-black as the game's
+ * night sky, so the fit-scaled canvas blends into it at any aspect ratio.
+ */
+html, body {
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	background: #0d0d14;
+}
+
+.canvas-app-container {
+	display: flex;
+	background: #0d0d14;
+}
+
+/* Without this the browser upscales 384x216 with bilinear filtering and
+ * the 8-bit art turns to blur. Pixelated keeps every pixel a crisp square,
+ * which at 1080p is the difference between pixel art and mush. */
+.canvas-app-canvas {
+	image-rendering: pixelated;
+	image-rendering: crisp-edges;
+}

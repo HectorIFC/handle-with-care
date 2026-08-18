@@ -38,3 +38,12 @@ components {
     z: -0.6
   }
 }
+components {
+  id: "layer4"
+  component: "/main/level/bg_near.sprite"
+  position {
+    x: -64.0
+    y: 108.0
+    z: -0.6
+  }
+}

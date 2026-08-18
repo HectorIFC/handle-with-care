@@ -65,3 +65,30 @@ components {
     z: -0.9
   }
 }
+components {
+  id: "layer7"
+  component: "/main/level/bg_sky.sprite"
+  position {
+    x: -32.0
+    y: 108.0
+    z: -0.9
+  }
+}
+components {
+  id: "layer8"
+  component: "/main/level/bg_sky.sprite"
+  position {
+    x: -96.0
+    y: 108.0
+    z: -0.9
+  }
+}
+components {
+  id: "layer9"
+  component: "/main/level/bg_sky.sprite"
+  position {
+    x: 480.0
+    y: 108.0
+    z: -0.9
+  }
+}

@@ -38,3 +38,12 @@ components {
     z: -0.7
   }
 }
+components {
+  id: "layer4"
+  component: "/main/level/bg_mid.sprite"
+  position {
+    x: -64.0
+    y: 108.0
+    z: -0.7
+  }
+}

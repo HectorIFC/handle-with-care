@@ -16,7 +16,7 @@ BOB          := $(DEFOLD_DIR)/bob.jar
 DMENGINE     := $(DEFOLD_DIR)/dmengine
 DMENGINE_HL  := $(DEFOLD_DIR)/dmengine_headless
 BUILD_DIR    := build/default
-WEB_BUNDLE   := build/web
+WEB_BUNDLE   := dist/web
 CHECKLIST    := docs/playtest_checklist.md
 
 # bob.jar is compiled to class file major 69, i.e. Java 25. Anything older
@@ -192,17 +192,22 @@ checklist: ## Print the playtest checklist
 	@cat $(CHECKLIST)
 
 bundle-web: require-java require-tools ## Bundle for the browser (PRD 9.5 perf pass)
-	@echo "Bundling js-web into $(WEB_BUNDLE)/ (may download the web engine once)..."
-	@$(JAVA) $(JAVA_QUIET) -jar $(BOB) --archive --platform js-web \
+	@echo "Bundling wasm-web into $(WEB_BUNDLE)/ (may download the web engine once)..."
+	@$(JAVA) $(JAVA_QUIET) -jar $(BOB) --archive --platform wasm-web \
 		--bundle-output $(WEB_BUNDLE) distclean build bundle
+	@echo "cleaning the archive out of build/ (dmengine prefers an archive when"
+	@echo "  one exists, so a stale wasm archive would hijack the next test or"
+	@echo "  play run — and bob distclean does NOT remove it, verified)..."
+	@rm -rf build/default
 
 serve: ## Serve the web bundle at http://localhost:8000
 	@dir=$$(find $(WEB_BUNDLE) -name index.html -maxdepth 3 2>/dev/null | head -1); \
 	if [ -z "$$dir" ]; then \
 		echo "ERROR: no web bundle found. Run 'make bundle-web' first."; exit 1; \
 	fi; \
-	echo "Serving $$(dirname $$dir) at http://localhost:8000"; \
-	cd "$$(dirname $$dir)" && python3 -m http.server 8000
+	dir=$$(dirname "$$dir"); \
+	echo "Serving $$dir at http://localhost:8000"; \
+	cd "$$dir" && python3 -m http.server 8000
 
 # --- assets ------------------------------------------------------------
 # All three generators are deterministic and check their own contracts, so

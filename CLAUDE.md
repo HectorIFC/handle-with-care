@@ -235,7 +235,14 @@ error plus `debug.traceback(co)`, and exits non-zero (matching deftest's own
 fixed. Not caused by this project's code.**
 
 **The rate is not stable, and it can get much worse within a single working
-session.** It was ~1 run in 3 when first characterized. During phase 27 it
+session.** The worst day on record (v0.70.0's slice) produced THREE
+consecutive runs that exhausted all 10 attempts — thirty wedged engine
+boots in a row, scattered across the phase-1/2 integration suites as
+always, on a tree whose only diff from a same-day green 537/537 run was a
+Makefile target, .gitignore and a `[html5]` section (each exonerated by
+direct experiment). On such a day the retry cannot save a run at any
+plausible cap; the only move is to lean on the most recent green run of the
+same code and re-run later. It was ~1 run in 3 when first characterized. During phase 27 it
 degraded to roughly 4 attempts in 5 — two consecutive runs exhausted five
 attempts and returned no result at all, and a third then passed on its fifth
 attempt. `MAX_ATTEMPTS` was raised from 5 to 10 for that reason: at a 0.8

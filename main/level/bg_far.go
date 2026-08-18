@@ -29,3 +29,12 @@ components {
     z: -0.8
   }
 }
+components {
+  id: "layer3"
+  component: "/main/level/bg_far.sprite"
+  position {
+    x: -96.0
+    y: 108.0
+    z: -0.8
+  }
+}
