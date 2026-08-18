@@ -1,0 +1,10 @@
+size {
+  x: 60.0
+  y: 12.0
+  z: 0.0
+  w: 0.0
+}
+text: "0"
+font: "/main/ui/pixel.font"
+material: "/builtins/fonts/label-fnt.material"
+pivot: PIVOT_E

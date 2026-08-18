@@ -159,6 +159,10 @@ images {
   sprite_trim_mode: SPRITE_TRIM_MODE_OFF
 }
 images {
+  image: "/main/sprites/calavera.png"
+  sprite_trim_mode: SPRITE_TRIM_MODE_OFF
+}
+images {
   image: "/main/sprites/delivery.png"
   sprite_trim_mode: SPRITE_TRIM_MODE_OFF
 }

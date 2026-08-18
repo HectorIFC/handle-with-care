@@ -35,6 +35,11 @@ function M.new(total_levels)
 		completed = {},
 		best_times = {},
 		attempts = {},
+		-- Cumulative deaths across every room ever played. One number, not
+		-- per-room: the HUD's calavera counter is a career statistic, the
+		-- kind that makes a troll game's abuse legible ("look what it has
+		-- cost me"), and per-room granularity already exists as `attempts`.
+		deaths = 0,
 	}
 end
 
@@ -80,6 +85,7 @@ local function copy(state)
 		completed = {},
 		best_times = {},
 		attempts = {},
+		deaths = state.deaths or 0,
 	}
 	for k, v in pairs(state.completed) do new_state.completed[k] = v end
 	for k, v in pairs(state.best_times) do new_state.best_times[k] = v end
@@ -94,6 +100,32 @@ function M.record_attempt(state, level)
 	local new_state = copy(state)
 	new_state.attempts[level] = (new_state.attempts[level] or 0) + 1
 	return new_state
+end
+
+-- One more death on the career total. Kept separate from record_attempt on
+-- purpose: an attempt starts whenever a level does (including voluntary R
+-- restarts), while a death is only ever the player actually dying — the
+-- two numbers answer different questions and must be free to disagree.
+function M.record_death(state)
+	local new_state = copy(state)
+	new_state.deaths = (new_state.deaths or 0) + 1
+	return new_state
+end
+
+-- The completed set as one number, bit N-1 set when level N is completed.
+-- go.property has no table type, so this is what lets the select screen
+-- read the whole set synchronously through the save adapter's mirror.
+-- Doubles hold integers exactly up to 2^53; 40 rooms use 40 bits.
+function M.completed_mask(state)
+	local mask = 0
+	local bit_value = 1
+	for level = 1, state.total_levels do
+		if state.completed[level] then
+			mask = mask + bit_value
+		end
+		bit_value = bit_value * 2
+	end
+	return mask
 end
 
 -- PRD 6.2: completing a level unlocks the next one. `time` is the attempt's
@@ -166,6 +198,12 @@ function M.sanitize(raw, total_levels)
 	state.attempts = positive_int_keys_only(raw.attempts, function(v)
 		return type(v) == "number" and v >= 0 and v == math.floor(v)
 	end)
+
+	-- An old save has no deaths field; it becomes 0, not nil — the HUD
+	-- would otherwise concatenate nil into its label and error.
+	if type(raw.deaths) == "number" and raw.deaths >= 0 then
+		state.deaths = math.floor(raw.deaths)
+	end
 
 	-- Clamped rather than trusted: a save claiming level 99 is unlocked
 	-- would otherwise let the menu offer a level that doesn't exist.

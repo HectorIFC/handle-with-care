@@ -155,16 +155,25 @@ local function render(self)
 			theme and theme.name or "?"))
 		table.insert(lines, "")
 		local row = {}
+		-- A star marks a delivered room. The set travels as a bitmask
+		-- because go.property has no table type; bit N-1 is room N, and
+		-- doubles hold 40 bits exactly.
+		local mask = go.get(self.save_adapter, "completed_mask")
+		local function done(index)
+			return math.floor(mask / 2 ^ (index - 1)) % 2 == 1
+		end
 		for index = (page - 1) * 5 + 1, math.min(page * 5, rooms.count()) do
+			local mark = done(index) and "*" or " "
 			if index > unlocked then
 				table.insert(row, " . ")
 			elseif index == self.state.selected_level then
-				table.insert(row, "[" .. index .. "]")
+				table.insert(row, "[" .. index .. "]" .. mark)
 			else
-				table.insert(row, " " .. index .. " ")
+				table.insert(row, " " .. index .. mark)
 			end
 		end
 		table.insert(lines, table.concat(row))
+		table.insert(lines, "* = DELIVERED")
 		local selected = rooms.ROOMS[self.state.selected_level]
 		table.insert(lines, selected.name or "")
 		table.insert(lines, "")
@@ -647,7 +656,7 @@ function on_message(self, message_id, message, sender)
 			-- the room, so lives never change during an attempt.
 			msg.post("room:/hud#script", "set_status", {
 				lives = self.room_lives,
-				deaths = 0,
+				deaths = go.get(self.save_adapter, "total_deaths"),
 			})
 			self.pending_room = nil
 		end
@@ -662,6 +671,7 @@ function on_message(self, message_id, message, sender)
 			-- guarded by its `reported` flag), so this is the ONE place
 			-- lives are spent — and the R key mid-room is a voluntary
 			-- reset, not a death, so it never charges one.
+			msg.post(self.save_adapter, "record_death")
 			local wasted
 			self.room_lives, wasted = flow.apply_death(self.room_lives)
 			if wasted then

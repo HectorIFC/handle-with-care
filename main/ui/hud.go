@@ -47,3 +47,21 @@ components {
     z: 0.8
   }
 }
+components {
+  id: "calavera"
+  component: "/main/ui/calavera.sprite"
+  position {
+    x: 354.0
+    y: -2.0
+    z: 0.8
+  }
+}
+components {
+  id: "deaths"
+  component: "/main/ui/deaths.label"
+  position {
+    x: 342.0
+    y: 0.0
+    z: 0.8
+  }
+}

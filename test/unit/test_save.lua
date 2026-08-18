@@ -157,5 +157,53 @@ return function()
 			-- unlocked was unusable, so it comes from the completion records
 			assert(restored.unlocked == 4)
 		end)
+
+		test("deaths accumulate across rooms and sessions", function()
+			local state = save.new(40)
+			assert(state.deaths == 0)
+			state = save.record_death(state)
+			state = save.record_death(state)
+			assert(state.deaths == 2)
+			-- And a round-trip through sanitize keeps the number: this is
+			-- what "cumulative" means once the file is reloaded.
+			assert(save.sanitize(state, 40).deaths == 2)
+		end)
+
+		test("an old save without a deaths field reads as zero, not nil", function()
+			-- Every save written before v0.69.0 lacks the field; the HUD
+			-- concatenates the value into a label, and nil would error
+			-- there rather than here.
+			local state = save.sanitize({ unlocked = 3, completed = {} }, 40)
+			assert(state.deaths == 0)
+		end)
+
+		test("garbage in the deaths field is discarded", function()
+			assert(save.sanitize({ deaths = "many" }, 40).deaths == 0)
+			assert(save.sanitize({ deaths = -5 }, 40).deaths == 0)
+			assert(save.sanitize({ deaths = 3.7 }, 40).deaths == 3)
+		end)
+
+		test("completed_mask encodes each room as its own bit", function()
+			local state = save.new(40)
+			assert(save.completed_mask(state) == 0)
+			state = save.complete_level(state, 1)
+			state = save.complete_level(state, 3)
+			-- bit 0 + bit 2 = 5: the encoding the select screen decodes.
+			assert(save.completed_mask(state) == 5)
+		end)
+
+		test("completed_mask ignores rooms outside 1..total", function()
+			-- A hand-edited save claiming room 99 must not produce a mask
+			-- with bits the select screen would read off the end of the
+			-- room list.
+			local state = save.sanitize({ completed = { [99] = true } }, 40)
+			assert(save.completed_mask(state) == 0)
+		end)
+
+		test("the fortieth room still fits the mask exactly", function()
+			local state = save.new(40)
+			state = save.complete_level(state, 40)
+			assert(save.completed_mask(state) == 2 ^ 39)
+		end)
 	end)
 end

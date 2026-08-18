@@ -32,6 +32,11 @@ go.property("total_levels", 20)
 go.property("unlocked", 1)
 go.property("has_progress", false)
 go.property("all_complete", false)
+-- Career deaths and the completed set as a bitmask (bit N-1 = level N),
+-- mirrored for synchronous go.get reads: go.property has no table type,
+-- and the select screen needs the whole set every render.
+go.property("total_deaths", 0)
+go.property("completed_mask", 0)
 
 -- Test-only: skips touching the real save file, so a test run can never
 -- read or clobber the developer's own progress. Left as a property rather
@@ -47,6 +52,8 @@ local function publish(self)
 	self.unlocked = self.state.unlocked
 	self.has_progress = save.has_progress(self.state)
 	self.all_complete = save.all_complete(self.state)
+	self.total_deaths = self.state.deaths or 0
+	self.completed_mask = save.completed_mask(self.state)
 end
 
 local function persist(self)
@@ -86,6 +93,12 @@ function on_message(self, message_id, message, sender)
 		-- automatically. `time` comes from the caller (rule 3 — this
 		-- module reads no clock of its own).
 		self.state = save.complete_level(self.state, message.level, message.time)
+		publish(self)
+		persist(self)
+	elseif message_id == hash("record_death") then
+		-- Posted by screens.script from the same branch that spends a life,
+		-- so the two counters can never disagree about what a death is.
+		self.state = save.record_death(self.state)
 		publish(self)
 		persist(self)
 	elseif message_id == hash("new_game") then

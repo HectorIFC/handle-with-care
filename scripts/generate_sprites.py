@@ -502,6 +502,49 @@ emit_single(heart(True), "heart_full")
 emit_single(heart(False), "heart_empty")
 
 
+def calavera():
+    """A Dia de los Muertos sugar skull, 16x16, for the career death counter.
+
+    Drawn from the reference: white skull, dark eye sockets RINGED WITH
+    PETALS (the one feature that says sugar skull rather than just skull —
+    without the petals this is a pirate flag), a flower on the forehead, and
+    a stitched mouth. Petals are single pixels; at this size a petal is a
+    dot of color touching the socket, and more than that smears."""
+    im = img(16, 16)
+    # Cranium: wide dome, narrow jaw.
+    rect(im, 3, 2, 13, 9, WHITE)
+    rect(im, 2, 4, 14, 8, WHITE)
+    rect(im, 4, 9, 12, 12, WHITE)
+    rect(im, 5, 12, 11, 14, WHITE)
+    # Eye sockets, generous and dark — the face is the sockets. A clear
+    # white bridge between them: the first draft put a petal there and the
+    # two sockets read as one dark band.
+    rect(im, 4, 5, 7, 8, INK)
+    rect(im, 10, 5, 13, 8, INK)
+    # Petals around each socket: rose above and below, marigold at the
+    # outer sides. Only OUTSIDE edges get side petals, so the bridge stays
+    # clean.
+    for cx in (5, 11):
+        px(im, cx, 4, STRAP)          # rose above
+        px(im, cx, 8, STRAP)          # rose below
+    px(im, 3, 6, FLAG)                # marigold, outer left
+    px(im, 13, 6, FLAG)               # marigold, outer right
+    # Forehead flower, centred on the bridge.
+    px(im, 8, 3, FLAG)
+    # Nose: the little inverted heart, one dark pixel pair.
+    px(im, 7, 9, INK)
+    px(im, 8, 9, INK)
+    # Stitched mouth: a dark line with teeth gaps.
+    rect(im, 5, 12, 11, 13, INK_SOFT)
+    for x in (6, 8, 10):
+        px(im, x, 12, WHITE)
+    outline(im)
+    return im
+
+
+emit_single(calavera(), "calavera")
+
+
 # --- FX ----------------------------------------------------------------
 # A single burst shape, scaled and faded by main/fx/burst.script. Tinted at
 # spawn, so one image serves every impact colour.
@@ -1064,7 +1107,7 @@ def verify_contract():
     required |= {"package_" + s for s in PACKAGE_STATES}
     # Referenced as default_animation by the .sprite components.
     required |= {"tile_ground", "tile_platform", "spike", "saw", "delivery",
-                 "heart_full", "heart_empty"}
+                 "heart_full", "heart_empty", "calavera"}
     required |= {"fx_burst"}
     # Per-level themes, added one slice at a time.
     for level in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10):
